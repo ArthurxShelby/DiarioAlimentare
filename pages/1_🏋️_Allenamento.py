@@ -149,7 +149,7 @@ with col_d:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 5. LOGICA DI SINCRO NATIVA CON BLOCCHI GRAFICI E FILE MODIFICABILE ---
+# --- 5. LOGICA DI SINCRO PULITA (SENZA BLOCCHI STRUTTURATI, 100% MODIFICABILE) ---
 if st.button("📤 Carica direttamente su Intervals.icu"):
     if "intervals" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali nei Secrets di Streamlit!")
@@ -162,39 +162,20 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 
                 pct_ftp = round((watt_modificati / ftp_atleta) * 100, 1)
                 
-                # Sintassi ufficiale di Intervals con etichette di blocco esplicite 
-                # che attivano il parser grafico e rendono l'oggetto interattivo
-                if ripetizioni_modificate == 1:
-                    testo_workout = f"""Warmup
-- 10m 55%
+                # Testo descrittivo pulito senza alcuna sintassi di blocco che possa bloccare l'evento
+                descrizione_testuale = f"""🎯 Target: {watt_modificati}W ({pct_ftp}% FTP)
+🔄 RPM: {allenamento_base['RPM']}
+📋 {nome_allenamento}
+Serie: {ripetizioni_modificate} da {lavoro_modificato} min (Recupero: {recupero_modificato} min)"""
 
-Main set
-- {lavoro_modificato}m {int(pct_ftp)}%
-
-Cooldown
-- 10m 50%"""
-                    durata_totale_secondi = (10 + lavoro_modificato + 10) * 60
-                else:
-                    testo_workout = f"""Warmup
-- 10m 55%
-
-Main set {ripetizioni_modificate}x
-- {lavoro_modificato}m {int(pct_ftp)}%
-- {recupero_modificato}m 50%
-
-Cooldown
-- 10m 50%"""
-                    durata_totale_secondi = (10 + (ripetizioni_modificate * (lavoro_modificato + recupero_modificato)) + 10) * 60
-
+                # Payload pulito senza 'workout_text' e senza forzature sui blocchi: 
+                # l'evento sarà un normale evento di calendario pienamente modificabile e con cestino attivo.
                 payload = {
                     "start_date_local": f"{data_pianificazione.isoformat()}T08:00:00",
                     "type": "Ride",
                     "category": "WORKOUT",
                     "name": f"🏋️ {nome_allenamento}",
-                    "description": f"🎯 Target: {watt_modificati}W ({pct_ftp}% FTP)\n🔄 RPM: {allenamento_base['RPM']}",
-                    "workout_text": testo_workout,
-                    "moving_time": durata_totale_secondi,
-                    "total_time": durata_totale_secondi,
+                    "description": descrizione_testuale,
                     "indoor": True
                 }
                 
@@ -202,7 +183,7 @@ Cooldown
                 response = requests.post(url, json=payload, auth=auth)
                 
                 if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Allenamento creato con blocchi visibili e file interattivo modificabile.")
+                    st.success("🎉 Successo! Evento caricato correttamente e liberamente modificabile su Intervals.")
                 else:
                     st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
