@@ -152,6 +152,7 @@ with col_d:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 5. LOGICA DI SINCRO NATIVA INTERVALS (FIX COMPLETO BARRE) ---
+# --- 5. LOGICA DI SINCRO NATIVA INTERVALS (FIX DEFINITIVO BARRE & CANCELLAZIONE) ---
 if st.button("📤 Carica direttamente su Intervals.icu"):
     if "intervals" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali nei Secrets di Streamlit!")
@@ -168,30 +169,30 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 warmup_m = 10
                 cooldown_m = 10
                 
-                # Sintassi a blocchi rigida ed esplicita per attivare il parser grafico di Intervals
+                # Sintassi nativa a inizio riga senza spazi nascosti o rientri di tabulazione
                 if ripetizioni_modificate == 1:
-                    testo_strutturato = (
-                        f"Warm Up\n"
-                        f"- 10m 55%\n\n"
-                        f"Lavoro\n"
-                        f"- {lavoro_modificato}m {int(pct_ftp)}%\n\n"
-                        f"Cooldown\n"
-                        f"- 10m 50%"
-                    )
+                    testo_strutturato = f"""Warm Up
+- 10m 55%
+
+Lavoro
+- {lavoro_modificato}m {int(pct_ftp)}%
+
+Cooldown
+- 10m 50%"""
                     durata_totale_secondi = (warmup_m + lavoro_modificato + cooldown_m) * 60
                 else:
-                    testo_strutturato = (
-                        f"Warm Up\n"
-                        f"- 10m 55%\n\n"
-                        f"Main Set {ripetizioni_modificate}x\n"
-                        f"- {lavoro_modificato}m {int(pct_ftp)}%\n"
-                        f"- {recupero_modificato}m 50%\n\n"
-                        f"Cooldown\n"
-                        f"- 10m 50%"
-                    )
+                    testo_strutturato = f"""Warm Up
+- 10m 55%
+
+Main Set {ripetizioni_modificate}x
+- {lavoro_modificato}m {int(pct_ftp)}%
+- {recupero_modificato}m 50%
+
+Cooldown
+- 10m 50%"""
                     durata_totale_secondi = (warmup_m + (ripetizioni_modificate * (lavoro_modificato + recupero_modificato)) + cooldown_m) * 60
                 
-                # Payload pulito senza oggetti nidificati ambigui
+                # Payload pulito con 'workout_text' formattato correttamente
                 payload = {
                     "start_date_local": f"{data_pianificazione.isoformat()}T08:00:00",
                     "type": "Ride",
@@ -208,7 +209,7 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 response = requests.post(url, json=payload, auth=auth)
                 
                 if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Allenamento caricato correttamente con le barre grafiche attive e modificabile/cancellabile dal tuo calendario.")
+                    st.success("🎉 Successo! Ora l'allenamento ha le barre grafiche attive ed è completamente modificabile e cancellabile dal calendario.")
                 else:
                     st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
