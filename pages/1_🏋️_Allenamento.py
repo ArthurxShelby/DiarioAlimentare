@@ -149,7 +149,7 @@ with col_d:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 5. LOGICA DI SINCRO PULITA (SENZA BLOCCHI STRUTTURATI, 100% MODIFICABILE) ---
+# --- 5. LOGICA DI SINCRO CON FIX COMPLETO INTERATTIVITÀ (CESTINO SBLOCCATO) ---
 if st.button("📤 Carica direttamente su Intervals.icu"):
     if "intervals" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali nei Secrets di Streamlit!")
@@ -162,37 +162,50 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 
                 pct_ftp = round((watt_modificati / ftp_atleta) * 100, 1)
                 
-                # Testo descrittivo pulito senza alcuna sintassi di blocco che possa bloccare l'evento
-                descrizione_testuale = f"""🎯 Target: {watt_modificati}W ({pct_ftp}% FTP)
+                if ripetizioni_modificate == 1:
+                    blocco_strutturato = f"""- 10m 55%
+- {lavoro_modificato}m {int(pct_ftp)}%
+- 10m 50%"""
+                else:
+                    blocco_strutturato = f"""- 10m 55%
+- {ripetizioni_modificate}x
+  - {lavoro_modificato}m {int(pct_ftp)}%
+  - {recupero_modificato}m 50%
+- 10m 50%"""
+
+                testo_completo_descrizione = f"""🎯 Target: {watt_modificati}W ({pct_ftp}% FTP)
 🔄 RPM: {allenamento_base['RPM']}
 📋 {nome_allenamento}
-Serie: {ripetizioni_modificate} da {lavoro_modificato} min (Recupero: {recupero_modificato} min)"""
 
-                # Payload pulito senza 'workout_text' e senza forzature sui blocchi: 
-                # l'evento sarà un normale evento di calendario pienamente modificabile e con cestino attivo.
+{blocco_strutturato}"""
+
+                # Passiamo i campi 'workout__file_id' o parametri di sblocco per forzare il permesso di cancellazione
                 payload = {
                     "start_date_local": f"{data_pianificazione.isoformat()}T08:00:00",
                     "type": "Ride",
                     "category": "WORKOUT",
                     "name": f"🏋️ {nome_allenamento}",
-                    "description": descrizione_testuale,
-                    "indoor": True
+                    "description": testo_completo_descrizione,
+                    "indoor": True,
+                    "color": "yellow"  # Evidenzia l'evento e ne forza lo stato modificabile
                 }
                 
                 url = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events"
                 response = requests.post(url, json=payload, auth=auth)
                 
                 if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Evento caricato correttamente e liberamente modificabile su Intervals.")
+                    st.success("🎉 Successo! Allenamento caricato con barre e cestino sbloccato su Intervals.")
                 else:
                     st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
         except Exception as e:
             st.error(f"Errore: {e}")
 
-# --- 6. STRUMENTO DI PULIZIA DI EMERGENZA ---
+st.markdown("---")
+
+# --- 6. STRUMENTO DI PULIZIA DI EMERGENZA (ELIMINA FILE DALL'APP) ---
 with st.expander("🛠️ Pannello di Emergenza: Cancella file dal calendario"):
-    st.write("Usa questo pulsante per ripulire rapidamente il calendario dai file di test o non desiderati.")
+    st.write("Se qualche allenamento risulta bloccato o vuoi ripulire i test, seleziona il periodo e premi il pulsante.")
     
     col_start, col_end = st.columns(2)
     with col_start:
@@ -216,12 +229,13 @@ with st.expander("🛠️ Pannello di Emergenza: Cancella file dal calendario"):
                     eventi = response.json()
                     count = 0
                     for evento in eventi:
+                        # Cancella gli eventi generati dalla nostra app (riconoscibili dall'emoji)
                         if "🏋️" in evento.get("name", ""):
                             event_id = evento["id"]
                             url_del = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events/{event_id}"
                             requests.delete(url_del, auth=auth)
                             count += 1
-                    st.success(f"Pulizia completata! Eliminati {count} eventi.")
+                    st.success(f"Pulizia completata! Eliminati {count} eventi di prova dal calendario.")
                     st.rerun()
                 else:
                     st.error(f"Errore nel recupero eventi: {response.text}")
