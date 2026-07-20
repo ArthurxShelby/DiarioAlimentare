@@ -153,6 +153,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 5. LOGICA DI SINCRO NATIVA INTERVALS (FIX COMPLETO BARRE) ---
 # --- 5. LOGICA DI SINCRO NATIVA INTERVALS (FIX DEFINITIVO BARRE & CANCELLAZIONE) ---
+# --- 5. LOGICA DI SINCRO DEFINITIVA (PARSER VIA DESCRIPTION) ---
 if st.button("📤 Carica direttamente su Intervals.icu"):
     if "intervals" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali nei Secrets di Streamlit!")
@@ -166,42 +167,33 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 # Calcolo percentuale sul target attuale modificato
                 pct_ftp = round((watt_modificati / ftp_atleta) * 100, 1)
                 
-                warmup_m = 10
-                cooldown_m = 10
-                
-                # Sintassi nativa a inizio riga senza spazi nascosti o rientri di tabulazione
+                # Costruzione della stringa nel formato nativo che Intervals legge dalla descrizione
                 if ripetizioni_modificate == 1:
-                    testo_strutturato = f"""Warm Up
-- 10m 55%
-
-Lavoro
+                    blocco_strutturato = f"""- 10m 55%
 - {lavoro_modificato}m {int(pct_ftp)}%
-
-Cooldown
 - 10m 50%"""
-                    durata_totale_secondi = (warmup_m + lavoro_modificato + cooldown_m) * 60
                 else:
-                    testo_strutturato = f"""Warm Up
-- 10m 55%
-
-Main Set {ripetizioni_modificate}x
-- {lavoro_modificato}m {int(pct_ftp)}%
-- {recupero_modificato}m 50%
-
-Cooldown
+                    blocco_strutturato = f"""- 10m 55%
+- {ripetizioni_modificate}x
+  - {lavoro_modificato}m {int(pct_ftp)}%
+  - {recupero_modificato}m 50%
 - 10m 50%"""
-                    durata_totale_secondi = (warmup_m + (ripetizioni_modificate * (lavoro_modificato + recupero_modificato)) + cooldown_m) * 60
-                
-                # Payload pulito con 'workout_text' formattato correttamente
+
+                # Uniamo la descrizione testuale e i blocchi in un unico testo:
+                # Intervals legge i trattini "-" come istruzioni per il grafico
+                testo_completo_descrizione = f"""🎯 Target: {watt_modificati}W ({pct_ftp}% FTP)
+🔄 RPM: {allenamento_base['RPM']}
+📋 {nome_allenamento}
+
+{blocco_strutturato}"""
+
+                # Payload pulito: passare i blocchi dentro la descrizione attiva il parser automatico di Intervals
                 payload = {
                     "start_date_local": f"{data_pianificazione.isoformat()}T08:00:00",
                     "type": "Ride",
                     "category": "WORKOUT",
                     "name": f"🏋️ {nome_allenamento}",
-                    "description": f"🎯 Target impostato: {watt_modificati}W ({pct_ftp}% FTP)",
-                    "workout_text": testo_strutturato,
-                    "moving_time": durata_totale_secondi,
-                    "total_time": durata_totale_secondi,
+                    "description": testo_completo_descrizione,
                     "indoor": True
                 }
                 
@@ -209,7 +201,7 @@ Cooldown
                 response = requests.post(url, json=payload, auth=auth)
                 
                 if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Ora l'allenamento ha le barre grafiche attive ed è completamente modificabile e cancellabile dal calendario.")
+                    st.success("🎉 Successo! Allenamento caricato: apri Intervals per vedere le barre colorate e la completa gestione dell'evento.")
                 else:
                     st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
