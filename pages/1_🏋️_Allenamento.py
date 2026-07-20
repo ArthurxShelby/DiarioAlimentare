@@ -39,9 +39,6 @@ st.markdown("---")
 # --- SEZIONE 2: DIARIO DEI MACROCICLI (STRUTTURA FINO A GENNAIO 2027) ---
 st.subheader("📅 Pianificazione Macro e Microcicli")
 
-# --- SEZIONE 2: DIARIO DEI MACROCICLI (STRUTTURA FINO A GENNAIO 2027) ---
-st.subheader("📅 Pianificazione Macro e Microcicli")
-
 fasi_allenamento = {
     "Fase 1: Riatletizzazione (Agosto 2026)": 
         "**Obiettivo:** Ripartenza aerobica e stimoli mirati in agilità. **Zero SFR, zero rilanci.**\n\n"
