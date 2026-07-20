@@ -150,7 +150,7 @@ with col_d:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 5. LOGICA DI SINCRO CON FIX COMPLETO INTERATTIVITÀ (CESTINO SBLOCCATO) ---
-# --- 5. LOGICA DI SINCRO PER FILE MODIFICABILI E PULITI ---
+# --- 5. LOGICA DI SINCRO DEFINITIVA (BARRE VISIBILI + STRUTTURA MODIFICABILE) ---
 if st.button("📤 Carica direttamente su Intervals.icu"):
     if "intervals" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali nei Secrets di Streamlit!")
@@ -163,48 +163,55 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 
                 pct_ftp = round((watt_modificati / ftp_atleta) * 100, 1)
                 
-                warmup_m = 10
-                cooldown_m = 10
-                
-                # Sintassi pulita standard per il parser di Intervals
+                # Struttura dei blocchi testuali identica a quella che faceva apparire le barre
                 if ripetizioni_modificate == 1:
-                    testo_strutturato = f"""- Warm Up 10m 55%
+                    blocco_strutturato = f"""- 10m 55%
 - {lavoro_modificato}m {int(pct_ftp)}%
-- Cooldown 10m 50%"""
-                    durata_totale_secondi = (warmup_m + lavoro_modificato + cooldown_m) * 60
+- 10m 50%"""
                 else:
-                    testo_strutturato = f"""- Warm Up 10m 55%
-- {ripetizioni_modificate}x {lavoro_modificato}m {int(pct_ftp)}% {recupero_modificato}m 50%
-- Cooldown 10m 50%"""
-                    durata_totale_secondi = (warmup_m + (ripetizioni_modificate * (lavoro_modificato + recupero_modificato)) + cooldown_m) * 60
+                    blocco_strutturato = f"""- 10m 55%
+- {ripetizioni_modificate}x
+  - {lavoro_modificato}m {int(pct_ftp)}%
+  - {recupero_modificato}m 50%
+- 10m 50%"""
 
-                # Payload ottimizzato per rendere l'evento un piano nativo modificabile
+                # Testo completo che va nella descrizione (dove Intervals legge il grafico)
+                testo_completo_descrizione = f"""🎯 Target: {watt_modificati}W ({pct_ftp}% FTP)
+🔄 RPM: {allenamento_base['RPM']}
+📋 {nome_allenamento}
+
+{blocco_strutturato}"""
+
+                # Calcolo durata totale in secondi per sincronizzare correttamente l'orologio/Garmin
+                if ripetizioni_modificate == 1:
+                    durata_totale_secondi = (10 + lavoro_modificato + 10) * 60
+                else:
+                    durata_totale_secondi = (10 + (ripetizioni_modificate * (lavoro_modificato + recupero_modificato)) + 10) * 60
+
+                # Payload completo: usiamo la descrizione per le barre ma forniamo moving_time 
+                # e la categoria corretta per evitare blocchi anomali sul calendario
                 payload = {
                     "start_date_local": f"{data_pianificazione.isoformat()}T08:00:00",
                     "type": "Ride",
                     "category": "WORKOUT",
                     "name": f"🏋️ {nome_allenamento}",
-                    "description": f"🎯 Target: {watt_modificati}W ({pct_ftp}% FTP)\n🔄 RPM: {allenamento_base['RPM']}",
-                    "workout_text": testo_strutturato,
+                    "description": testo_completo_descrizione,
+                    "workout_text": blocco_strutturato,  # Inserito in entrambi per forzare il riconoscimento del parser
                     "moving_time": durata_totale_secondi,
                     "total_time": durata_totale_secondi,
-                    "indoor": True,
-                    "color": "yellow"
+                    "indoor": True
                 }
                 
                 url = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events"
                 response = requests.post(url, json=payload, auth=auth)
                 
                 if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Allenamento caricato come blocco nativo modificabile.")
-                    st.info("💡 Nota: Se su Intervals il cestino non compare subito, ricarica la pagina (F5) per aggiornare la cache del calendario.")
+                    st.success("🎉 Successo! Allenamento caricato con barre colorate e parametri di durata sincronizzati.")
                 else:
                     st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
         except Exception as e:
             st.error(f"Errore: {e}")
-
-st.markdown("---")
 
 # --- 6. STRUMENTO DI PULIZIA DI EMERGENZA ---
 with st.expander("🛠️ Pannello di Emergenza: Cancella file dal calendario"):
