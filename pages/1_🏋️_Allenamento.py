@@ -123,7 +123,7 @@ data_allenamento = st.date_input("Per quale giorno vuoi pianificarlo?", datetime
 
 if st.button("🗑️ Pulisci Allenamenti Vuoti da Intervals"):
     try:
-        with st.spinner("Pulizia del calendario in corso..."):
+        with st.spinner("Pulizia totale del calendario in corso..."):
             import requests
             from requests.auth import HTTPBasicAuth
             
@@ -131,7 +131,7 @@ if st.button("🗑️ Pulisci Allenamenti Vuoti da Intervals"):
             api_key = st.secrets["intervals"]["api_key"]
             auth = HTTPBasicAuth("API_KEY", api_key)
             
-            # 1. Recuperiamo tutti gli eventi di luglio 2026
+            # Recuperiamo tutti gli eventi di luglio 2026
             url_get = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events?oldest=2026-07-01&newest=2026-07-31"
             res = requests.get(url_get, auth=auth)
             
@@ -140,15 +140,16 @@ if st.button("🗑️ Pulisci Allenamenti Vuoti da Intervals"):
                 cancellati = 0
                 
                 for ev in eventi:
-                    # Troviamo gli eventi del 23 luglio che contengono la parola "🏋️" o che hanno il grafico vuoto
-                    if "2026-07-20" in ev.get("start_date_local", ""):
+                    # Rimuoviamo gli eventi di luglio che contengono il simbolo 🏋️ o che hanno il titolo dei nostri test
+                    nome_evento = ev.get("name", "")
+                    if "🏋️" in nome_evento or "Martedì - Agosto" in nome_evento:
                         ev_id = ev.get("id")
                         url_del = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events/{ev_id}"
                         del_res = requests.delete(url_del, auth=auth)
                         if del_res.status_code in [200, 204]:
                             cancellati += 1
                 
-                st.success(f"🗑️ Pulizia completata! Rimossi {cancellati} allenamenti duplicati/vuoti dal 23 Luglio.")
+                st.success(f"🗑️ Pulizia completata! Rimossi {cancellati} allenamenti di test da tutto il mese di luglio.")
             else:
                 st.error(f"Impossibile leggere gli eventi: {res.text}")
     except Exception as e:
