@@ -150,7 +150,7 @@ with col_d:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 5. LOGICA DI SINCRO CON FIX COMPLETO INTERATTIVITÀ (CESTINO SBLOCCATO) ---
-# --- 5. LOGICA DI SINCRO DEFINITIVA (BARRE VISIBILI + STRUTTURA MODIFICABILE) ---
+# --- 5. LOGICA DI SINCRO NATIVA PER BLOCCHI INTERATTIVI E MODIFICABILI ---
 if st.button("📤 Carica direttamente su Intervals.icu"):
     if "intervals" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali nei Secrets di Streamlit!")
@@ -163,40 +163,31 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 
                 pct_ftp = round((watt_modificati / ftp_atleta) * 100, 1)
                 
-                # Struttura dei blocchi testuali identica a quella che faceva apparire le barre
+                # Sintassi ufficiale e pulita di Intervals per generare il workout interattivo
                 if ripetizioni_modificate == 1:
-                    blocco_strutturato = f"""- 10m 55%
+                    testo_workout = f"""- 10m 55%
 - {lavoro_modificato}m {int(pct_ftp)}%
 - 10m 50%"""
-                else:
-                    blocco_strutturato = f"""- 10m 55%
-- {ripetizioni_modificate}x
-  - {lavoro_modificato}m {int(pct_ftp)}%
-  - {recupero_modificato}m 50%
-- 10m 50%"""
-
-                # Testo completo che va nella descrizione (dove Intervals legge il grafico)
-                testo_completo_descrizione = f"""🎯 Target: {watt_modificati}W ({pct_ftp}% FTP)
-🔄 RPM: {allenamento_base['RPM']}
-📋 {nome_allenamento}
-
-{blocco_strutturato}"""
-
-                # Calcolo durata totale in secondi per sincronizzare correttamente l'orologio/Garmin
-                if ripetizioni_modificate == 1:
                     durata_totale_secondi = (10 + lavoro_modificato + 10) * 60
                 else:
+                    testo_workout = f"""- 10m 55%
+
+{ripetizioni_modificate}x
+- {lavoro_modificato}m {int(pct_ftp)}%
+- {recupero_modificato}m 50%
+
+- 10m 50%"""
                     durata_totale_secondi = (10 + (ripetizioni_modificate * (lavoro_modificato + recupero_modificato)) + 10) * 60
 
-                # Payload completo: usiamo la descrizione per le barre ma forniamo moving_time 
-                # e la categoria corretta per evitare blocchi anomali sul calendario
+                # Payload strutturato ufficialmente: passando il testo nel campo 'workout_text', 
+                # Intervals compila l'oggetto rendendolo editabile e interattivo nel calendario.
                 payload = {
                     "start_date_local": f"{data_pianificazione.isoformat()}T08:00:00",
                     "type": "Ride",
                     "category": "WORKOUT",
                     "name": f"🏋️ {nome_allenamento}",
-                    "description": testo_completo_descrizione,
-                    "workout_text": blocco_strutturato,  # Inserito in entrambi per forzare il riconoscimento del parser
+                    "description": f"🎯 Target: {watt_modificati}W ({pct_ftp}% FTP)\n🔄 RPM: {allenamento_base['RPM']}",
+                    "workout_text": testo_workout,
                     "moving_time": durata_totale_secondi,
                     "total_time": durata_totale_secondi,
                     "indoor": True
@@ -206,7 +197,7 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 response = requests.post(url, json=payload, auth=auth)
                 
                 if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Allenamento caricato con barre colorate e parametri di durata sincronizzati.")
+                    st.success("🎉 Successo! Allenamento creato come blocco interattivo e modificabile.")
                 else:
                     st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
