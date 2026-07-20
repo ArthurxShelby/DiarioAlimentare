@@ -130,35 +130,32 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
         try:
             with st.spinner("Connessione ai server Garmin e programmazione..."):
                 import requests
+                # Importiamo garth direttamente dal modulo di sistema in cui è installato
+                import garth
                 
                 pct_ftp = round((riga_target['Watt'] / ftp_atleta) * 100, 1)
                 
                 # Testo pulito che apparirà come nota sul calendario dell'Edge 540
                 testo_allenamento = f"""🎯 TARGET: {int(riga_target['Watt'])}W ({pct_ftp}% FTP)
 🔄 CADENZA: {riga_target['RPM']} RPM
-📋 DETTAGLIO: {riga_target['Esercizio']}
-🩺 NOTE CLINICHE: {riga_target['Note Spalla']}"""
+📋 DETTAGLIO: {riga_target['Esercizio']}"""
                 
-                # 1. Effettuiamo il login regolare tramite la libreria
+                # 1. Login tramite il client principale
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
-                # 2. Creiamo una sessione HTTP standard di Python
+                # 2. Creiamo la sessione HTTP autonoma
                 session = requests.Session()
                 
-                # 3. Estraiamo garth passando dalle dipendenze interne caricate da garminconnect
-                import garminconnect
-                garth_internal = garminconnect.garth
-                
-                # 4. Copiamo i cookie e gli headers di autenticazione usando il modulo interno
-                session.cookies.update(garth_internal.client.cookies)
+                # 3. Estraiamo i cookie e i token direttamente dall'istanza garth globale
+                session.cookies.update(garth.client.cookies)
                 session.headers.update({
-                    "Authorization": str(garth_internal.client.oauth1),
+                    "Authorization": str(garth.client.oauth1),
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                     "NK": "NT"
                 })
                 
-                # 5. Eseguiamo la POST direttamente all'endpoint ufficiale del calendario
+                # 4. Eseguiamo la POST all'endpoint del calendario note
                 url = "https://connect.garmin.com/calendar-service/note"
                 payload = {
                     "date": data_allenamento.isoformat(),
@@ -168,10 +165,9 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
                 
                 response = session.post(url, json=payload)
                 
-                # Controlliamo se la risposta è andata a buon fine
                 if response.status_code in [200, 201]:
                     st.success(f"🎉 Successo! Nota di allenamento caricata sul tuo calendario Garmin per il giorno {data_allenamento}.")
-                    st.info("Sincronizza il tuo Edge 540 o apri l'app Garmin Connect: vedrai i dettagli del blocco nel giorno pianificato!")
+                    st.info("Sincronizza il tuo Edge 540 o apri l'app Garmin Connect per vedere il blocco pianificato!")
                 else:
                     st.error(f"Il server Garmin ha risposto con errore {response.status_code}: {response.text}")
                     
