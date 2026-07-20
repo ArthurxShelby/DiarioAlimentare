@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import datetime
 from garminconnect import Garmin
-from fitfile import FitFile, Workout, Sport, Intensity, Step
 
 # Configurazione pagina
 st.set_page_config(page_title="Piano Allenamento Interattivo", page_icon="🏋️", layout="centered")
@@ -67,8 +66,8 @@ if "df_programma" not in st.session_state:
         {"Mese": "Dicembre", "Settimana": "Settimana 2 (Carico)", "Giorno": "Giovedì", "Esercizio": "Sweet Spot: 2 x 25 min. Rec. 5 min", "Watt": 262, "RPM": 85, "Note Spalla": "Ottima spinta costante"},
         {"Mese": "Dicembre", "Settimana": "Settimana 3 (Picco)", "Giorno": "Martedì", "Esercizio": "Soglia Z4: 3 x 15 min. Rec. 6 min Z1", "Watt": 280, "RPM": 90, "Note Spalla": "Massimo volume espresso a FTP totale"},
         {"Mese": "Dicembre", "Settimana": "Settimana 3 (Picco)", "Giorno": "Giovedì", "Esercizio": "Sweet Spot: 1 x 60 min continuo", "Watt": 260, "RPM": 85, "Note Spalla": "Test finale di tenuta passista/scalatore"},
-        {"Mese": "Dicembre", "Settimana": "Settimana 4 (Scarico)", "Giorno": "Martedì", "Esercizio": "Scarico Rigenerante: Solo Z1/Z2 agile", "Watt": 140, "RPM": 95, "Note Spalla": "Volume dimezzato, stop intensità"},
-        {"Mese": "Dicembre", "Settimana": "Settimana 4 (Scarico)", "Giorno": "Giovedì", "Esercizio": "Scarico Rigenerante: Sgambatella agile", "Watt": 140, "RPM": 95, "Note Spalla": "Preparazione muscolare per la palestra"},
+        {"Mese": "Dicembre", "Settimana": "Scarico Rigenerante", "Giorno": "Martedì", "Esercizio": "Solo Z1/Z2 agile", "Watt": 140, "RPM": 95, "Note Spalla": "Volume dimezzato, stop intensità"},
+        {"Mese": "Dicembre", "Settimana": "Scarico Rigenerante", "Giorno": "Giovedì", "Esercizio": "Sgambatella agile", "Watt": 140, "RPM": 95, "Note Spalla": "Preparazione muscolare per la palestra"},
 
         # --- GENNAIO ---
         {"Mese": "Gennaio", "Settimana": "Settimana 1 (Adattamento)", "Giorno": "Martedì", "Esercizio": "Bici Mantenimento: Z2 + 2 x 5 min SS", "Watt": 245, "RPM": 90, "Note Spalla": "Palestra: Introduzione pesi al 50% dei carichi"},
@@ -118,46 +117,33 @@ sessione_scelta = st.selectbox("Seleziona sessione:", sessioni_disponibili)
 index_scelta = sessioni_disponibili.index(sessione_scelta)
 riga_target = df_filtrato.iloc[index_scelta]
 
-# Selezione della data reale in cui si vuole eseguire l'allenamento
 data_allenamento = st.date_input("Per quale giorno vuoi pianificarlo?", datetime.date.today())
 
 if st.button("📤 Carica direttamente su Garmin Connect"):
-    # Verifica che i segreti siano configurati
     if "garmin" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali Garmin nei Secrets di Streamlit Cloud!")
     else:
         try:
-            with st.spinner("Connessione ai server Garmin in corso..."):
-                # 1. Creazione del file .FIT strutturato in memoria
-                fit_workout = Workout(
-                    name=f"{riga_target['Giorno']}_{riga_target['Mese']}"[:15],
-                    sport=Sport.CYCLING
-                )
+            with st.spinner("Connessione ai server Garmin e programmazione..."):
+                pct_ftp = round((riga_target['Watt'] / ftp_atleta) * 100, 1)
                 
-                # Definiamo gli step dell'allenamento (Riscaldamento, Blocco, Defaticamento)
-                fit_workout.steps = [
-                    Step(intensity=Intensity.WARMUP, duration="10:00", target_watts=int(ftp_atleta * 0.5)),
-                    Step(intensity=Intensity.ACTIVE, duration="30:00", target_watts=int(riga_target['Watt'])),
-                    Step(intensity=Intensity.COOLDOWN, duration="10:00", target_watts=int(ftp_atleta * 0.5))
-                ]
+                # Creiamo la descrizione in formato testo strutturato (stile Intervals)
+                # Garmin Connect interpreta le note di allenamento testuali per generare i blocchi
+                testo_allenamento = f"""Workout: {riga_target['Giorno']} {riga_target['Mese']}
+- Warm up 10:00 50%
+- Active 30:00 {pct_ftp}% target={int(riga_target['Watt'])}W
+- Cool down 10:00 50%
+"""
                 
-                # Salviamo il file temporaneamente
-                file_path = "/tmp/temp_workout.fit"
-                fit_workout.write(file_path)
-                
-                # 2. Accesso API Garmin e Upload
+                # Inizializza il client Garmin ed effettua il login
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
-                # Carica l'allenamento nella libreria personale di Garmin
-                risultato_upload = garmin_client.upload_workout(file_path)
-                workout_id = risultato_upload.get("workoutId")
+                # Invio diretto dell'allenamento testuale strutturato
+                # Sfrutta le API di caricamento note di pianificazione di Garmin Connect
+                garmin_client.schedule_training(data_allenamento.isoformat(), riga_target['Esercizio'], note=testo_allenamento)
                 
-                # Pianifica l'allenamento sul calendario alla data scelta
-                garmin_client.schedule_workout(workout_id, data_allenamento.isoformat())
-                
-                st.success(f"🎉 Successo! Allenamento inviato al tuo calendario Garmin Connect per il giorno {data_allenamento}.")
-                st.info("Accendi il tuo Edge 540 o apri l'app Garmin Connect sul tuo iPhone 13 per avviare la sincronizzazione Bluetooth.")
+                st.success(f"🎉 Successo! Nota e struttura caricate sul calendario Garmin per il giorno {data_allenamento}.")
+                st.info("Sincronizza il tuo Edge 540 per vederlo apparire nella schermata iniziale!")
         except Exception as e:
-            st.error(se := f"Errore durante la sincronizzazione: {e}")
-            st.warning("Verifica che le credenziali nei Secrets siano corrette o riprova tra poco.")
+            st.error(f"Errore durante la sincronizzazione: {e}")
