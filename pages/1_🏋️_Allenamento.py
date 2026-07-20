@@ -123,7 +123,6 @@ sessione_scelta = st.selectbox("Scegli la sessione da esportare:", sessioni_disp
 index_scelta = sessioni_disponibili.index(sessione_scelta)
 riga_target = df_filtrato.iloc[index_scelta]
 
-# Funzione per generare il file .mrc dinamico basato sui watt dell'atleta
 # Funzione aggiornata con il formato nativo e pulito di Intervals.icu
 def genera_file_intervals(riga, ftp):
     titolo = f"{riga['Mese']}_{riga['Giorno']}_{riga['Settimana']}".replace(" ", "_")
@@ -146,14 +145,6 @@ st.download_button(
     label="📥 Scarica file per Intervals.icu",
     data=contenuto_pulito,
     file_name=f"{nome_file}.txt",
-    mime="text/plain"
-)
-
-# Pulsante Streamlit nativo per scaricare il file direttamente su MacBook o iPhone
-st.download_button(
-    label="📥 Scarica file .mrc per Intervals.icu",
-    data=contenuto_mrc,
-    file_name=f"{nome_file}.mrc",
     mime="text/plain"
 )
 
