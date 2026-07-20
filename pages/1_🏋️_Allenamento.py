@@ -139,23 +139,26 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
 📋 DETTAGLIO: {riga_target['Esercizio']}
 🩺 NOTE CLINICHE: {riga_target['Note Spalla']}"""
                 
-                # 1. Effettuiamo il login regolare tramite la libreria per ottenere la sessione valida
+                # 1. Effettuiamo il login regolare tramite la libreria
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
                 # 2. Creiamo una sessione HTTP standard di Python
                 session = requests.Session()
                 
-                # 3. Copiamo i cookie e gli headers di autenticazione generati da garth/garminconnect
-                import garth
-                session.cookies.update(garth.client.cookies)
+                # 3. Estraiamo garth passando dalle dipendenze interne caricate da garminconnect
+                import garminconnect
+                garth_internal = garminconnect.garth
+                
+                # 4. Copiamo i cookie e gli headers di autenticazione usando il modulo interno
+                session.cookies.update(garth_internal.client.cookies)
                 session.headers.update({
-                    "Authorization": str(garth.client.oauth1),
+                    "Authorization": str(garth_internal.client.oauth1),
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                     "NK": "NT"
                 })
                 
-                # 4. Eseguiamo la POST direttamente all'endpoint ufficiale del calendario
+                # 5. Eseguiamo la POST direttamente all'endpoint ufficiale del calendario
                 url = "https://connect.garmin.com/calendar-service/note"
                 payload = {
                     "date": data_allenamento.isoformat(),
