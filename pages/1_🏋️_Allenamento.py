@@ -110,7 +110,7 @@ database_allenamenti = {
 
 st.title("🏋️ Pianificazione Allenamento")
 
-# --- 3. SELEZIONE A CASCATA ---
+# --- 3. SELEZIONE A CASCATA (MENU A TENDINA) ---
 st.subheader("🚀 Selezione Sessione del Piano")
 col_m, col_s, col_g = st.columns(3)
 
@@ -128,7 +128,7 @@ allenamento_base = database_allenamenti[mese_selezionato][settimana_selezionata]
 
 st.markdown("---")
 
-# --- 4. PANNELLO DI MODIFICA DEI DATI (EDITABILE ORA!) ---
+# --- 4. PANNELLO DI MODIFICA DEI DATI ---
 st.subheader("✍️ Modifica o Verifica i dati prima dell'invio")
 st.write("Puoi variare i parametri qui sotto, l'invio terrà conto dei valori che inserisci:")
 
@@ -141,7 +141,6 @@ with col_r:
 with col_l:
     lavoro_modificato = st.number_input("Durata Lavoro (minuti ciascuno):", min_value=1, max_value=120, value=int(allenamento_base["Lavoro_m"]))
 with col_rec:
-    # Se il recupero di base è 0, lo impostiamo a 0 ma lasciamo spazio per modifiche
     recupero_modificato = st.number_input("Durata Recupero (minuti):", min_value=0, max_value=30, value=int(allenamento_base["Recupero_m"]))
 
 col_n, col_d = st.columns([2, 1])
@@ -152,8 +151,7 @@ with col_d:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 5. LOGICA DI SINCRO CORRETTA PER LE BARRE ---
-# --- 5. LOGICA DI SINCRO CORRETTA (SINTASSI NATIVA INTERVALS) ---
+# --- 5. LOGICA DI SINCRO NATIVA INTERVALS (FIX COMPLETO BARRE) ---
 if st.button("📤 Carica direttamente su Intervals.icu"):
     if "intervals" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali nei Secrets di Streamlit!")
@@ -164,13 +162,13 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 api_key = st.secrets["intervals"]["api_key"]
                 auth = HTTPBasicAuth("API_KEY", api_key)
                 
-                # Calcolo della percentuale rispetto ai watt modificati
+                # Calcolo percentuale sul target attuale modificato
                 pct_ftp = round((watt_modificati / ftp_atleta) * 100, 1)
                 
                 warmup_m = 10
                 cooldown_m = 10
                 
-                # Sintassi nativa rigida di Intervals.icu per generare le barre colorate
+                # Sintassi a blocchi rigida ed esplicita per attivare il parser grafico di Intervals
                 if ripetizioni_modificate == 1:
                     testo_strutturato = (
                         f"Warm Up\n"
@@ -193,7 +191,7 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                     )
                     durata_totale_secondi = (warmup_m + (ripetizioni_modificate * (lavoro_modificato + recupero_modificato)) + cooldown_m) * 60
                 
-                # Payload pulito: rimosso l'oggetto "workout" che causava il 422
+                # Payload pulito senza oggetti nidificati ambigui
                 payload = {
                     "start_date_local": f"{data_pianificazione.isoformat()}T08:00:00",
                     "type": "Ride",
@@ -210,9 +208,9 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 response = requests.post(url, json=payload, auth=auth)
                 
                 if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Allenamento caricato. Controlla il calendario: ora vedrai le barre colorate e potrai gestirlo liberamente.")
+                    st.success("🎉 Successo! Allenamento caricato correttamente con le barre grafiche attive e modificabile/cancellabile dal tuo calendario.")
                 else:
                     st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
         except Exception as e:
-            st.error(f"Errore: {e}"))
+            st.error(f"Errore: {e}")
