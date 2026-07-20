@@ -153,7 +153,7 @@ with col_d:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 5. LOGICA DI SINCRO CORRETTA PER LE BARRE ---
-# --- 5. LOGICA DI SINCRO CORRETTA (FIX BARRE E ATHLETE_ID) ---
+# --- 5. LOGICA DI SINCRO CORRETTA (SINTASSI NATIVA INTERVALS) ---
 if st.button("📤 Carica direttamente su Intervals.icu"):
     if "intervals" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali nei Secrets di Streamlit!")
@@ -170,15 +170,30 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 warmup_m = 10
                 cooldown_m = 10
                 
-                # Costruzione del testo strutturato nativo per sbloccare le barre grafiche
+                # Sintassi nativa rigida di Intervals.icu per generare le barre colorate
                 if ripetizioni_modificate == 1:
-                    testo_strutturato = f"- Warm Up 10m 55%\n- {lavoro_modificato}m {int(pct_ftp)}%\n- Cooldown 10m 50%"
+                    testo_strutturato = (
+                        f"Warm Up\n"
+                        f"- 10m 55%\n\n"
+                        f"Lavoro\n"
+                        f"- {lavoro_modificato}m {int(pct_ftp)}%\n\n"
+                        f"Cooldown\n"
+                        f"- 10m 50%"
+                    )
                     durata_totale_secondi = (warmup_m + lavoro_modificato + cooldown_m) * 60
                 else:
-                    testo_strutturato = f"- Warm Up 10m 55%\n- {ripetizioni_modificate}x {lavoro_modificato}m {int(pct_ftp)}% {recupero_modificato}m 50%\n- Cooldown 10m 50%"
+                    testo_strutturato = (
+                        f"Warm Up\n"
+                        f"- 10m 55%\n\n"
+                        f"Main Set {ripetizioni_modificate}x\n"
+                        f"- {lavoro_modificato}m {int(pct_ftp)}%\n"
+                        f"- {recupero_modificato}m 50%\n\n"
+                        f"Cooldown\n"
+                        f"- 10m 50%"
+                    )
                     durata_totale_secondi = (warmup_m + (ripetizioni_modificate * (lavoro_modificato + recupero_modificato)) + cooldown_m) * 60
                 
-                # Payload corretto con l'atleta inserito anche nell'oggetto nidificato
+                # Payload pulito: rimosso l'oggetto "workout" che causava il 422
                 payload = {
                     "start_date_local": f"{data_pianificazione.isoformat()}T08:00:00",
                     "type": "Ride",
@@ -186,10 +201,6 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                     "name": f"🏋️ {nome_allenamento}",
                     "description": f"🎯 Target impostato: {watt_modificati}W ({pct_ftp}% FTP)",
                     "workout_text": testo_strutturato,
-                    "workout": {
-                        "athlete_id": atleta_id,  # <- Questo risolve l'errore 422
-                        "text": testo_strutturato
-                    },
                     "moving_time": durata_totale_secondi,
                     "total_time": durata_totale_secondi,
                     "indoor": True
@@ -199,9 +210,9 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 response = requests.post(url, json=payload, auth=auth)
                 
                 if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Allenamento caricato correttamente con le barre grafiche attive e modificabile/cancellabile dal tuo calendario.")
+                    st.success("🎉 Successo! Allenamento caricato. Controlla il calendario: ora vedrai le barre colorate e potrai gestirlo liberamente.")
                 else:
                     st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
         except Exception as e:
-            st.error(f"Errore: {e}")
+            st.error(f"Errore: {e}"))
