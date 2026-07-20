@@ -14,8 +14,7 @@ st.sidebar.markdown(f"**Soglia Z4:** {int(ftp_atleta * 0.91)}-{int(ftp_atleta * 
 st.sidebar.markdown("**Cadenza Soglia:** ~90 RPM")
 st.sidebar.markdown("**Cadenza SS:** ~85 RPM")
 
-# --- 2. DIZIONARIO STRUTTURATO (MESE -> SETTIMANA -> GIORNO) ---
-# Ripristinato esattamente con la struttura a cascata corretta
+# --- 2. DATABASE STRUTTURATO ---
 database_allenamenti = {
     "Agosto": {
         "Settimana 1 (Carico Base)": {
@@ -111,66 +110,84 @@ database_allenamenti = {
 
 st.title("🏋️ Pianificazione Allenamento")
 
-# --- 3. MENÙ A TENDINA A CASCATA (SELEZIONE MESI ORIGINALE) ---
-st.subheader("🚀 Invio Automatico a Intervals.icu")
+# --- 3. SELEZIONE A CASCATA ---
+st.subheader("🚀 Selezione Sessione del Piano")
+col_m, col_s, col_g = st.columns(3)
 
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    mese_selezionato = st.selectbox("Seleziona Mese:", list(database_allenamenti.keys()))
-
-with col2:
+with col_m:
+    mese_selezionato = st.selectbox("Mese:", list(database_allenamenti.keys()))
+with col_s:
     settimane_disponibili = list(database_allenamenti[mese_selezionato].keys())
-    settimana_selezionata = st.selectbox("Seleziona Settimana:", settimane_disponibili)
-
-with col3:
+    settimana_selezionata = st.selectbox("Settimana:", settimane_disponibili)
+with col_g:
     giorni_disponibili = list(database_allenamenti[mese_selezionato][settimana_selezionata].keys())
-    giorno_selezionato = st.selectbox("Seleziona Giorno:", giorni_disponibili)
+    giorno_selezionato = st.selectbox("Giorno:", giorni_disponibili)
 
-# Estrazione dei dati dell'allenamento scelto
-dati_allenamento = database_allenamenti[mese_selezionato][settimana_selezionata][giorno_selezionato]
+# Estrazione dei dati template di partenza
+allenamento_base = database_allenamenti[mese_selezionato][settimana_selezionata][giorno_selezionato]
 
-# Box riassuntivo per l'utente prima dell'invio
-st.info(f"📋 **Dettaglio Sessione:** {dati_allenamento['Esercizio']} | Target: **{dati_allenamento['Watt']}W** | Cadenza: **{dati_allenamento['RPM']} RPM**")
+st.markdown("---")
 
-# Selezione della data sul calendario Streamlit
-data_pianificazione = st.date_input("Per quale giorno vuoi pianificarlo?", datetime.date.today())
+# --- 4. PANNELLO DI MODIFICA DEI DATI (EDITABILE ORA!) ---
+st.subheader("✍️ Modifica o Verifica i dati prima dell'invio")
+st.write("Puoi variare i parametri qui sotto, l'invio terrà conto dei valori che inserisci:")
 
-# --- 4. LOGICA DI CARICAMENTO CORRETTA PER LE BARRE ---
+col_w, col_r, col_l, col_rec = st.columns(4)
+
+with col_w:
+    watt_modificati = st.number_input("Target Watt:", min_value=50, max_value=500, value=int(allenamento_base["Watt"]))
+with col_r:
+    ripetizioni_modificate = st.number_input("Numero Serie/Ripetizioni:", min_value=1, max_value=20, value=int(allenamento_base["Ripetizioni"]))
+with col_l:
+    lavoro_modificato = st.number_input("Durata Lavoro (minuti ciascuno):", min_value=1, max_value=120, value=int(allenamento_base["Lavoro_m"]))
+with col_rec:
+    # Se il recupero di base è 0, lo impostiamo a 0 ma lasciamo spazio per modifiche
+    recupero_modificato = st.number_input("Durata Recupero (minuti):", min_value=0, max_value=30, value=int(allenamento_base["Recupero_m"]))
+
+col_n, col_d = st.columns([2, 1])
+with col_n:
+    nome_allenamento = st.text_input("Nome Allenamento (visualizzato su Intervals):", value=f"{allenamento_base['Esercizio']}")
+with col_d:
+    data_pianificazione = st.date_input("Data nel Calendario:", datetime.date.today())
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# --- 5. LOGICA DI SINCRO CORRETTA PER LE BARRE ---
 if st.button("📤 Carica direttamente su Intervals.icu"):
     if "intervals" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali nei Secrets di Streamlit!")
     else:
         try:
-            with st.spinner("Generazione blocchi e calcolo minutaggio totale..."):
+            with st.spinner("Invio in corso..."):
                 atleta_id = st.secrets["intervals"]["athlete_id"]
                 api_key = st.secrets["intervals"]["api_key"]
                 auth = HTTPBasicAuth("API_KEY", api_key)
                 
-                pct_ftp = round((dati_allenamento['Watt'] / ftp_atleta) * 100, 1)
+                # Calcolo della percentuale rispetto ai watt modificati sul momento
+                pct_ftp = round((watt_modificati / ftp_atleta) * 100, 1)
                 
-                # Risoluzione del bug delle barre: Generazione del testo e calcolo esatto dei minuti (duration)
                 warmup_m = 10
                 cooldown_m = 10
-                ripetizioni = dati_allenamento["Ripetizioni"]
-                lavoro_m = dati_allenamento["Lavoro_m"]
-                recupero_m = dati_allenamento["Recupero_m"]
                 
-                if ripetizioni == 1:
-                    testo_strutturato = f"- Warm Up 10m 55%\n- {lavoro_m}m {int(pct_ftp)}%\n- Cooldown 10m 50%"
-                    durata_totale_secondi = (warmup_m + lavoro_m + cooldown_m) * 60
+                # Costruzione del testo strutturato nativo per sbloccare le barre grafiche
+                if ripetizioni_modificate == 1:
+                    testo_strutturato = f"- Warm Up 10m 55%\n- {lavoro_modificato}m {int(pct_ftp)}%\n- Cooldown 10m 50%"
+                    durata_totale_secondi = (warmup_m + lavoro_modificato + cooldown_m) * 60
                 else:
-                    testo_strutturato = f"- Warm Up 10m 55%\n- {ripetizioni}x {lavoro_m}m {int(pct_ftp)}% {recupero_m}m 50%\n- Cooldown 10m 50%"
-                    durata_totale_secondi = (warmup_m + (ripetizioni * (lavoro_m + recupero_m)) + cooldown_m) * 60
+                    testo_strutturato = f"- Warm Up 10m 55%\n- {ripetizioni_modificate}x {lavoro_modificato}m {int(pct_ftp)}% {recupero_modificato}m 50%\n- Cooldown 10m 50%"
+                    durata_totale_secondi = (warmup_m + (ripetizioni_modificate * (lavoro_modificato + recupero_modificato)) + cooldown_m) * 60
                 
-                # Payload corretto: 'moving_time' e 'total_time' permettono la cancellazione e sbloccano il grafico
+                # Per far apparire le barre e renderlo cancellabile, dobbiamo passare la stringa a "workout_text" E ANCHE l'oggetto compilato a "workout"
                 payload = {
                     "start_date_local": f"{data_pianificazione.isoformat()}T08:00:00",
                     "type": "Ride",
                     "category": "WORKOUT",
-                    "name": f"🏋️ {giorno_selezionato} - {mese_selezionato} ({settimana_selezionata.split(' ')[0]})",
-                    "description": f"🎯 Target: {int(dati_allenamento['Watt'])}W ({pct_ftp}% FTP)\n🔄 RPM: {dati_allenamento['RPM']}\n📋 {dati_allenamento['Esercizio']}",
+                    "name": f"🏋️ {nome_allenamento}",
+                    "description": f"🎯 Target impostato: {watt_modificati}W ({pct_ftp}% FTP) | Giri: {ripetizioni_modificate}",
                     "workout_text": testo_strutturato,
+                    "workout": {
+                        "text": testo_strutturato
+                    },
                     "moving_time": durata_totale_secondi,
                     "total_time": durata_totale_secondi,
                     "indoor": True
@@ -180,7 +197,7 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 response = requests.post(url, json=payload, auth=auth)
                 
                 if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Allenamento caricato correttamente con grafico attivo e rimovibile.")
+                    st.success("🎉 Successo! Allenamento caricato correttamente con le barre grafiche attive e modificabile/cancellabile dal tuo calendario.")
                 else:
                     st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
