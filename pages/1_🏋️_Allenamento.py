@@ -129,57 +129,52 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
     else:
         try:
             with st.spinner("Connessione ai server Garmin e programmazione..."):
+                import json
                 
                 pct_ftp = round((riga_target['Watt'] / ftp_atleta) * 100, 1)
-                nome_allenamento = f"Z4_{riga_target['Giorno']}_{riga_target['Mese']}"
+                nome_allenamento = f"Z4 {riga_target['Giorno']} {riga_target['Mese']}"
+                watt_target = int(riga_target['Watt'])
                 
-                # Generiamo un file TCX standard specifico per i Workout (non per le attività)
-                tcx_content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">
-  <Workouts>
-    <Workout Sport="Biking">
-      <Name>{nome_allenamento[:15]}</Name>
-      <Step>
-        <StepId>1</StepId>
-        <Name>WarmUp</Name>
-        <Duration T="Time">600</Duration>
-        <Intensity>Active</Intensity>
-        <Target T="None"/>
-      </Step>
-      <Step>
-        <StepId>2</StepId>
-        <Name>Z4_Target</Name>
-        <Duration T="Time">1800</Duration>
-        <Intensity>Active</Intensity>
-        <Target T="None"/>
-      </Step>
-      <Step>
-        <StepId>3</StepId>
-        <Name>CoolDown</Name>
-        <Duration T="Time">600</Duration>
-        <Intensity>Active</Intensity>
-        <Target T="None"/>
-      </Step>
-    </Workout>
-  </Workouts>
-</TrainingCenterDatabase>
-"""
-                # Salviamo il file temporaneo
-                file_path = f"/tmp/{nome_allenamento}.tcx"
+                # Struttura JSON ufficiale richiesta nativamente da garminconnect per upload_workout
+                workout_json = {
+                    "sportTypeKey": "cycling",
+                    "workoutName": nome_allenamento[:15],
+                    "workoutSegments": [
+                        {
+                            "segmentOrder": 1,
+                            "sportTypeKey": "cycling",
+                            "workoutSteps": [
+                                {
+                                    "type": "executableStep",
+                                    "stepOrder": 1,
+                                    "stepTypeKey": "interval",
+                                    "childStepId": None,
+                                    "endConditionTypeKey": "time",
+                                    "endConditionValue": 1800,  # 30 minuti (2 x 6 min + rec nei dati originali)
+                                    "targetTypeKey": "power.zone",
+                                    "targetValueOne": watt_target - 5,
+                                    "targetValueTwo": watt_target + 5,
+                                    "description": f"{riga_target['Esercizio']} - Cadenza: {riga_target['RPM']} RPM"
+                                }
+                            ]
+                        }
+                    ]
+                }
+                
+                # Salviamo il file JSON temporaneo
+                file_path = f"/tmp/{riga_target['Giorno']}_{riga_target['Mese']}.json"
                 with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(tcx_content)
+                    json.dump(workout_json, f)
                 
-                # Login regolare
+                # Login ed esecuzione
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
                 st.text("Caricamento allenamento strutturato...")
-                
-                # Questo è il metodo corretto per i modelli di allenamento, non soffre dei cambi di URL del calendario
                 garmin_client.upload_workout(file_path)
                 
-                st.success(f"🎉 Successo! L'allenamento '{nome_allenamento}' è nella tua libreria Garmin Connect.")
-                st.info("Lo trovi nella sezione 'Allenamenti' dell'app o del tuo Edge 540, pronto per essere associato al calendario o avviato!")
+                st.success(f"🎉 Successo! L'allenamento '{nome_allenamento}' è stato caricato nella tua libreria Garmin Connect.")
+                st.info("Apri l'app Garmin Connect o il tuo Edge 540 sotto 'Allenamenti' per vederlo pronto all'uso!")
                     
         except Exception as e:
             st.error(f"Errore durante la sincronizzazione: {e}")
