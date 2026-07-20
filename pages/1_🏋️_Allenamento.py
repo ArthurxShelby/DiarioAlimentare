@@ -123,58 +123,50 @@ data_allenamento = st.date_input("Per quale giorno vuoi pianificarlo?", datetime
 
 # ... (lascia invariato tutto il codice sopra fino al pulsante)
 
-if st.button("📤 Carica direttamente su Garmin Connect"):
-    if "garmin" not in st.secrets:
-        st.error("⚠️ Configura prima le credenziali Garmin nei Secrets di Streamlit Cloud!")
+if st.button("📤 Carica direttamente su Intervals.icu"):
+    if "intervals" not in st.secrets:
+        st.error("⚠️ Configura prima le credenziali Intervals nei Secrets di Streamlit Cloud!")
     else:
         try:
-            with st.spinner("Connessione ai server Garmin e programmazione..."):
-                import json
+            with st.spinner("Invio dell'allenamento a Intervals.icu..."):
+                import requests
+                from requests.auth import HTTPBasicAuth
+                
+                # Prepariamo i dati
+                atleta_id = st.secrets["intervals"]["athlete_id"]
+                api_key = st.secrets["intervals"]["api_key"]
                 
                 pct_ftp = round((riga_target['Watt'] / ftp_atleta) * 100, 1)
-                nome_allenamento = f"Z4 {riga_target['Giorno']} {riga_target['Mese']}"
-                watt_target = int(riga_target['Watt'])
                 
-                # Struttura JSON ufficiale richiesta nativamente da garminconnect per upload_workout
-                workout_json = {
-                    "sportTypeKey": "cycling",
-                    "workoutName": nome_allenamento[:15],
-                    "workoutSegments": [
-                        {
-                            "segmentOrder": 1,
-                            "sportTypeKey": "cycling",
-                            "workoutSteps": [
-                                {
-                                    "type": "executableStep",
-                                    "stepOrder": 1,
-                                    "stepTypeKey": "interval",
-                                    "childStepId": None,
-                                    "endConditionTypeKey": "time",
-                                    "endConditionValue": 1800,  # 30 minuti (2 x 6 min + rec nei dati originali)
-                                    "targetTypeKey": "power.zone",
-                                    "targetValueOne": watt_target - 5,
-                                    "targetValueTwo": watt_target + 5,
-                                    "description": f"{riga_target['Esercizio']} - Cadenza: {riga_target['RPM']} RPM"
-                                }
-                            ]
-                        }
-                    ]
+                # Costruiamo la descrizione strutturata in formato Intervals (es. - 30m 85% FTP)
+                # Modifica i minuti in base alla durata reale del tuo blocco
+                testo_strutturato = f"""🎯 {riga_target['Esercizio']}
+- 30m {int(pct_ftp)}% FTP
+"""
+                
+                # Payload per le API ufficiali di Intervals
+                payload = {
+                    "start_date_local": f"{data_allenamento.isoformat()}T08:00:00",
+                    "type": "Ride",
+                    "name": f"🏋️ {riga_target['Giorno']} - {riga_target['Mese']}",
+                    "description": f"Cadenza target: {riga_target['RPM']} RPM",
+                    "workout_text": testo_strutturato,
+                    "indoor": False
                 }
                 
-                # Salviamo il file JSON temporaneo
-                file_path = f"/tmp/{riga_target['Giorno']}_{riga_target['Mese']}.json"
-                with open(file_path, "w", encoding="utf-8") as f:
-                    json.dump(workout_json, f)
+                # Chiamata API ufficiale con autenticazione Basic (username='API_KEY', password=api_key)
+                url = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events"
+                response = requests.post(
+                    url, 
+                    json=payload, 
+                    auth=HTTPBasicAuth("API_KEY", api_key)
+                )
                 
-                # Login ed esecuzione
-                garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
-                garmin_client.login()
-                
-                st.text("Caricamento allenamento strutturato...")
-                garmin_client.upload_workout(file_path)
-                
-                st.success(f"🎉 Successo! L'allenamento '{nome_allenamento}' è stato caricato nella tua libreria Garmin Connect.")
-                st.info("Apri l'app Garmin Connect o il tuo Edge 540 sotto 'Allenamenti' per vederlo pronto all'uso!")
+                if response.status_code in [200, 201]:
+                    st.success("🎉 Successo! Allenamento caricato su Intervals.icu.")
+                    st.info("Intervals invierà automaticamente e istantaneamente la sessione al tuo calendario Garmin Connect!")
+                else:
+                    st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
         except Exception as e:
             st.error(f"Errore durante la sincronizzazione: {e}")
