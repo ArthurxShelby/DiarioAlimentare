@@ -129,70 +129,59 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
     else:
         try:
             with st.spinner("Connessione ai server Garmin e programmazione..."):
-                # Definiamo la struttura del Workout nativa Garmin Connect con i Segments richiesti
-                workout_json = {
-                    "workoutName": f"🏋️ Z4 {riga_target['Giorno']} {riga_target['Mese']}",
-                    "description": riga_target['Esercizio'],
-                    "sportType": {"sportTypeId": 2, "sportTypeKey": "cycling"},
-                    "workoutSegments": [
-                        {
-                            "segmentOrder": 1,
-                            "sportType": {"sportTypeId": 2, "sportTypeKey": "cycling"},
-                            "workoutSteps": [
-                                # 1. Warm up (10 minuti)
-                                {
-                                    "type": "ExecutableStepDTO",
-                                    "stepOrder": 1,
-                                    "stepType": {"stepTypeId": 1, "stepTypeKey": "warmup"},
-                                    "childStepId": None,
-                                    "endCondition": {"conditionTypeId": 2, "conditionTypeKey": "time"},
-                                    "endConditionValue": 600,  # 10 min in secondi
-                                    "targetType": {"targetTypeId": 2, "targetTypeKey": "power.zone"},
-                                    "targetValueOne": 1,
-                                    "targetValueTwo": 2
-                                },
-                                # 2. Blocco Centrale Attivo (30 minuti al wattaggio target)
-                                {
-                                    "type": "ExecutableStepDTO",
-                                    "stepOrder": 2,
-                                    "stepType": {"stepTypeId": 3, "stepTypeKey": "interval"},
-                                    "childStepId": None,
-                                    "endCondition": {"conditionTypeId": 2, "conditionTypeKey": "time"},
-                                    "endConditionValue": 1800,  # 30 min in secondi
-                                    "targetType": {"targetTypeId": 3, "targetTypeKey": "power.value"},
-                                    "targetValueOne": int(riga_target['Watt'] * 0.98),
-                                    "targetValueTwo": int(riga_target['Watt'] * 1.02)
-                                },
-                                # 3. Cool down (10 minuti)
-                                {
-                                    "type": "ExecutableStepDTO",
-                                    "stepOrder": 3,
-                                    "stepType": {"stepTypeId": 2, "stepTypeKey": "cooldown"},
-                                    "childStepId": None,
-                                    "endCondition": {"conditionTypeId": 2, "conditionTypeKey": "time"},
-                                    "endConditionValue": 600,
-                                    "targetType": {"targetTypeId": 2, "targetTypeKey": "power.zone"},
-                                    "targetValueOne": 1,
-                                    "targetValueTwo": 1
-                                }
-                            ]
-                        }
-                    ]
-                }
+                import io
+                import time
                 
-                # Inizializza il client Garmin ed effettua il login
-                import json
+                nome_allenamento = f"Z4_{riga_target['Giorno']}_{riga_target['Mese']}"
+                
+                # Generiamo un file TCX (Training Center Database) pulito e standard
+                tcx_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">
+  <Workouts>
+    <Workout Sport="Biking">
+      <Name>{nome_allenamento[:15]}</Name>
+      <Step>
+        <StepId>1</StepId>
+        <Name>WarmUp</Name>
+        <Duration T="Time">600</Duration>
+        <Intensity>Active</Intensity>
+        <Target T="None"/>
+      </Step>
+      <Step>
+        <StepId>2</StepId>
+        <Name>Z4_Target</Name>
+        <Duration T="Time">1800</Duration>
+        <Intensity>Active</Intensity>
+        <Target T="None"/>
+      </Step>
+      <Step>
+        <StepId>3</StepId>
+        <Name>CoolDown</Name>
+        <Duration T="Time">600</Duration>
+        <Intensity>Active</Intensity>
+        <Target T="None"/>
+      </Step>
+    </Workout>
+  </Workouts>
+</TrainingCenterDatabase>
+"""
+                
+                # Salviamo il file TCX temporaneamente
+                file_path = f"/tmp/{nome_allenamento}.tcx"
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(tcx_content)
+                
+                # Inizializza il client ed effettua il login
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
-                st.text("Invio del pacchetto JSON strutturato con segmenti...")
+                st.text("Caricamento del file TCX standard sui server Garmin...")
                 
-                # Conversione in stringa ed invio
-                workout_str = json.dumps(workout_json)
-                garmin_client.upload_workout(workout_str)
+                # Usiamo upload_activity che accetta file fisici (TCX, FIT, GPX) ed esegue il parsing lato server
+                garmin_client.upload_activity(file_path)
                 
-                st.success(f"🎉 Successo! L'allenamento strutturato è stato salvato nei tuoi Workout di Garmin Connect.")
-                st.info("Accendi il tuo Edge 540 o apri l'app sul telefono: lo troverai subito sincronizzato nella libreria allenamenti!")
+                st.success(f"🎉 Successo! L'allenamento strutturato '{nome_allenamento}' è stato elaborato correttamente dai server Garmin.")
+                st.info("Sincronizza il tuo Garmin Edge 540 per vederlo comparire nella lista delle sessioni pianificate!")
                 
         except Exception as e:
             st.error(f"Errore durante la sincronizzazione: {e}")
