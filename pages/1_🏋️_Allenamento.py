@@ -129,59 +129,31 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
     else:
         try:
             with st.spinner("Connessione ai server Garmin e programmazione..."):
-                import io
-                import time
+                pct_ftp = round((riga_target['Watt'] / ftp_atleta) * 100, 1)
                 
-                nome_allenamento = f"Z4_{riga_target['Giorno']}_{riga_target['Mese']}"
+                # Testo pulito e leggibile che apparirà come nota sul calendario dell'Edge 540
+                testo_allenamento = f"""🎯 TARGET: {int(riga_target['Watt'])}W ({pct_ftp}% FTP)
+🔄 CADENZA: {riga_target['RPM']} RPM
+📋 DETTAGLIO: {riga_target['Esercizio']}
+🩺 NOTE CLINICHE: {riga_target['Note Spalla']}"""
                 
-                # Generiamo un file TCX (Training Center Database) pulito e standard
-                tcx_content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">
-  <Workouts>
-    <Workout Sport="Biking">
-      <Name>{nome_allenamento[:15]}</Name>
-      <Step>
-        <StepId>1</StepId>
-        <Name>WarmUp</Name>
-        <Duration T="Time">600</Duration>
-        <Intensity>Active</Intensity>
-        <Target T="None"/>
-      </Step>
-      <Step>
-        <StepId>2</StepId>
-        <Name>Z4_Target</Name>
-        <Duration T="Time">1800</Duration>
-        <Intensity>Active</Intensity>
-        <Target T="None"/>
-      </Step>
-      <Step>
-        <StepId>3</StepId>
-        <Name>CoolDown</Name>
-        <Duration T="Time">600</Duration>
-        <Intensity>Active</Intensity>
-        <Target T="None"/>
-      </Step>
-    </Workout>
-  </Workouts>
-</TrainingCenterDatabase>
-"""
-                
-                # Salviamo il file TCX temporaneamente
-                file_path = f"/tmp/{nome_allenamento}.tcx"
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(tcx_content)
-                
-                # Inizializza il client ed effettua il login
+                # Inizializza il client Garmin ed effettua il login
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
-                st.text("Caricamento del file TCX standard sui server Garmin...")
+                # Endpoint standard del calendario note di Garmin Connect
+                url = "https://connect.garmin.com/calendar-service/note"
+                payload = {
+                    "date": data_allenamento.isoformat(),
+                    "title": f"🏋️ {riga_target['Giorno']} - {riga_target['Mese']}",
+                    "note": testo_allenamento
+                }
                 
-                # Usiamo upload_activity che accetta file fisici (TCX, FIT, GPX) ed esegue il parsing lato server
-                garmin_client.upload_activity(file_path)
+                # Usiamo la sessione interna autenticata di garminconnect per fare una POST pulita
+                # Il primo argomento stringa è l'URL, il parametro json passa i dati
+                garmin_client.req.post(url, json=payload)
                 
-                st.success(f"🎉 Successo! L'allenamento strutturato '{nome_allenamento}' è stato elaborato correttamente dai server Garmin.")
-                st.info("Sincronizza il tuo Garmin Edge 540 per vederlo comparire nella lista delle sessioni pianificate!")
-                
+                st.success(f"🎉 Successo! Nota di allenamento caricata sul tuo calendario Garmin per il giorno {data_allenamento}.")
+                st.info("Sincronizza il tuo Edge 540 o apri l'app Garmin Connect: vedrai i dettagli del blocco direttamente nel giorno pianificato!")
         except Exception as e:
             st.error(f"Errore durante la sincronizzazione: {e}")
