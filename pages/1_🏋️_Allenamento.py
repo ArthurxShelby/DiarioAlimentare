@@ -144,15 +144,20 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
 - 30m {int(pct_ftp)}% FTP
 """
                 
-                # Payload per le API ufficiali di Intervals
+              # ... (lascia invariato il codice sopra fino al payload)
+
+                # Payload aggiornato con la categoria richiesta da Intervals
                 payload = {
                     "start_date_local": f"{data_allenamento.isoformat()}T08:00:00",
                     "type": "Ride",
+                    "category": "WORKOUT",  # <--- AGGIUNGI QUESTA RIGA CHIAVE
                     "name": f"🏋️ {riga_target['Giorno']} - {riga_target['Mese']}",
                     "description": f"Cadenza target: {riga_target['RPM']} RPM",
                     "workout_text": testo_strutturato,
                     "indoor": False
                 }
+                
+# ... (lascia invariato il codice sotto con la requests.post)
                 
                 # Chiamata API ufficiale con autenticazione Basic (username='API_KEY', password=api_key)
                 url = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events"
