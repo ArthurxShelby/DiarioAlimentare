@@ -131,30 +131,55 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
             with st.spinner("Connessione ai server Garmin e programmazione..."):
                 
                 pct_ftp = round((riga_target['Watt'] / ftp_atleta) * 100, 1)
+                nome_allenamento = f"Z4_{riga_target['Giorno']}_{riga_target['Mese']}"
                 
-                # Testo pulito che apparirà come nota sul calendario dell'Edge 540
-                testo_allenamento = f"""🎯 TARGET: {int(riga_target['Watt'])}W ({pct_ftp}% FTP)
-🔄 CADENZA: {riga_target['RPM']} RPM
-📋 DETTAGLIO: {riga_target['Esercizio']}"""
+                # Generiamo un file TCX standard specifico per i Workout (non per le attività)
+                tcx_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">
+  <Workouts>
+    <Workout Sport="Biking">
+      <Name>{nome_allenamento[:15]}</Name>
+      <Step>
+        <StepId>1</StepId>
+        <Name>WarmUp</Name>
+        <Duration T="Time">600</Duration>
+        <Intensity>Active</Intensity>
+        <Target T="None"/>
+      </Step>
+      <Step>
+        <StepId>2</StepId>
+        <Name>Z4_Target</Name>
+        <Duration T="Time">1800</Duration>
+        <Intensity>Active</Intensity>
+        <Target T="None"/>
+      </Step>
+      <Step>
+        <StepId>3</StepId>
+        <Name>CoolDown</Name>
+        <Duration T="Time">600</Duration>
+        <Intensity>Active</Intensity>
+        <Target T="None"/>
+      </Step>
+    </Workout>
+  </Workouts>
+</TrainingCenterDatabase>
+"""
+                # Salviamo il file temporaneo
+                file_path = f"/tmp/{nome_allenamento}.tcx"
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(tcx_content)
                 
-                # 1. Login regolare
+                # Login regolare
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
-                # 2. Definiamo l'endpoint e il payload della nota sul calendario
-                url = "https://connect.garmin.com/calendar-service/note"
-                payload = {
-                    "date": data_allenamento.isoformat(),
-                    "title": f"🏋️ {riga_target['Giorno']} - {riga_target['Mese']}",
-                    "note": testo_allenamento
-                }
+                st.text("Caricamento allenamento strutturato...")
                 
-                # 3. Chiamata pulita senza method="POST" per evitare conflitti di argomenti
-                st.text("Invio della nota al calendario...")
-                garmin_client.connectapi(url, json=payload)
+                # Questo è il metodo corretto per i modelli di allenamento, non soffre dei cambi di URL del calendario
+                garmin_client.upload_workout(file_path)
                 
-                st.success(f"🎉 Successo! Nota di allenamento caricata sul tuo calendario Garmin per il giorno {data_allenamento}.")
-                st.info("Sincronizza il tuo Edge 540 o apri l'app Garmin Connect per vedere il blocco pianificato!")
+                st.success(f"🎉 Successo! L'allenamento '{nome_allenamento}' è nella tua libreria Garmin Connect.")
+                st.info("Lo trovi nella sezione 'Allenamenti' dell'app o del tuo Edge 540, pronto per essere associato al calendario o avviato!")
                     
         except Exception as e:
             st.error(f"Errore durante la sincronizzazione: {e}")
