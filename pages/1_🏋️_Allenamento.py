@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+import datetime
+from garminconnect import Garmin
+from fitfile import FitFile, Workout, Sport, Intensity, Step
 
 # Configurazione pagina
 st.set_page_config(page_title="Piano Allenamento Interattivo", page_icon="🏋️", layout="centered")
@@ -14,7 +17,7 @@ st.sidebar.markdown(f"**Sweet Spot (SS):** {int(ftp_atleta*0.88)}-{int(ftp_atlet
 st.sidebar.markdown(f"**Soglia Z4:** {int(ftp_atleta*0.91)}-{int(ftp_atleta*1.05)}W")
 st.sidebar.markdown("**Cadenza Soglia:** ~90 RPM\n\n**Cadenza SS:** ~85 RPM")
 
-# --- DATABASE INIZIALE COMPLETO DI TUTTI I MESI ---
+# --- DATABASE INIZIALE COMPLETO ---
 if "df_programma" not in st.session_state:
     data = [
         # --- AGOSTO ---
@@ -79,16 +82,10 @@ if "df_programma" not in st.session_state:
     ]
     st.session_state.df_programma = pd.DataFrame(data)
 
-# --- MENU INTERATTIVO DI SELEZIONE MESE ---
+# --- MENU INTERATTIVO ---
 st.subheader("📅 Tabella Programmazione Modificabile")
-mese_selezionato = st.selectbox(
-    "Seleziona il mese da visualizzare e personalizzare:", 
-    ["Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre", "Gennaio"]
-)
-
+mese_selezionato = st.selectbox("Seleziona il mese da visualizzare:", ["Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre", "Gennaio"])
 df_filtrato = st.session_state.df_programma[st.session_state.df_programma["Mese"] == mese_selezionato]
-
-st.info("💡 Fai doppio clic su qualsiasi cella per modificarne il testo, i watt o le RPM. Premi il tasto 'Salva' in basso per confermare.")
 
 df_editato = st.data_editor(
     df_filtrato, 
@@ -98,78 +95,69 @@ df_editato = st.data_editor(
         "Mese": st.column_config.TextColumn("Mese", disabled=True),
         "Settimana": st.column_config.TextColumn("Microciclo", disabled=True),
         "Giorno": st.column_config.TextColumn("Giorno", disabled=True),
-        "Esercizio": st.column_config.TextColumn("Descrizione Allenamento Specifico", width="large"),
-        "Watt": st.column_config.NumberColumn("Watt Target", min_value=100, max_value=400, step=1),
-        "RPM": st.column_config.NumberColumn("RPM Consigliate", min_value=50, max_value=120, step=1),
-        "Note Spalla": st.column_config.TextColumn("Note Sicurezza / Cliniche")
+        "Esercizio": st.column_config.TextColumn("Descrizione Allenamento", width="large"),
+        "Watt": st.column_config.NumberColumn("Watt Target"),
+        "RPM": st.column_config.NumberColumn("RPM"),
+        "Note Spalla": st.column_config.TextColumn("Note Cliniche")
     }
 )
 
 if st.button("💾 Salva modifiche nel piano globale"):
     st.session_state.df_programma.loc[st.session_state.df_programma["Mese"] == mese_selezionato, :] = df_editato.values
-    st.success(f"Piano di {mese_selezionato} aggiornato con successo nel database!")
+    st.success("Piano aggiornato!")
 
 st.markdown("---")
 
-# --- NUOVA SEZIONE: ESPORTAZIONE PER INTERVALS.ICU ---
-st.subheader("📲 Esporta Allenamento per il tuo Garmin Edge 540")
-st.markdown("Seleziona una riga specifica del mese corrente per generare il file strutturato da caricare su **Intervals.icu**:")
+# --- SEZIONE AUTOMAZIONE GARMIN ---
+st.subheader("🚀 Invio Automatico a Garmin Connect")
+st.markdown("Scegli quale sessione programmare direttamente sul calendario del tuo **Garmin Edge 540**:")
 
-# Creiamo una lista leggibile delle sessioni disponibili nel mese per il menu a tendina
 sessioni_disponibili = df_filtrato.apply(lambda row: f"{row['Settimana']} - {row['Giorno']}: {row['Esercizio'][:40]}...", axis=1).tolist()
-sessione_scelta = st.selectbox("Scegli la sessione da esportare:", sessioni_disponibili)
+sessione_scelta = st.selectbox("Seleziona sessione:", sessioni_disponibili)
 
-# Troviamo la riga corrispondente
 index_scelta = sessioni_disponibili.index(sessione_scelta)
 riga_target = df_filtrato.iloc[index_scelta]
 
-# Funzione aggiornata con il formato nativo e pulito di Intervals.icu
-def genera_file_intervals(riga, ftp):
-    titolo = f"{riga['Mese']}_{riga['Giorno']}_{riga['Settimana']}".replace(" ", "_")
-    pct_ftp = round((riga['Watt'] / ftp) * 100, 1)
-    
-    # Formato nativo Intervals.icu: semplice, leggibile e privo di bug di parsing
-    contenuto = f"""# {riga['Esercizio']}
-# Watt Target: {riga['Watt']}W ({pct_ftp}% FTP)
+# Selezione della data reale in cui si vuole eseguire l'allenamento
+data_allenamento = st.date_input("Per quale giorno vuoi pianificarlo?", datetime.date.today())
 
-- Riscaldamento 10m 50%
-- Blocco Principale 30m {pct_ftp}% Lbl={int(riga['Watt'])}W_@{int(riga['RPM'])}rpm
-- Defaticamento 10m 50%
-"""
-    return contenuto, titolo
-
-contenuto_pulito, nome_file = genera_file_intervals(riga_target, ftp_atleta)
-
-# Pulsante di download aggiornato a file .txt (nativo per Intervals)
-st.download_button(
-    label="📥 Scarica file per Intervals.icu",
-    data=contenuto_pulito,
-    file_name=f"{nome_file}.txt",
-    mime="text/plain"
-)
-
-st.markdown("""
-**Come passarlo al Garmin in 10 secondi:**
-1. Clicca sul pulsante sopra e scarica il file.
-2. Vai sul tuo calendario di **Intervals.icu**.
-3. Clicca sul giorno desiderato, seleziona **Import** (o trascina il file direttamente nella finestra) e carica il file appena scaricato.
-4. Intervals.icu sincronizzerà istantaneamente la sessione con il tuo profilo Garmin Connect, pronta per apparire sul tuo **Edge 540**.
-""")
-st.markdown("---")
-
-# --- SEZIONE COMPLEMENTARE: REGISTRO DIARIO ---
-st.subheader("📝 Registro delle tue sensazioni in sella")
-with st.form("diario_allenamento_form"):
-    giorno_all = st.selectbox("Giorno Allenamento Effettuato", ["Martedì", "Giovedì", "Sabato", "Domenica"])
-    tipo_lavoro = st.text_input("Lavoro svolto (es. Risp + 3x6min Soglia + Defa)")
-    watt_espressi = st.number_input("Watt Medi nei blocchi principali", min_value=0, max_value=500, value=250)
-    rpm_medie = st.number_input("Cadenza Media Rilevata (RPM)", min_value=0, max_value=130, value=90)
-    stato_spalla = st.select_slider(
-        "Stabilità ed assenza fastidi alla spalla:",
-        options=["Dolore", "Fastidio leggero", "Stabile (Nessun fastidio)", "Perfetta"]
-    )
-    note_all = st.text_area("Note e Sensazioni")
-    
-    submit_button = st.form_submit_button(label="Registra Allenamento nel Diario")
-    if submit_button:
-        st.success(f"Allenamento registrato nel database personale! Continua così.")
+if st.button("📤 Carica direttamente su Garmin Connect"):
+    # Verifica che i segreti siano configurati
+    if "garmin" not in st.secrets:
+        st.error("⚠️ Configura prima le credenziali Garmin nei Secrets di Streamlit Cloud!")
+    else:
+        try:
+            with st.spinner("Connessione ai server Garmin in corso..."):
+                # 1. Creazione del file .FIT strutturato in memoria
+                fit_workout = Workout(
+                    name=f"{riga_target['Giorno']}_{riga_target['Mese']}"[:15],
+                    sport=Sport.CYCLING
+                )
+                
+                # Definiamo gli step dell'allenamento (Riscaldamento, Blocco, Defaticamento)
+                fit_workout.steps = [
+                    Step(intensity=Intensity.WARMUP, duration="10:00", target_watts=int(ftp_atleta * 0.5)),
+                    Step(intensity=Intensity.ACTIVE, duration="30:00", target_watts=int(riga_target['Watt'])),
+                    Step(intensity=Intensity.COOLDOWN, duration="10:00", target_watts=int(ftp_atleta * 0.5))
+                ]
+                
+                # Salviamo il file temporaneamente
+                file_path = "/tmp/temp_workout.fit"
+                fit_workout.write(file_path)
+                
+                # 2. Accesso API Garmin e Upload
+                garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
+                garmin_client.login()
+                
+                # Carica l'allenamento nella libreria personale di Garmin
+                risultato_upload = garmin_client.upload_workout(file_path)
+                workout_id = risultato_upload.get("workoutId")
+                
+                # Pianifica l'allenamento sul calendario alla data scelta
+                garmin_client.schedule_workout(workout_id, data_allenamento.isoformat())
+                
+                st.success(f"🎉 Successo! Allenamento inviato al tuo calendario Garmin Connect per il giorno {data_allenamento}.")
+                st.info("Accendi il tuo Edge 540 o apri l'app Garmin Connect sul tuo iPhone 13 per avviare la sincronizzazione Bluetooth.")
+        except Exception as e:
+            st.error(se := f"Errore durante la sincronizzazione: {e}")
+            st.warning("Verifica che le credenziali nei Secrets siano corrette o riprova tra poco.")
