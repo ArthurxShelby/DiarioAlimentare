@@ -149,8 +149,7 @@ with col_d:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 5. LOGICA DI SINCRO CON FIX COMPLETO INTERATTIVITÀ (CESTINO SBLOCCATO) ---
-# --- 5. LOGICA DI SINCRO NATIVA PER BLOCCHI INTERATTIVI E MODIFICABILI ---
+# --- 5. LOGICA DI SINCRO NATIVA CON BLOCCHI GRAFICI E FILE MODIFICABILE ---
 if st.button("📤 Carica direttamente su Intervals.icu"):
     if "intervals" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali nei Secrets di Streamlit!")
@@ -163,24 +162,30 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 
                 pct_ftp = round((watt_modificati / ftp_atleta) * 100, 1)
                 
-                # Sintassi ufficiale e pulita di Intervals per generare il workout interattivo
+                # Sintassi ufficiale di Intervals con etichette di blocco esplicite 
+                # che attivano il parser grafico e rendono l'oggetto interattivo
                 if ripetizioni_modificate == 1:
-                    testo_workout = f"""- 10m 55%
+                    testo_workout = f"""Warmup
+- 10m 55%
+
+Main set
 - {lavoro_modificato}m {int(pct_ftp)}%
+
+Cooldown
 - 10m 50%"""
                     durata_totale_secondi = (10 + lavoro_modificato + 10) * 60
                 else:
-                    testo_workout = f"""- 10m 55%
+                    testo_workout = f"""Warmup
+- 10m 55%
 
-{ripetizioni_modificate}x
+Main set {ripetizioni_modificate}x
 - {lavoro_modificato}m {int(pct_ftp)}%
 - {recupero_modificato}m 50%
 
+Cooldown
 - 10m 50%"""
                     durata_totale_secondi = (10 + (ripetizioni_modificate * (lavoro_modificato + recupero_modificato)) + 10) * 60
 
-                # Payload strutturato ufficialmente: passando il testo nel campo 'workout_text', 
-                # Intervals compila l'oggetto rendendolo editabile e interattivo nel calendario.
                 payload = {
                     "start_date_local": f"{data_pianificazione.isoformat()}T08:00:00",
                     "type": "Ride",
@@ -197,7 +202,7 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 response = requests.post(url, json=payload, auth=auth)
                 
                 if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Allenamento creato come blocco interattivo e modificabile.")
+                    st.success("🎉 Successo! Allenamento creato con blocchi visibili e file interattivo modificabile.")
                 else:
                     st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
