@@ -124,30 +124,30 @@ index_scelta = sessioni_disponibili.index(sessione_scelta)
 riga_target = df_filtrato.iloc[index_scelta]
 
 # Funzione per generare il file .mrc dinamico basato sui watt dell'atleta
-def genera_file_mrc(riga, ftp):
+# Funzione aggiornata con il formato nativo e pulito di Intervals.icu
+def genera_file_intervals(riga, ftp):
     titolo = f"{riga['Mese']}_{riga['Giorno']}_{riga['Settimana']}".replace(" ", "_")
     pct_ftp = round((riga['Watt'] / ftp) * 100, 1)
     
-    # Costruiamo il blocco di testo standard per un file .mrc
-    mrc_content = f"""[COURSE HEADER]
-VERSION = 2
-UNITS = ENGLISH
-DESCRIPTION = {riga['Esercizio']}
-FILE NAME = {titolo}.mrc
-MINUTES PERCENT
-[ITEM FIELDS]
-MINUTES PERCENT
-[COURSE DATA]
-0.00\t50.0
-10.00\t50.0
-10.00\t{pct_ftp}
-40.00\t{pct_ftp}
-40.00\t50.0
-50.00\t50.0
-"""
-    return mrc_content, titolo
+    # Formato nativo Intervals.icu: semplice, leggibile e privo di bug di parsing
+    contenuto = f"""# {riga['Esercizio']}
+# Watt Target: {riga['Watt']}W ({pct_ftp}% FTP)
 
-contenuto_mrc, nome_file = genera_file_mrc(riga_target, ftp_atleta)
+- Riscaldamento 10m 50%
+- Blocco Principale 30m {pct_ftp}% Lbl={int(riga['Watt'])}W_@{int(riga['RPM'])}rpm
+- Defaticamento 10m 50%
+"""
+    return contenuto, titolo
+
+contenuto_pulito, nome_file = genera_file_intervals(riga_target, ftp_atleta)
+
+# Pulsante di download aggiornato a file .txt (nativo per Intervals)
+st.download_button(
+    label="📥 Scarica file per Intervals.icu",
+    data=contenuto_pulito,
+    file_name=f"{nome_file}.txt",
+    mime="text/plain"
+)
 
 # Pulsante Streamlit nativo per scaricare il file direttamente su MacBook o iPhone
 st.download_button(
