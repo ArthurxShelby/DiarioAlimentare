@@ -12,7 +12,7 @@ st.markdown("""
     .stButton>button:hover { background-color: #2e3b34; color: white; }
     .metric-box { background-color: #e8efea; padding: 15px; border-radius: 10px; text-align: center; border-left: 5px solid #3b5e4f; }
     </style>
-""", unsafe_allow_index=True)
+""", unsafe_allow_html=True)
 
 # 2. Inizializzazione della Banca Dati Alimenti nello Stato della Sessione
 if 'db_alimenti' not in st.session_state:
@@ -75,7 +75,7 @@ st.markdown(f"""
     <h1 style="color: {'#3b5e4f' if rem_kcal >= 0 else '#b02a37'};">{rem_kcal} / {tdee} kcal</h1>
     <p><b>Carboidrati:</b> {tot_cho:.1f}g / {target_cho}g | <b>Proteine:</b> {tot_pro:.1f}g / {target_pro}g | <b>Grassi:</b> {tot_fat:.1f}g / {target_fat}g</p>
 </div>
-""", unsafe_allow_index=True)
+""", unsafe_allow_html=True)
 
 st.write("---")
 
