@@ -131,29 +131,43 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
             with st.spinner("Connessione ai server Garmin e programmazione..."):
                 pct_ftp = round((riga_target['Watt'] / ftp_atleta) * 100, 1)
                 
-                # Descrizione testuale strutturata
-                testo_allenamento = f"""Workout: {riga_target['Giorno']} {riga_target['Mese']}
-- Warm up 10:00 50%
-- Active 30:00 {pct_ftp}% target={int(riga_target['Watt'])}W
-- Cool down 10:00 50%
+                # Calcoliamo i watt esatti per i passaggi
+                watt_target = int(riga_target['Watt'])
+                
+                # Creiamo un file XML in formato ZWO (standard per gli allenamenti) in memoria
+                nome_allenamento = f"Z4_{riga_target['Giorno']}_{riga_target['Mese']}"
+                zwo_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<workout_file>
+    <author>Diario Alimentare</author>
+    <name>{nome_allenamento}</name>
+    <description>{riga_target['Esercizio']}</description>
+    <sportType>bike</sportType>
+    <tags></tags>
+    <workout>
+        <Warmup Duration="600" Power="0.50" />
+        <SteadyState Duration="1800" Power="{round(pct_ftp/100, 2)}" />
+        <Cooldown Duration="600" Power="0.50" />
+    </workout>
+</workout_file>
 """
+                
+                # Salviamo temporaneamente il file per poterlo inviare
+                file_path = f"/tmp/{nome_allenamento}.zwo"
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(zwo_content)
                 
                 # Inizializza il client Garmin ed effettua il login
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
-                # Chiamata diretta senza passare il parametro 'method' esplicito
-                url = "https://connect.garmin.com/calendar-service/note"
-                payload = {
-                    "date": data_allenamento.isoformat(),
-                    "title": f"🏋️ {riga_target['Esercizio'][:30]}",
-                    "note": testo_allenamento
-                }
+                # Carica il file di allenamento direttamente nel cloud Garmin
+                st.text("Caricamento file allenamento...")
+                workout_res = garmin_client.upload_workout(file_path)
                 
-                # Rimosso method="POST" per evitare il conflitto di argomenti duplicati
-                garmin_client.connectapi(url, json=payload)
+                # Essendo caricato come workout ufficiale, lo troverai nella sezione "Allenamenti" 
+                # dell'app Garmin Connect o direttamente sul tuo Edge 540 pronto da avviare!
+                st.success(f"🎉 Successo! L'allenamento strutturato '{nome_allenamento}' è stato caricato sul tuo profilo Garmin Connect.")
+                st.info("Apri l'app Garmin Connect sul telefono o accendi l'Edge 540, vai su Allenamenti ed effettua la sincronizzazione per vederlo!")
                 
-                st.success(f"🎉 Successo! Nota e struttura caricate sul calendario Garmin per il giorno {data_allenamento}.")
-                st.info("Sincronizza il tuo Edge 540 per vederlo apparire nella schermata iniziale!")
         except Exception as e:
             st.error(f"Errore durante la sincronizzazione: {e}")
