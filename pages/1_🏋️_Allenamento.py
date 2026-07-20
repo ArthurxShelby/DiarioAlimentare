@@ -150,6 +150,7 @@ with col_d:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 5. LOGICA DI SINCRO CON FIX COMPLETO INTERATTIVITÀ (CESTINO SBLOCCATO) ---
+# --- 5. LOGICA DI SINCRO PER FILE MODIFICABILI E PULITI ---
 if st.button("📤 Carica direttamente su Intervals.icu"):
     if "intervals" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali nei Secrets di Streamlit!")
@@ -162,39 +163,41 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 
                 pct_ftp = round((watt_modificati / ftp_atleta) * 100, 1)
                 
+                warmup_m = 10
+                cooldown_m = 10
+                
+                # Sintassi pulita standard per il parser di Intervals
                 if ripetizioni_modificate == 1:
-                    blocco_strutturato = f"""- 10m 55%
+                    testo_strutturato = f"""- Warm Up 10m 55%
 - {lavoro_modificato}m {int(pct_ftp)}%
-- 10m 50%"""
+- Cooldown 10m 50%"""
+                    durata_totale_secondi = (warmup_m + lavoro_modificato + cooldown_m) * 60
                 else:
-                    blocco_strutturato = f"""- 10m 55%
-- {ripetizioni_modificate}x
-  - {lavoro_modificato}m {int(pct_ftp)}%
-  - {recupero_modificato}m 50%
-- 10m 50%"""
+                    testo_strutturato = f"""- Warm Up 10m 55%
+- {ripetizioni_modificate}x {lavoro_modificato}m {int(pct_ftp)}% {recupero_modificato}m 50%
+- Cooldown 10m 50%"""
+                    durata_totale_secondi = (warmup_m + (ripetizioni_modificate * (lavoro_modificato + recupero_modificato)) + cooldown_m) * 60
 
-                testo_completo_descrizione = f"""🎯 Target: {watt_modificati}W ({pct_ftp}% FTP)
-🔄 RPM: {allenamento_base['RPM']}
-📋 {nome_allenamento}
-
-{blocco_strutturato}"""
-
-                # Passiamo i campi 'workout__file_id' o parametri di sblocco per forzare il permesso di cancellazione
+                # Payload ottimizzato per rendere l'evento un piano nativo modificabile
                 payload = {
                     "start_date_local": f"{data_pianificazione.isoformat()}T08:00:00",
                     "type": "Ride",
                     "category": "WORKOUT",
                     "name": f"🏋️ {nome_allenamento}",
-                    "description": testo_completo_descrizione,
+                    "description": f"🎯 Target: {watt_modificati}W ({pct_ftp}% FTP)\n🔄 RPM: {allenamento_base['RPM']}",
+                    "workout_text": testo_strutturato,
+                    "moving_time": durata_totale_secondi,
+                    "total_time": durata_totale_secondi,
                     "indoor": True,
-                    "color": "yellow"  # Evidenzia l'evento e ne forza lo stato modificabile
+                    "color": "yellow"
                 }
                 
                 url = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events"
                 response = requests.post(url, json=payload, auth=auth)
                 
                 if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Allenamento caricato con barre e cestino sbloccato su Intervals.")
+                    st.success("🎉 Successo! Allenamento caricato come blocco nativo modificabile.")
+                    st.info("💡 Nota: Se su Intervals il cestino non compare subito, ricarica la pagina (F5) per aggiornare la cache del calendario.")
                 else:
                     st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
@@ -203,9 +206,9 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
 
 st.markdown("---")
 
-# --- 6. STRUMENTO DI PULIZIA DI EMERGENZA (ELIMINA FILE DALL'APP) ---
+# --- 6. STRUMENTO DI PULIZIA DI EMERGENZA ---
 with st.expander("🛠️ Pannello di Emergenza: Cancella file dal calendario"):
-    st.write("Se qualche allenamento risulta bloccato o vuoi ripulire i test, seleziona il periodo e premi il pulsante.")
+    st.write("Usa questo pulsante per ripulire rapidamente il calendario dai file di test o non desiderati.")
     
     col_start, col_end = st.columns(2)
     with col_start:
@@ -229,13 +232,12 @@ with st.expander("🛠️ Pannello di Emergenza: Cancella file dal calendario"):
                     eventi = response.json()
                     count = 0
                     for evento in eventi:
-                        # Cancella gli eventi generati dalla nostra app (riconoscibili dall'emoji)
                         if "🏋️" in evento.get("name", ""):
                             event_id = evento["id"]
                             url_del = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events/{event_id}"
                             requests.delete(url_del, auth=auth)
                             count += 1
-                    st.success(f"Pulizia completata! Eliminati {count} eventi di prova dal calendario.")
+                    st.success(f"Pulizia completata! Eliminati {count} eventi.")
                     st.rerun()
                 else:
                     st.error(f"Errore nel recupero eventi: {response.text}")
