@@ -153,6 +153,7 @@ with col_d:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 5. LOGICA DI SINCRO CORRETTA PER LE BARRE ---
+# --- 5. LOGICA DI SINCRO CORRETTA (FIX BARRE E ATHLETE_ID) ---
 if st.button("📤 Carica direttamente su Intervals.icu"):
     if "intervals" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali nei Secrets di Streamlit!")
@@ -163,7 +164,7 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 api_key = st.secrets["intervals"]["api_key"]
                 auth = HTTPBasicAuth("API_KEY", api_key)
                 
-                # Calcolo della percentuale rispetto ai watt modificati sul momento
+                # Calcolo della percentuale rispetto ai watt modificati
                 pct_ftp = round((watt_modificati / ftp_atleta) * 100, 1)
                 
                 warmup_m = 10
@@ -177,15 +178,16 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                     testo_strutturato = f"- Warm Up 10m 55%\n- {ripetizioni_modificate}x {lavoro_modificato}m {int(pct_ftp)}% {recupero_modificato}m 50%\n- Cooldown 10m 50%"
                     durata_totale_secondi = (warmup_m + (ripetizioni_modificate * (lavoro_modificato + recupero_modificato)) + cooldown_m) * 60
                 
-                # Per far apparire le barre e renderlo cancellabile, dobbiamo passare la stringa a "workout_text" E ANCHE l'oggetto compilato a "workout"
+                # Payload corretto con l'atleta inserito anche nell'oggetto nidificato
                 payload = {
                     "start_date_local": f"{data_pianificazione.isoformat()}T08:00:00",
                     "type": "Ride",
                     "category": "WORKOUT",
                     "name": f"🏋️ {nome_allenamento}",
-                    "description": f"🎯 Target impostato: {watt_modificati}W ({pct_ftp}% FTP) | Giri: {ripetizioni_modificate}",
+                    "description": f"🎯 Target impostato: {watt_modificati}W ({pct_ftp}% FTP)",
                     "workout_text": testo_strutturato,
                     "workout": {
+                        "athlete_id": atleta_id,  # <- Questo risolve l'errore 422
                         "text": testo_strutturato
                     },
                     "moving_time": durata_totale_secondi,
