@@ -8,7 +8,8 @@ import io
 st.set_page_config(
     page_title="Il Mio Diario Alimentare Pro",
     page_icon="🍏",
-    layout="centered"
+    layout="centered",
+    initial_sidebar_state="expanded"  # <-- Forza l'apertura del menu!
 )
 
 # --- 1. GESTIONE DATABASE ALIMENTI (CON SALVATAGGIO FISSO) ---
