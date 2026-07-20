@@ -130,8 +130,6 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
         try:
             with st.spinner("Connessione ai server Garmin e programmazione..."):
                 import requests
-                # Importiamo garth direttamente dal modulo di sistema in cui è installato
-                import garth
                 
                 pct_ftp = round((riga_target['Watt'] / ftp_atleta) * 100, 1)
                 
@@ -140,22 +138,25 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
 🔄 CADENZA: {riga_target['RPM']} RPM
 📋 DETTAGLIO: {riga_target['Esercizio']}"""
                 
-                # 1. Login tramite il client principale
+                # 1. Login regolare tramite la libreria principale
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
-                # 2. Creiamo la sessione HTTP autonoma
+                # 2. Creiamo una sessione HTTP autonoma
                 session = requests.Session()
                 
-                # 3. Estraiamo i cookie e i token direttamente dall'istanza garth globale
-                session.cookies.update(garth.client.cookies)
+                # 3. Estraiamo la sessione garth direttamente dall'oggetto client appena autenticato
+                client_autenticato = garmin_client.garth
+                
+                # 4. Copiamo i cookie e gli headers di autenticazione senza fare import di moduli esterni
+                session.cookies.update(client_autenticato.client.cookies)
                 session.headers.update({
-                    "Authorization": str(garth.client.oauth1),
+                    "Authorization": str(client_autenticato.client.oauth1),
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                     "NK": "NT"
                 })
                 
-                # 4. Eseguiamo la POST all'endpoint del calendario note
+                # 5. Eseguiamo la POST direttamente all'endpoint del calendario note
                 url = "https://connect.garmin.com/calendar-service/note"
                 payload = {
                     "date": data_allenamento.isoformat(),
