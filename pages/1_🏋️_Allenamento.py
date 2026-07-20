@@ -136,30 +136,29 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 atleta_id = st.secrets["intervals"]["athlete_id"]
                 api_key = st.secrets["intervals"]["api_key"]
                 
+               # ... (lascia invariato il codice sopra fino al calcolo di pct_ftp)
+
                 pct_ftp = round((riga_target['Watt'] / ftp_atleta) * 100, 1)
                 
-                # Costruiamo la descrizione strutturata in formato Intervals (es. - 30m 85% FTP)
-                # Modifica i minuti in base alla durata reale del tuo blocco
-                testo_strutturato = f"""🎯 {riga_target['Esercizio']}
-- 30m {int(pct_ftp)}% FTP
+                # Costruiamo il testo strutturato con la sintassi rigida di Intervals.icu
+                # Questo creerà il grafico corretto e i blocchi sul Garmin
+                testo_strutturato = f"""- Riscaldamento 10m 55% FTP
+- 2x 6m {int(pct_ftp)}% FTP 5m 50% FTP
+- Defaticamento 10m 50% FTP
 """
                 
-              # ... (lascia invariato il codice sopra fino al payload)
-
-                # Payload aggiornato con la categoria richiesta da Intervals
+                # Payload per le API ufficiali
                 payload = {
                     "start_date_local": f"{data_allenamento.isoformat()}T08:00:00",
                     "type": "Ride",
-                    "category": "WORKOUT",  # <--- AGGIUNGI QUESTA RIGA CHIAVE
+                    "category": "WORKOUT",
                     "name": f"🏋️ {riga_target['Giorno']} - {riga_target['Mese']}",
-                    "description": f"Cadenza target: {riga_target['RPM']} RPM",
+                    "description": f"Target: {int(riga_target['Watt'])}W ({pct_ftp}% FTP) - Cadenza: {riga_target['RPM']} RPM\n📋 Esercizio: {riga_target['Esercizio']}",
                     "workout_text": testo_strutturato,
                     "indoor": False
                 }
                 
-# ... (lascia invariato il codice sotto con la requests.post)
-                
-                # Chiamata API ufficiale con autenticazione Basic (username='API_KEY', password=api_key)
+                # Chiamata API
                 url = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events"
                 response = requests.post(
                     url, 
@@ -168,8 +167,8 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 )
                 
                 if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Allenamento caricato su Intervals.icu.")
-                    st.info("Intervals invierà automaticamente e istantaneamente la sessione al tuo calendario Garmin Connect!")
+                    st.success("🎉 Successo! Allenamento strutturato caricato su Intervals.icu.")
+                    st.info("Controlla ora la pagina di Intervals: vedrai il grafico con i blocchi pronti!")
                 else:
                     st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
