@@ -73,22 +73,17 @@ with tab_profilo:
     altezza = col_dati2.number_input("Altezza (cm)", min_value=100, max_value=250, value=175)
     eta = col_dati3.number_input("Età (anni)", min_value=10, max_value=100, value=25)
     
-    la = st.selectbox(
-        "Livello di Attività Fisica (LAF)",
-        options=[
-            "Sedentario (Lavoro d'ufficio, poco movimento)",
-            "Leggermente Attivo (Attività leggera 1-3 volte/settimana)",
-            "Moderatamente Attivo (Allenamento moderato 3-5 volte/settimana)",
-            "Molto Attivo (Allenamento intenso 6-7 volte/settimana)",
-            "Estremamente Attivo (Lavoro pesante o atleta professionista)"
-        ],
-        index=2
-    )
+    # Mappatura esplicita e sicura per evitare errori di indice
+    laf_opzioni = {
+        "Sedentario (Lavoro d'ufficio, poco movimento)": 1.2,
+        "Leggermente Attivo (Attività leggera 1-3 volte/settimana)": 1.375,
+        "Moderatamente Attivo (Allenamento moderato 3-5 volte/settimana)": 1.55,
+        "Molto Attivo (Allenamento intenso 6-7 volte/settimana)": 1.725,
+        "Estremamente Attivo (Lavoro pesante o atleta professionista)": 1.9
+    }
     
-    laf_valori = [1.2, 1.375, 1.55, 1.725, 1.9]
-    laf_scelto = laf_valori[ [
-        "Sedentario", "Leggermente Attivo", "Moderatamente Attivo", "Molto Attivo", "Estremamente Attivo"
-    ].index(la.split(" ")[0]) ]
+    la = st.selectbox("Livello di Attività Fisica (LAF)", options=list(laf_opzioni.keys()), index=2)
+    laf_scelto = laf_opzioni[la]
 
     # Formula di Mifflin-St Jeor
     if sesso == "Uomo":
@@ -211,4 +206,4 @@ with tab_banca_dati:
     st.subheader("📋 Elenco Alimenti Correnti (Valori per 100g)")
     df_db = pd.DataFrame.from_dict(st.session_state.db_alimenti, orient='index').reset_index()
     df_db.columns = ["Alimento", "Calorie (kcal)", "Carboidrati (g)", "Proteine (g)", "Grassi (g)"]
-    st.dataframe(df_db.sorted_values(by="Alimento"), hide_index=True, use_container_width=True)
+    st.dataframe(df_db.sort_values(by="Alimento"), hide_index=True, use_container_width=True)
