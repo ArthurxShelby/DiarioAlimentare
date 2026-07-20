@@ -129,45 +129,67 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
     else:
         try:
             with st.spinner("Connessione ai server Garmin e programmazione..."):
+                # Calcolo delle percentuali corrette rispetto alla FTP
                 pct_ftp = round((riga_target['Watt'] / ftp_atleta) * 100, 1)
                 
-                # Calcoliamo i watt esatti per i passaggi
-                watt_target = int(riga_target['Watt'])
-                
-                # Creiamo un file XML in formato ZWO (standard per gli allenamenti) in memoria
-                nome_allenamento = f"Z4_{riga_target['Giorno']}_{riga_target['Mese']}"
-                zwo_content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<workout_file>
-    <author>Diario Alimentare</author>
-    <name>{nome_allenamento}</name>
-    <description>{riga_target['Esercizio']}</description>
-    <sportType>bike</sportType>
-    <tags></tags>
-    <workout>
-        <Warmup Duration="600" Power="0.50" />
-        <SteadyState Duration="1800" Power="{round(pct_ftp/100, 2)}" />
-        <Cooldown Duration="600" Power="0.50" />
-    </workout>
-</workout_file>
-"""
-                
-                # Salviamo temporaneamente il file per poterlo inviare
-                file_path = f"/tmp/{nome_allenamento}.zwo"
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(zwo_content)
+                # Definiamo la struttura del Workout in formato JSON nativo Garmin Connect
+                workout_json = {
+                    "workoutName": f"🏋️ Z4 {riga_target['Giorno']} {riga_target['Mese']}",
+                    "description": riga_target['Esercizio'],
+                    "sportType": {"sportTypeId": 2, "sportTypeKey": "cycling"},
+                    "workoutSteps": [
+                        # 1. Warm up (10 minuti)
+                        {
+                            "type": "ExecutableStepDTO",
+                            "stepOrder": 1,
+                            "stepType": {"stepTypeId": 1, "stepTypeKey": "warmup"},
+                            "childStepId": None,
+                            "endCondition": {"conditionTypeId": 2, "conditionTypeKey": "time"},
+                            "endConditionValue": 600,  # 10 minuti in secondi
+                            "targetType": {"targetTypeId": 2, "targetTypeKey": "power.zone"},
+                            "targetValueOne": 1,  # Z1 indicativa
+                            "targetValueTwo": 2
+                        },
+                        # 2. Blocco Centrale Attivo (30 minuti al wattaggio target)
+                        {
+                            "type": "ExecutableStepDTO",
+                            "stepOrder": 2,
+                            "stepType": {"stepTypeId": 3, "stepTypeKey": "interval"},
+                            "childStepId": None,
+                            "endCondition": {"conditionTypeId": 2, "conditionTypeKey": "time"},
+                            "endConditionValue": 1800,  # 30 minuti in secondi
+                            "targetType": {"targetTypeId": 3, "targetTypeKey": "power.value"},
+                            "targetValueOne": int(riga_target['Watt'] * 0.98), # Margine inferiore
+                            "targetValueTwo": int(riga_target['Watt'] * 1.02)  # Margine superiore
+                        },
+                        # 3. Cool down (10 minuti)
+                        {
+                            "type": "ExecutableStepDTO",
+                            "stepOrder": 3,
+                            "stepType": {"stepTypeId": 2, "stepTypeKey": "cooldown"},
+                            "childStepId": None,
+                            "endCondition": {"conditionTypeId": 2, "conditionTypeKey": "time"},
+                            "endConditionValue": 600,
+                            "targetType": {"targetTypeId": 2, "targetTypeKey": "power.zone"},
+                            "targetValueOne": 1,
+                            "targetValueTwo": 1
+                        }
+                    ]
+                }
                 
                 # Inizializza il client Garmin ed effettua il login
+                import json
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
-                # Carica il file di allenamento direttamente nel cloud Garmin
-                st.text("Caricamento file allenamento...")
-                workout_res = garmin_client.upload_workout(file_path)
+                st.text("Invio del pacchetto JSON strutturato...")
                 
-                # Essendo caricato come workout ufficiale, lo troverai nella sezione "Allenamenti" 
-                # dell'app Garmin Connect o direttamente sul tuo Edge 540 pronto da avviare!
-                st.success(f"🎉 Successo! L'allenamento strutturato '{nome_allenamento}' è stato caricato sul tuo profilo Garmin Connect.")
-                st.info("Apri l'app Garmin Connect sul telefono o accendi l'Edge 540, vai su Allenamenti ed effettua la sincronizzazione per vederlo!")
+                # Passiamo la struttura convertita in stringa JSON direttamente alla libreria
+                workout_str = json.dumps(workout_json)
+                garmin_client.upload_workout(workout_str)
+                
+                st.success(f"🎉 Successo! L'allenamento strutturato è stato salvato nei tuoi Workout di Garmin Connect.")
+                st.info("Accendi il tuo Edge 540 o apri l'app sul telefono: lo troverai subito sincronizzato nella libreria allenamenti!")
                 
         except Exception as e:
             st.error(f"Errore durante la sincronizzazione: {e}")
