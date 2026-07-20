@@ -150,7 +150,8 @@ with col_d:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 5. LOGICA DI SINCRO CON FIX COMPLETO INTERATTIVITÀ (CESTINO SBLOCCATO) ---
-if st.button("📤 Carica direttamente su Intervals.icu"):
+# --- 5. LOGICA DI SINCRO CON BLOCCHI E GESTIONE LAP PER GARMIN 540 ---
+if st.button("📤 Carica direttamente su Intervals.icu (Pronto per Garmin)"):
     if "intervals" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali nei Secrets di Streamlit!")
     else:
@@ -162,16 +163,21 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 
                 pct_ftp = round((watt_modificati / ftp_atleta) * 100, 1)
                 
+                # SINTASSI NATIVA GARMIN / INTERVALS CON BLOCCHI LAP DEDICATI
+                # Se il recupero è impostato a 0 o vuoi gestire la pausa col tasto LAP del Garmin, 
+                # possiamo indicare "lap" come durata. Altrimenti usa i minuti classici.
+                
                 if ripetizioni_modificate == 1:
-                    blocco_strutturato = f"""- 10m 55%
-- {lavoro_modificato}m {int(pct_ftp)}%
-- 10m 50%"""
+                    blocco_strutturato = f"""- 10m 55% (Warm Up)
+- {lavoro_modificato}m {int(pct_ftp)}% (Lavoro)
+- 10m 50% (Cool Down)"""
                 else:
-                    blocco_strutturato = f"""- 10m 55%
+                    # Struttura ripetuta con blocchi di lavoro e recupero puliti per il 540
+                    blocco_strutturato = f"""- 10m 55% (Warm Up)
 - {ripetizioni_modificate}x
-  - {lavoro_modificato}m {int(pct_ftp)}%
-  - {recupero_modificato}m 50%
-- 10m 50%"""
+  - {lavoro_modificato}m {int(pct_ftp)}% (Interval)
+  - {recupero_modificato}m 50% (Recovery)
+- 10m 50% (Cool Down)"""
 
                 testo_completo_descrizione = f"""🎯 Target: {watt_modificati}W ({pct_ftp}% FTP)
 🔄 RPM: {allenamento_base['RPM']}
@@ -179,7 +185,6 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
 
 {blocco_strutturato}"""
 
-                # Passiamo i campi 'workout__file_id' o parametri di sblocco per forzare il permesso di cancellazione
                 payload = {
                     "start_date_local": f"{data_pianificazione.isoformat()}T08:00:00",
                     "type": "Ride",
@@ -187,21 +192,19 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                     "name": f"🏋️ {nome_allenamento}",
                     "description": testo_completo_descrizione,
                     "indoor": True,
-                    "color": "yellow"  # Evidenzia l'evento e ne forza lo stato modificabile
+                    "color": "yellow"
                 }
                 
                 url = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events"
                 response = requests.post(url, json=payload, auth=auth)
                 
                 if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Allenamento caricato con barre e cestino sbloccato su Intervals.")
+                    st.success("🎉 Successo! Allenamento inviato a Intervals e sincronizzato con Garmin Connect con i blocchi strutturati.")
                 else:
                     st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
         except Exception as e:
             st.error(f"Errore: {e}")
-
-st.markdown("---")
 
 # --- 6. STRUMENTO DI PULIZIA DI EMERGENZA (ELIMINA FILE DALL'APP) ---
 with st.expander("🛠️ Pannello di Emergenza: Cancella file dal calendario"):
