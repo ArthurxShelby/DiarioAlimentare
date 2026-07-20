@@ -129,50 +129,53 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
     else:
         try:
             with st.spinner("Connessione ai server Garmin e programmazione..."):
-                # Calcolo delle percentuali corrette rispetto alla FTP
-                pct_ftp = round((riga_target['Watt'] / ftp_atleta) * 100, 1)
-                
-                # Definiamo la struttura del Workout in formato JSON nativo Garmin Connect
+                # Definiamo la struttura del Workout nativa Garmin Connect con i Segments richiesti
                 workout_json = {
                     "workoutName": f"🏋️ Z4 {riga_target['Giorno']} {riga_target['Mese']}",
                     "description": riga_target['Esercizio'],
                     "sportType": {"sportTypeId": 2, "sportTypeKey": "cycling"},
-                    "workoutSteps": [
-                        # 1. Warm up (10 minuti)
+                    "workoutSegments": [
                         {
-                            "type": "ExecutableStepDTO",
-                            "stepOrder": 1,
-                            "stepType": {"stepTypeId": 1, "stepTypeKey": "warmup"},
-                            "childStepId": None,
-                            "endCondition": {"conditionTypeId": 2, "conditionTypeKey": "time"},
-                            "endConditionValue": 600,  # 10 minuti in secondi
-                            "targetType": {"targetTypeId": 2, "targetTypeKey": "power.zone"},
-                            "targetValueOne": 1,  # Z1 indicativa
-                            "targetValueTwo": 2
-                        },
-                        # 2. Blocco Centrale Attivo (30 minuti al wattaggio target)
-                        {
-                            "type": "ExecutableStepDTO",
-                            "stepOrder": 2,
-                            "stepType": {"stepTypeId": 3, "stepTypeKey": "interval"},
-                            "childStepId": None,
-                            "endCondition": {"conditionTypeId": 2, "conditionTypeKey": "time"},
-                            "endConditionValue": 1800,  # 30 minuti in secondi
-                            "targetType": {"targetTypeId": 3, "targetTypeKey": "power.value"},
-                            "targetValueOne": int(riga_target['Watt'] * 0.98), # Margine inferiore
-                            "targetValueTwo": int(riga_target['Watt'] * 1.02)  # Margine superiore
-                        },
-                        # 3. Cool down (10 minuti)
-                        {
-                            "type": "ExecutableStepDTO",
-                            "stepOrder": 3,
-                            "stepType": {"stepTypeId": 2, "stepTypeKey": "cooldown"},
-                            "childStepId": None,
-                            "endCondition": {"conditionTypeId": 2, "conditionTypeKey": "time"},
-                            "endConditionValue": 600,
-                            "targetType": {"targetTypeId": 2, "targetTypeKey": "power.zone"},
-                            "targetValueOne": 1,
-                            "targetValueTwo": 1
+                            "segmentOrder": 1,
+                            "sportType": {"sportTypeId": 2, "sportTypeKey": "cycling"},
+                            "workoutSteps": [
+                                # 1. Warm up (10 minuti)
+                                {
+                                    "type": "ExecutableStepDTO",
+                                    "stepOrder": 1,
+                                    "stepType": {"stepTypeId": 1, "stepTypeKey": "warmup"},
+                                    "childStepId": None,
+                                    "endCondition": {"conditionTypeId": 2, "conditionTypeKey": "time"},
+                                    "endConditionValue": 600,  # 10 min in secondi
+                                    "targetType": {"targetTypeId": 2, "targetTypeKey": "power.zone"},
+                                    "targetValueOne": 1,
+                                    "targetValueTwo": 2
+                                },
+                                # 2. Blocco Centrale Attivo (30 minuti al wattaggio target)
+                                {
+                                    "type": "ExecutableStepDTO",
+                                    "stepOrder": 2,
+                                    "stepType": {"stepTypeId": 3, "stepTypeKey": "interval"},
+                                    "childStepId": None,
+                                    "endCondition": {"conditionTypeId": 2, "conditionTypeKey": "time"},
+                                    "endConditionValue": 1800,  # 30 min in secondi
+                                    "targetType": {"targetTypeId": 3, "targetTypeKey": "power.value"},
+                                    "targetValueOne": int(riga_target['Watt'] * 0.98),
+                                    "targetValueTwo": int(riga_target['Watt'] * 1.02)
+                                },
+                                # 3. Cool down (10 minuti)
+                                {
+                                    "type": "ExecutableStepDTO",
+                                    "stepOrder": 3,
+                                    "stepType": {"stepTypeId": 2, "stepTypeKey": "cooldown"},
+                                    "childStepId": None,
+                                    "endCondition": {"conditionTypeId": 2, "conditionTypeKey": "time"},
+                                    "endConditionValue": 600,
+                                    "targetType": {"targetTypeId": 2, "targetTypeKey": "power.zone"},
+                                    "targetValueOne": 1,
+                                    "targetValueTwo": 1
+                                }
+                            ]
                         }
                     ]
                 }
@@ -182,9 +185,9 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
-                st.text("Invio del pacchetto JSON strutturato...")
+                st.text("Invio del pacchetto JSON strutturato con segmenti...")
                 
-                # Passiamo la struttura convertita in stringa JSON direttamente alla libreria
+                # Conversione in stringa ed invio
                 workout_str = json.dumps(workout_json)
                 garmin_client.upload_workout(workout_str)
                 
