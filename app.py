@@ -1,7 +1,14 @@
 import streamlit as st
-import streamlit as st
+import pandas as pd
 
-# 1. INIZIALIZZAZIONE DELLA BANCA DATI (Aggiungi questo blocco all'inizio)
+# Configurazione della pagina ottimizzata per Mobile (iPhone) e Desktop (MacBook)
+st.set_page_config(
+    page_title="Il Mio Diario Alimentare",
+    page_icon="🍏",
+    layout="centered"
+)
+
+# --- BANCA DATI ALIMENTI REALI (Valori indicativi per 100g) ---
 if 'db_alimenti' not in st.session_state:
     st.session_state.db_alimenti = {
         "Anguria": {"calorie": 30, "carboidrati": 8.0, "proteine": 0.6, "grassi": 0.2},
@@ -35,6 +42,94 @@ if 'db_alimenti' not in st.session_state:
         "Salmone": {"calorie": 208, "carboidrati": 0.0, "proteine": 20.0, "grassi": 13.0},
         "Sciroppo d'acero": {"calorie": 260, "carboidrati": 67.0, "proteine": 0.0, "grassi": 0.1},
         "Semi di chia": {"calorie": 486, "carboidrati": 42.0, "proteine": 17.0, "grassi": 31.0},
+        "Semi di zucca": {"calorie": 559, "carboidrati": 10.0, "proteine": 30.0, "grassi": 49.0},
+        "Tacchino": {"calorie": 135, "carboidrati": 0.0, "proteine": 30.0, "grassi": 1.0},
+        "Tonno": {"calorie": 130, "carboidrati": 0.0, "proteine": 28.0, "grassi": 1.0},
+        "Uova": {"calorie": 155, "carboidrati": 1.1, "proteine": 13.0, "grassi": 11.0},
+        "Waxy maize Yamamoto": {"calorie": 360, "carboidrati": 90.0, "proteine": 0.0, "grassi": 0.0},
+        "Yogurt greco": {"calorie": 59, "carboidrati": 4.0, "proteine": 10.3, "grassi": 0.0}
+    }
+
+# --- INIZIALIZZAZIONE DIARIO ---
+if 'diario' not in st.session_state:
+    st.session_state.diario = []
+
+# Categorie di pasti richieste
+pasti_categorie = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
+
+st.title("🍏 Diario Alimentare")
+
+# --- SEZIONE 1: INSERIMENTO ALIMENTI ---
+st.subheader("➕ Inserisci Alimento nel Diario")
+
+pasto_sel = st.selectbox("Seleziona Pasto", pasti_categorie)
+
+# Gestione sicura del menu a tendina degli alimenti (previene KeyError)
+alimenti_disponibili = sorted(list(st.session_state.db_alimenti.keys()))
+alimento_sel = st.selectbox("Seleziona Alimento", options=alimenti_disponibili)
+
+grammi = st.number_input("Grammi (g)", min_value=1, value=100, step=10)
+
+if st.button("Aggiungi al Diario", use_container_width=True):
+    # Recupera i macro per 100g
+    info = st.session_state.db_alimenti[alimento_sel]
+    # Calcola i macro effettivi in base ai grammi inseriti
+    moltiplicatore = grammi / 100.0
+    
+    nuovo_inserimento = {
+        "Pasto": pasto_sel,
+        "Alimento": alimento_sel,
+        "Grammi": grammi,
+        "Calorie": round(info["calorie"] * moltiplicatore, 1),
+        "Carboidrati": round(info["carboidrati"] * moltiplicatore, 1),
+        "Proteine": round(info["proteine"] * moltiplicatore, 1),
+        "Grassi": round(info["grassi"] * moltiplicatore, 1)
+    }
+    
+    st.session_state.diario.append(nuovo_inserimento)
+    st.success(f"Aggiunto {grammi}g di {alimento_sel} a {pasto_sel}!")
+
+st.divider()
+
+# --- SEZIONE 2: DIARIO DEL GIORNO E CALCOLI ---
+st.subheader("📅 I tuoi Pasti di Oggi")
+
+if st.session_state.diario:
+    df_diario = pd.DataFrame(st.session_state.diario)
+    
+    # Calcolo dei Totali Giornalieri
+    tot_cal = round(df_diario["Calorie"].sum(), 1)
+    tot_carbi = round(df_diario["Carboidrati"].sum(), 1)
+    tot_prot = round(df_diario["Proteine"].sum(), 1)
+    tot_fat = round(df_diario["Grassi"].sum(), 1)
+    
+    # Box riassuntivo dei macro totali
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Calorie Totali", f"{tot_cal} kcal")
+    col2.metric("Carboidrati", f"{tot_carbi} g")
+    col3.metric("Proteine", f"{tot_prot} g")
+    col4.metric("Grassi", f"{tot_fat} g")
+    
+    st.divider()
+    
+    # Mostra i dettagli divisi per pasto
+    for pasto in pasti_categorie:
+        df_pasto = df_diario[df_diario["Pasto"] == pasto]
+        if not df_pasto.empty:
+            st.markdown(f"#### 🍴 {pasto}")
+            # Riorganizziamo le colonne per una lettura pulita
+            st.dataframe(
+                df_pasto[["Alimento", "Grammi", "Calorie", "Carboidrati", "Proteine", "Grassi"]],
+                hide_index=True,
+                use_container_width=True
+            )
+            
+    # Pulsante per svuotare il diario
+    if st.button("🗑️ Svuota Diario", use_container_width=True):
+        st.session_state.diario = []
+        st.rerun()
+else:
+    st.info("Il diario è vuoto. Inizia ad aggiungere gli alimenti dal menu sopra!")        "Semi di chia": {"calorie": 486, "carboidrati": 42.0, "proteine": 17.0, "grassi": 31.0},
         "Semi di zucca": {"calorie": 559, "carboidrati": 10.0, "proteine": 30.0, "grassi": 49.0},
         "Tacchino": {"calorie": 135, "carboidrati": 0.0, "proteine": 30.0, "grassi": 1.0},
         "Tonno": {"calorie": 130, "carboidrati": 0.0, "proteine": 28.0, "grassi": 1.0},
