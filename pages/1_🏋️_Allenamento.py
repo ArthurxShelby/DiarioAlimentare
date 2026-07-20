@@ -86,12 +86,10 @@ mese_selezionato = st.selectbox(
     ["Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre", "Gennaio"]
 )
 
-# Filtra il dataframe in base al mese scelto
 df_filtrato = st.session_state.df_programma[st.session_state.df_programma["Mese"] == mese_selezionato]
 
 st.info("💡 Fai doppio clic su qualsiasi cella per modificarne il testo, i watt o le RPM. Premi il tasto 'Salva' in basso per confermare.")
 
-# --- DATA EDITOR INTERATTIVO ---
 df_editato = st.data_editor(
     df_filtrato, 
     hide_index=True, 
@@ -107,12 +105,65 @@ df_editato = st.data_editor(
     }
 )
 
-# Pulsante per salvare lo stato globale se si modificano i dati
 if st.button("💾 Salva modifiche nel piano globale"):
-    # Resettiamo l'indice temporaneamente per aggiornare correttamente le righe filtrate
     st.session_state.df_programma.loc[st.session_state.df_programma["Mese"] == mese_selezionato, :] = df_editato.values
     st.success(f"Piano di {mese_selezionato} aggiornato con successo nel database!")
 
+st.markdown("---")
+
+# --- NUOVA SEZIONE: ESPORTAZIONE PER INTERVALS.ICU ---
+st.subheader("📲 Esporta Allenamento per il tuo Garmin Edge 540")
+st.markdown("Seleziona una riga specifica del mese corrente per generare il file strutturato da caricare su **Intervals.icu**:")
+
+# Creiamo una lista leggibile delle sessioni disponibili nel mese per il menu a tendina
+sessioni_disponibili = df_filtrato.apply(lambda row: f"{row['Settimana']} - {row['Giorno']}: {row['Esercizio'][:40]}...", axis=1).tolist()
+sessione_scelta = st.selectbox("Scegli la sessione da esportare:", sessioni_disponibili)
+
+# Troviamo la riga corrispondente
+index_scelta = sessioni_disponibili.index(sessione_scelta)
+riga_target = df_filtrato.iloc[index_scelta]
+
+# Funzione per generare il file .mrc dinamico basato sui watt dell'atleta
+def genera_file_mrc(riga, ftp):
+    titolo = f"{riga['Mese']}_{riga['Giorno']}_{riga['Settimana']}".replace(" ", "_")
+    pct_ftp = round((riga['Watt'] / ftp) * 100, 1)
+    
+    # Costruiamo il blocco di testo standard per un file .mrc
+    mrc_content = f"""[COURSE HEADER]
+VERSION = 2
+UNITS = ENGLISH
+DESCRIPTION = {riga['Esercizio']}
+FILE NAME = {titolo}.mrc
+MINUTES PERCENT
+[ITEM FIELDS]
+MINUTES PERCENT
+[COURSE DATA]
+0.00\t50.0
+10.00\t50.0
+10.00\t{pct_ftp}
+40.00\t{pct_ftp}
+40.00\t50.0
+50.00\t50.0
+"""
+    return mrc_content, titolo
+
+contenuto_mrc, nome_file = genera_file_mrc(riga_target, ftp_atleta)
+
+# Pulsante Streamlit nativo per scaricare il file direttamente su MacBook o iPhone
+st.download_button(
+    label="📥 Scarica file .mrc per Intervals.icu",
+    data=contenuto_mrc,
+    file_name=f"{nome_file}.mrc",
+    mime="text/plain"
+)
+
+st.markdown("""
+**Come passarlo al Garmin in 10 secondi:**
+1. Clicca sul pulsante sopra e scarica il file.
+2. Vai sul tuo calendario di **Intervals.icu**.
+3. Clicca sul giorno desiderato, seleziona **Import** (o trascina il file direttamente nella finestra) e carica il file appena scaricato.
+4. Intervals.icu sincronizzerà istantaneamente la sessione con il tuo profilo Garmin Connect, pronta per apparire sul tuo **Edge 540**.
+""")
 st.markdown("---")
 
 # --- SEZIONE COMPLEMENTARE: REGISTRO DIARIO ---
