@@ -121,56 +121,35 @@ data_allenamento = st.date_input("Per quale giorno vuoi pianificarlo?", datetime
 
 # ... (lascia invariato tutto il codice sopra fino al pulsante)
 
-# ... (lascia invariato tutto il codice sopra fino al pulsante)
-
-if st.button("📤 Carica direttamente su Intervals.icu"):
-    if "intervals" not in st.secrets:
-        st.error("⚠️ Configura prima le credenziali Intervals nei Secrets di Streamlit Cloud!")
-    else:
-        try:
-            with st.spinner("Invio dell'allenamento a Intervals.icu..."):
-                import requests
-                from requests.auth import HTTPBasicAuth
+if st.button("🗑️ Pulisci Allenamenti Vuoti da Intervals"):
+    try:
+        with st.spinner("Pulizia del calendario in corso..."):
+            import requests
+            from requests.auth import HTTPBasicAuth
+            
+            atleta_id = st.secrets["intervals"]["athlete_id"]
+            api_key = st.secrets["intervals"]["api_key"]
+            auth = HTTPBasicAuth("API_KEY", api_key)
+            
+            # 1. Recuperiamo tutti gli eventi di luglio 2026
+            url_get = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events?oldest=2026-07-01&newest=2026-07-31"
+            res = requests.get(url_get, auth=auth)
+            
+            if res.status_code == 200:
+                eventi = res.json()
+                cancellati = 0
                 
-                # Prepariamo i dati
-                atleta_id = st.secrets["intervals"]["athlete_id"]
-                api_key = st.secrets["intervals"]["api_key"]
+                for ev in eventi:
+                    # Troviamo gli eventi del 23 luglio che contengono la parola "🏋️" o che hanno il grafico vuoto
+                    if "2026-07-23" in ev.get("start_date_local", ""):
+                        ev_id = ev.get("id")
+                        url_del = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events/{ev_id}"
+                        del_res = requests.delete(url_del, auth=auth)
+                        if del_res.status_code in [200, 204]:
+                            cancellati += 1
                 
-               # ... (lascia invariato il codice sopra fino al calcolo di pct_ftp)
-
-                pct_ftp = round((riga_target['Watt'] / ftp_atleta) * 100, 1)
-                
-                # Costruiamo il testo strutturato con la sintassi rigida di Intervals.icu
-                # Questo creerà il grafico corretto e i blocchi sul Garmin
-                testo_strutturato = f"""- Riscaldamento 10m 55% FTP
-- 2x 6m {int(pct_ftp)}% FTP 5m 50% FTP
-- Defaticamento 10m 50% FTP
-"""
-                
-                # Payload per le API ufficiali
-                payload = {
-                    "start_date_local": f"{data_allenamento.isoformat()}T08:00:00",
-                    "type": "Ride",
-                    "category": "WORKOUT",
-                    "name": f"🏋️ {riga_target['Giorno']} - {riga_target['Mese']}",
-                    "description": f"Target: {int(riga_target['Watt'])}W ({pct_ftp}% FTP) - Cadenza: {riga_target['RPM']} RPM\n📋 Esercizio: {riga_target['Esercizio']}",
-                    "workout_text": testo_strutturato,
-                    "indoor": False
-                }
-                
-                # Chiamata API
-                url = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events"
-                response = requests.post(
-                    url, 
-                    json=payload, 
-                    auth=HTTPBasicAuth("API_KEY", api_key)
-                )
-                
-                if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Allenamento strutturato caricato su Intervals.icu.")
-                    st.info("Controlla ora la pagina di Intervals: vedrai il grafico con i blocchi pronti!")
-                else:
-                    st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
-                    
-        except Exception as e:
-            st.error(f"Errore durante la sincronizzazione: {e}")
+                st.success(f"🗑️ Pulizia completata! Rimossi {cancellati} allenamenti duplicati/vuoti dal 23 Luglio.")
+            else:
+                st.error(f"Impossibile leggere gli eventi: {res.text}")
+    except Exception as e:
+        st.error(f"Errore durante la rimozione: {e}")
