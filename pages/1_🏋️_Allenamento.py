@@ -141,7 +141,7 @@ if st.button("🗑️ Pulisci Allenamenti Vuoti da Intervals"):
                 
                 for ev in eventi:
                     # Troviamo gli eventi del 23 luglio che contengono la parola "🏋️" o che hanno il grafico vuoto
-                    if "2026-07-23" in ev.get("start_date_local", ""):
+                    if "2026-07-20" in ev.get("start_date_local", ""):
                         ev_id = ev.get("id")
                         url_del = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events/{ev_id}"
                         del_res = requests.delete(url_del, auth=auth)
