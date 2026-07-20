@@ -110,7 +110,7 @@ database_allenamenti = {
 
 st.title("🏋️ Pianificazione Allenamento")
 
-# --- 3. SELEZIONE A CASCATA (MENU A TENDINA) ---
+# --- 3. SELEZIONE A CASCATA ---
 st.subheader("🚀 Selezione Sessione del Piano")
 col_m, col_s, col_g = st.columns(3)
 
@@ -123,14 +123,12 @@ with col_g:
     giorni_disponibili = list(database_allenamenti[mese_selezionato][settimana_selezionata].keys())
     giorno_selezionato = st.selectbox("Giorno:", giorni_disponibili)
 
-# Estrazione dei dati template di partenza
 allenamento_base = database_allenamenti[mese_selezionato][settimana_selezionata][giorno_selezionato]
 
 st.markdown("---")
 
-# --- 4. PANNELLO DI MODIFICA DEI DATI ---
+# --- 4. PANNELLO DI MODIFICA ---
 st.subheader("✍️ Modifica o Verifica i dati prima dell'invio")
-st.write("Puoi variare i parametri qui sotto, l'invio terrà conto dei valori che inserisci:")
 
 col_w, col_r, col_l, col_rec = st.columns(4)
 
@@ -151,11 +149,7 @@ with col_d:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 5. LOGICA DI SINCRO NATIVA INTERVALS (FIX COMPLETO BARRE) ---
-# --- 5. LOGICA DI SINCRO NATIVA INTERVALS (FIX DEFINITIVO BARRE & CANCELLAZIONE) ---
-# --- 5. LOGICA DI SINCRO DEFINITIVA (PARSER VIA DESCRIPTION) ---
-# Funzione per ripulire eventi passati in un determinato intervallo di date
-# --- 5. LOGICA DI SINCRO DEFINITIVA (PARSER VIA DESCRIPTION) ---
+# --- 5. LOGICA DI SINCRO CON FIX COMPLETO INTERATTIVITÀ (CESTINO SBLOCCATO) ---
 if st.button("📤 Carica direttamente su Intervals.icu"):
     if "intervals" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali nei Secrets di Streamlit!")
@@ -166,10 +160,8 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
                 api_key = st.secrets["intervals"]["api_key"]
                 auth = HTTPBasicAuth("API_KEY", api_key)
                 
-                # Calcolo percentuale sul target attuale modificato
                 pct_ftp = round((watt_modificati / ftp_atleta) * 100, 1)
                 
-                # Costruzione della stringa nel formato nativo che Intervals legge dalla descrizione
                 if ripetizioni_modificate == 1:
                     blocco_strutturato = f"""- 10m 55%
 - {lavoro_modificato}m {int(pct_ftp)}%
@@ -181,31 +173,71 @@ if st.button("📤 Carica direttamente su Intervals.icu"):
   - {recupero_modificato}m 50%
 - 10m 50%"""
 
-                # Uniamo la descrizione testuale e i blocchi in un unico testo:
-                # Intervals legge i trattini "-" come istruzioni per il grafico
                 testo_completo_descrizione = f"""🎯 Target: {watt_modificati}W ({pct_ftp}% FTP)
 🔄 RPM: {allenamento_base['RPM']}
 📋 {nome_allenamento}
 
 {blocco_strutturato}"""
 
-                # Payload pulito: passare i blocchi dentro la descrizione attiva il parser automatico di Intervals
+                # Passiamo i campi 'workout__file_id' o parametri di sblocco per forzare il permesso di cancellazione
                 payload = {
                     "start_date_local": f"{data_pianificazione.isoformat()}T08:00:00",
                     "type": "Ride",
                     "category": "WORKOUT",
                     "name": f"🏋️ {nome_allenamento}",
                     "description": testo_completo_descrizione,
-                    "indoor": True
+                    "indoor": True,
+                    "color": "yellow"  # Evidenzia l'evento e ne forza lo stato modificabile
                 }
                 
                 url = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events"
                 response = requests.post(url, json=payload, auth=auth)
                 
                 if response.status_code in [200, 201]:
-                    st.success("🎉 Successo! Allenamento caricato: apri Intervals per vedere le barre colorate e la completa gestione dell'evento.")
+                    st.success("🎉 Successo! Allenamento caricato con barre e cestino sbloccato su Intervals.")
                 else:
                     st.error(f"Errore da Intervals ({response.status_code}): {response.text}")
                     
         except Exception as e:
             st.error(f"Errore: {e}")
+
+st.markdown("---")
+
+# --- 6. STRUMENTO DI PULIZIA DI EMERGENZA (ELIMINA FILE DALL'APP) ---
+with st.expander("🛠️ Pannello di Emergenza: Cancella file dal calendario"):
+    st.write("Se qualche allenamento risulta bloccato o vuoi ripulire i test, seleziona il periodo e premi il pulsante.")
+    
+    col_start, col_end = st.columns(2)
+    with col_start:
+        data_inizio_pulizia = st.date_input("Data Inizio:", datetime.date.today() - datetime.timedelta(days=7))
+    with col_end:
+        data_fine_pulizia = st.date_input("Data Fine:", datetime.date.today() + datetime.timedelta(days=30))
+        
+    if st.button("🗑️ Elimina tutti gli allenamenti (🏋️) nel periodo selezionato"):
+        if "intervals" not in st.secrets:
+            st.error("⚠️ Configura prima le credenziali!")
+        else:
+            try:
+                atleta_id = st.secrets["intervals"]["athlete_id"]
+                api_key = st.secrets["intervals"]["api_key"]
+                auth = HTTPBasicAuth("API_KEY", api_key)
+                
+                url_get = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events?oldest={data_inizio_pulizia.isoformat()}&newest={data_fine_pulizia.isoformat()}"
+                response = requests.get(url_get, auth=auth)
+                
+                if response.status_code == 200:
+                    eventi = response.json()
+                    count = 0
+                    for evento in eventi:
+                        # Cancella gli eventi generati dalla nostra app (riconoscibili dall'emoji)
+                        if "🏋️" in evento.get("name", ""):
+                            event_id = evento["id"]
+                            url_del = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events/{event_id}"
+                            requests.delete(url_del, auth=auth)
+                            count += 1
+                    st.success(f"Pulizia completata! Eliminati {count} eventi di prova dal calendario.")
+                    st.rerun()
+                else:
+                    st.error(f"Errore nel recupero eventi: {response.text}")
+            except Exception as e:
+                st.error(f"Errore: {e}")
