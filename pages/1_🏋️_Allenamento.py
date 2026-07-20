@@ -109,7 +109,8 @@ df_editato = st.data_editor(
 
 # Pulsante per salvare lo stato globale se si modificano i dati
 if st.button("💾 Salva modifiche nel piano globale"):
-    st.session_state.df_programma.update(df_editato)
+    # Resettiamo l'indice temporaneamente per aggiornare correttamente le righe filtrate
+    st.session_state.df_programma.loc[st.session_state.df_programma["Mese"] == mese_selezionato, :] = df_editato.values
     st.success(f"Piano di {mese_selezionato} aggiornato con successo nel database!")
 
 st.markdown("---")
