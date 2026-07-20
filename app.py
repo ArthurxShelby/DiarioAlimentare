@@ -15,22 +15,47 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 2. Inizializzazione della Banca Dati Alimenti nello Stato della Sessione
-if 'db_alimenti' not in st.session_state:
-    st.session_state.db_alimenti = pd.DataFrame([
-        {"Alimento": "Albume d'uovo", "Carboidrati": 0.7, "Proteine": 11.0, "Grassi": 0.2, "Calorie": 52},
-        {"Alimento": "Petto di Pollo", "Carboidrati": 0.0, "Proteine": 23.0, "Grassi": 1.2, "Calorie": 114},
-        {"Alimento": "Avocado", "Carboidrati": 8.5, "Proteine": 2.0, "Grassi": 15.0, "Calorie": 160},
-        {"Alimento": "Banana", "Carboidrati": 22.8, "Proteine": 1.1, "Grassi": 0.3, "Calorie": 89},
-        {"Alimento": "Bresaola", "Carboidrati": 0.0, "Proteine": 32.0, "Grassi": 2.0, "Calorie": 151},
-        {"Alimento": "Broccoli", "Carboidrati": 7.0, "Proteine": 2.8, "Grassi": 0.4, "Calorie": 34},
-        {"Alimento": "Fiocchi d'avena", "Carboidrati": 66.0, "Proteine": 16.9, "Grassi": 6.9, "Calorie": 389},
-        {"Alimento": "Olio extravergine", "Carboidrati": 0.0, "Proteine": 0.0, "Grassi": 100.0, "Calorie": 884},
-        {"Alimento": "Riso Basmati", "Carboidrati": 77.0, "Proteine": 8.0, "Grassi": 1.0, "Calorie": 350},
-        {"Alimento": "Salmone fresco", "Carboidrati": 0.0, "Proteine": 20.0, "Grassi": 13.0, "Calorie": 208},
-        {"Alimento": "Skyr Bianco", "Carboidrati": 4.0, "Proteine": 11.0, "Grassi": 0.2, "Calorie": 62},
-        {"Alimento": "Yogurt greco 0%", "Carboidrati": 4.0, "Proteine": 10.3, "Grassi": 0.0, "Calorie": 57}
-    ]).sort_values(by="Alimento").reset_index(drop=True)
-
+# Sostituisci la tua lista di alimenti predefinita con questa:
+if 'banca_dati' not in st.session_state:
+    st.session_state['banca_dati'] = {
+        "Anguria": {"calorie": 30, "carboidrati": 8.0, "proteine": 0.6, "grassi": 0.2},
+        "Arista": {"calorie": 130, "carboidrati": 0.0, "proteine": 22.0, "grassi": 4.5},
+        "Avena": {"calorie": 389, "carboidrati": 66.0, "proteine": 16.9, "grassi": 6.9},
+        "Banana": {"calorie": 89, "carboidrati": 23.0, "proteine": 1.1, "grassi": 0.3},
+        "Carne": {"calorie": 150, "carboidrati": 0.0, "proteine": 20.0, "grassi": 7.0},
+        "Caseine": {"calorie": 360, "carboidrati": 1.0, "proteine": 85.0, "grassi": 1.5},
+        "Ciliege": {"calorie": 50, "carboidrati": 12.0, "proteine": 1.0, "grassi": 0.3},
+        "Crakers Tre Mulini": {"calorie": 440, "carboidrati": 70.0, "proteine": 10.0, "grassi": 12.0},
+        "Cuscus": {"calorie": 360, "carboidrati": 73.0, "proteine": 12.0, "grassi": 1.0},
+        "Digestive": {"calorie": 480, "carboidrati": 63.0, "proteine": 7.0, "grassi": 21.0},
+        "Fiocchi di latte": {"calorie": 98, "carboidrati": 3.4, "proteine": 11.0, "grassi": 4.3},
+        "Gallette di mais bio": {"calorie": 380, "carboidrati": 80.0, "proteine": 7.0, "grassi": 1.5},
+        "Gallette di riso bio": {"calorie": 390, "carboidrati": 83.0, "proteine": 8.0, "grassi": 1.0},
+        "Gelatina": {"calorie": 60, "carboidrati": 14.0, "proteine": 1.2, "grassi": 0.0},
+        "Hamburgher bovino": {"calorie": 250, "carboidrati": 0.0, "proteine": 18.0, "grassi": 20.0},
+        "Hamburgher vitello": {"calorie": 150, "carboidrati": 0.0, "proteine": 20.0, "grassi": 8.0},
+        "Latte": {"calorie": 50, "carboidrati": 5.0, "proteine": 3.3, "grassi": 1.6},
+        "Merluzzo": {"calorie": 82, "carboidrati": 0.0, "proteine": 18.0, "grassi": 0.7},
+        "Nocciolata": {"calorie": 540, "carboidrati": 52.0, "proteine": 6.0, "grassi": 33.0},
+        "Noci": {"calorie": 654, "carboidrati": 14.0, "proteine": 15.0, "grassi": 65.0},
+        "Olio EVO": {"calorie": 884, "carboidrati": 0.0, "proteine": 0.0, "grassi": 100.0},
+        "Pasta": {"calorie": 350, "carboidrati": 72.0, "proteine": 12.0, "grassi": 1.5},
+        "Patate": {"calorie": 77, "carboidrati": 17.0, "proteine": 2.0, "grassi": 0.1},
+        "Patate congelate": {"calorie": 130, "carboidrati": 22.0, "proteine": 2.0, "grassi": 3.5},
+        "Pizza margherita": {"calorie": 270, "carboidrati": 36.0, "proteine": 10.0, "grassi": 9.5},
+        "Pollo": {"calorie": 165, "carboidrati": 0.0, "proteine": 31.0, "grassi": 3.6},
+        "Puccia": {"calorie": 270, "carboidrati": 52.0, "proteine": 8.0, "grassi": 2.5},
+        "Riso basmati": {"calorie": 350, "carboidrati": 78.0, "proteine": 8.5, "grassi": 0.9},
+        "Salmone": {"calorie": 208, "carboidrati": 0.0, "proteine": 20.0, "grassi": 13.0},
+        "Sciroppo d'acero": {"calorie": 260, "carboidrati": 67.0, "proteine": 0.0, "grassi": 0.1},
+        "Semi di chia": {"calorie": 486, "carboidrati": 42.0, "proteine": 17.0, "grassi": 31.0},
+        "Semi di zucca": {"calorie": 559, "carboidrati": 10.0, "proteine": 30.0, "grassi": 49.0},
+        "Tacchino": {"calorie": 135, "carboidrati": 0.0, "proteine": 30.0, "grassi": 1.0},
+        "Tonno": {"calorie": 130, "carboidrati": 0.0, "proteine": 28.0, "grassi": 1.0},
+        "Uova": {"calorie": 155, "carboidrati": 1.1, "proteine": 13.0, "grassi": 11.0},
+        "Waxy maize Yamamoto": {"calorie": 360, "carboidrati": 90.0, "proteine": 0.0, "grassi": 0.0},
+        "Yogurt greco": {"calorie": 59, "carboidrati": 4.0, "proteine": 10.3, "grassi": 0.0}
+    }
 if 'diario' not in st.session_state:
     st.session_state.diario = []
 
