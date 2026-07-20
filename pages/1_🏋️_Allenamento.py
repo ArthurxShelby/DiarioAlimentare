@@ -119,6 +119,8 @@ riga_target = df_filtrato.iloc[index_scelta]
 
 data_allenamento = st.date_input("Per quale giorno vuoi pianificarlo?", datetime.date.today())
 
+# ... (lascia invariato tutto il codice sopra fino al pulsante)
+
 if st.button("📤 Carica direttamente su Garmin Connect"):
     if "garmin" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali Garmin nei Secrets di Streamlit Cloud!")
@@ -127,8 +129,7 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
             with st.spinner("Connessione ai server Garmin e programmazione..."):
                 pct_ftp = round((riga_target['Watt'] / ftp_atleta) * 100, 1)
                 
-                # Creiamo la descrizione in formato testo strutturato (stile Intervals)
-                # Garmin Connect interpreta le note di allenamento testuali per generare i blocchi
+                # Descrizione testuale strutturata
                 testo_allenamento = f"""Workout: {riga_target['Giorno']} {riga_target['Mese']}
 - Warm up 10:00 50%
 - Active 30:00 {pct_ftp}% target={int(riga_target['Watt'])}W
@@ -139,9 +140,12 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
-                # Invio diretto dell'allenamento testuale strutturato
-                # Sfrutta le API di caricamento note di pianificazione di Garmin Connect
-                garmin_client.schedule_training(data_allenamento.isoformat(), riga_target['Esercizio'], note=testo_allenamento)
+                # Metodo corretto per aggiungere un evento/nota strutturata al calendario
+                garmin_client.add_calendar_item(
+                    title=f"🏋️ {riga_target['Esercizio'][:30]}",
+                    date=data_allenamento.isoformat(),
+                    description=testo_allenamento
+                )
                 
                 st.success(f"🎉 Successo! Nota e struttura caricate sul calendario Garmin per il giorno {data_allenamento}.")
                 st.info("Sincronizza il tuo Edge 540 per vederlo apparire nella schermata iniziale!")
