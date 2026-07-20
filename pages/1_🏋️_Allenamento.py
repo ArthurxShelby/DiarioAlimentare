@@ -137,7 +137,7 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
 🔄 CADENZA: {riga_target['RPM']} RPM
 📋 DETTAGLIO: {riga_target['Esercizio']}"""
                 
-                # 1. Login regolare tramite la libreria principale
+                # 1. Login regolare
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
@@ -149,9 +149,9 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
                     "note": testo_allenamento
                 }
                 
-                # 3. Usiamo connectapi, il metodo ufficiale per fare richieste POST/GET autenticate
+                # 3. Chiamata pulita senza method="POST" per evitare conflitti di argomenti
                 st.text("Invio della nota al calendario...")
-                response = garmin_client.connectapi(url, method="POST", json=payload)
+                garmin_client.connectapi(url, json=payload)
                 
                 st.success(f"🎉 Successo! Nota di allenamento caricata sul tuo calendario Garmin per il giorno {data_allenamento}.")
                 st.info("Sincronizza il tuo Edge 540 o apri l'app Garmin Connect per vedere il blocco pianificato!")
