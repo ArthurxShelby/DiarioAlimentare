@@ -42,7 +42,6 @@ if 'db_alimenti' not in st.session_state:
         "Riso basmati": {"calorie": 350, "carboidrati": 78.0, "proteine": 8.5, "grassi": 0.9},
         "Salmone": {"calorie": 208, "carboidrati": 0.0, "proteine": 20.0, "grassi": 13.0},
         "Sciroppo d'acero": {"calorie": 260, "carboidrati": 67.0, "proteine": 0.0, "grassi": 0.1},
-        "Sciroppo d'agave": {"calorie": 310, "carboidrati": 76.0, "proteine": 0.0, "grassi": 0.5},
         "Semi di chia": {"calorie": 486, "carboidrati": 42.0, "proteine": 17.0, "grassi": 31.0},
         "Semi di zucca": {"calorie": 559, "carboidrati": 10.0, "proteine": 30.0, "grassi": 49.0},
         "Tacchino": {"calorie": 135, "carboidrati": 0.0, "proteine": 30.0, "grassi": 1.0},
@@ -52,9 +51,7 @@ if 'db_alimenti' not in st.session_state:
         "Yogurt greco": {"calorie": 59, "carboidrati": 4.0, "proteine": 10.3, "grassi": 0.0}
     }
 
-# --- FUNZIONI DI SALVATAGGIO LOCALE (Simulato tramite file o stato persistente lato server) ---
-# Nota: Poiché Streamlit azzera la sessione, per salvare in modo permanente tra sessioni diverse 
-# senza un database cloud complesso, usiamo un file di testo locale 'diario_salvato.json' sul server.
+# --- GESTIONE DEI DATI PERSISTENTI ---
 def carica_dati():
     try:
         with open("diario_salvato.json", "r") as f:
@@ -75,10 +72,10 @@ pasti_categorie = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"
 tab_diario, tab_profilo, tab_banca_dati = st.tabs(["📅 Diario Alimentare", "👤 Profilo & Obiettivo", "🗂️ Gestione Alimenti"])
 
 # ==========================================
-# TAB 2: PROFILO
+# TAB 2: PROFILO & OBIETTIVI MACRO
 # ==========================================
 with tab_profilo:
-    st.header("👤 Calcolo Fabbisogno Energetico")
+    st.header("👤 Calcolo Fabbisogno & Target Macro")
     sesso = st.radio("Sesso", ["Uomo", "Donna"], horizontal=True)
     
     col_dati1, col_dati2, col_dati3 = st.columns(3)
@@ -102,10 +99,23 @@ with tab_profilo:
         bmr = (10 * peso) + (6.25 * altezza) - (5 * eta) - 161
         
     tdee = int(bmr * laf_scelto)
-    st.session_state.target_calorie = st.number_input("Target Calorico Personalizzato (kcal)", min_value=1000, max_value=6000, value=tdee)
+    
+    st.markdown("### 🎯 Imposta i tuoi Target Giornalieri")
+    col_t1, col_t2 = st.columns(2)
+    target_cal = col_t1.number_input("Target Calorico (kcal)", min_value=1000, max_value=6000, value=tdee)
+    target_carbi = col_t2.number_input("Target Carboidrati (g)", min_value=0, max_value=1000, value=250)
+    target_prot = col_t1.number_input("Target Proteine (g)", min_value=0, max_value=500, value=140)
+    target_fat = col_t2.number_input("Target Grassi (g)", min_value=0, max_value=300, value=70)
+    
+    st.session_state.targets = {
+        "calorie": target_cal, "carboidrati": target_carbi, "proteine": target_prot, "grassi": target_fat
+    }
+
+# Recupero target di sicurezza se non ancora configurati nel tab profilo
+targets = st.session_state.get('targets', {"calorie": 2000, "carboidrati": 250, "proteine": 140, "grassi": 70})
 
 # ==========================================
-# TAB 1: DIARIO ALIMENTARE (Principale)
+# TAB 1: DIARIO ALIMENTARE
 # ==========================================
 with tab_diario:
     st.header("🍏 Registro dei Pasti")
@@ -124,68 +134,117 @@ with tab_diario:
             st.session_state.diario.append({
                 "Pasto": pasto_sel,
                 "Alimento": alimento_sel,
-                "Grammi": grammi,
+                "Grammi": int(grammi),
                 "Calorie": round(info["calorie"] * moltiplicatore, 1),
                 "Carboidrati": round(info["carboidrati"] * moltiplicatore, 1),
                 "Proteine": round(info["proteine"] * moltiplicatore, 1),
                 "Grassi": round(info["grassi"] * moltiplicatore, 1)
             })
             salva_dati(st.session_state.diario)
-            st.success("Aggiunto e Salvato!")
+            st.success("Aggiunto!")
             st.rerun()
 
     st.divider()
     
+    # Calcolo totali giornalieri obbligatori
+    df_diario = pd.DataFrame(st.session_state.diario) if st.session_state.diario else pd.DataFrame(columns=["Pasto", "Alimento", "Grammi", "Calorie", "Carboidrati", "Proteine", "Grassi"])
+    
+    tot_cal = round(df_diario["Calorie"].sum(), 1) if not df_diario.empty else 0.0
+    tot_carbi = round(df_diario["Carboidrati"].sum(), 1) if not df_diario.empty else 0.0
+    tot_prot = round(df_diario["Proteine"].sum(), 1) if not df_diario.empty else 0.0
+    tot_fat = round(df_diario["Grassi"].sum(), 1) if not df_diario.empty else 0.0
+    
+    rem_cal = targets["calorie"] - tot_cal
+    rem_carbi = targets["carboidrati"] - tot_carbi
+    rem_prot = targets["proteine"] - tot_prot
+    rem_fat = targets["grassi"] - tot_fat
+    
+    # --- STATO GIORNALIERO CON RIMANENZE COMPLETE ---
+    st.subheader("📊 Stato Giornaliero (Rimanenze)")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Calorie", f"{tot_cal} / {targets['calorie']} kcal", delta=f"{int(rem_cal)} rimanenti")
+    col2.metric("Carboidrati", f"{tot_carbi} / {targets['carboidrati']} g", delta=f"{round(rem_carbi, 1)} g rim.")
+    col3.metric("Proteine", f"{tot_prot} / {targets['proteine']} g", delta=f"{round(rem_prot, 1)} g rim.")
+    col4.metric("Grassi", f"{tot_fat} / {targets['grassi']} g", delta=f"{round(rem_fat, 1)} g rim.")
+    
+    st.divider()
+    
+    # --- DETTAGLIO SEPARATO E EDITABILE PER SINGOLO PASTO ---
+    st.subheader("🍴 Dettaglio Macro Diviso Per Pasto")
+    st.caption("💡 Puoi modificare le quantità o eliminare le righe direttamente dalle tabelle qui sotto.")
+    
+    diario_aggiornato = []
+    
+    for pasto in pasti_categorie:
+        df_pasto = df_diario[df_diario["Pasto"] == pasto] if not df_diario.empty else pd.DataFrame()
+        
+        # Calcolo macro parziali del pasto specifico
+        pasto_cal = round(df_pasto["Calorie"].sum(), 1) if not df_pasto.empty else 0.0
+        pasto_carbi = round(df_pasto["Carboidrati"].sum(), 1) if not df_pasto.empty else 0.0
+        pasto_prot = round(df_pasto["Proteine"].sum(), 1) if not df_pasto.empty else 0.0
+        pasto_fat = round(df_pasto["Grassi"].sum(), 1) if not df_pasto.empty else 0.0
+        
+        with st.expander(f"🔹 {pasto.upper()} — {int(pasto_cal)} kcal | C: {pasto_carbi}g | P: {pasto_prot}g | G: {pasto_fat}g", expanded=not df_pasto.empty):
+            if not df_pasto.empty:
+                # Tabella interattiva e indipendente solo per questo pasto
+                df_pasto_mostrato = df_pasto[["Alimento", "Grammi", "Calorie", "Carboidrati", "Proteine", "Grassi"]].copy()
+                df_edited_pasto = st.data_editor(
+                    df_pasto_mostrato,
+                    key=f"editor_{pasto}",
+                    use_container_width=True,
+                    num_rows="dynamic",
+                    hide_index=True
+                )
+                
+                # Se l'utente ha modificato i grammi, ricalcola i macro al volo prima di salvare
+                for idx, row in df_edited_pasto.iterrows():
+                    alimento = row["Alimento"]
+                    if alimento in st.session_state.db_alimenti:
+                        info = st.session_state.db_alimenti[alimento]
+                        try:
+                            gr = float(row["Grammi"])
+                        except:
+                            gr = 100.0
+                        molt = gr / 100.0
+                        diario_aggiornato.append({
+                            "Pasto": pasto,
+                            "Alimento": alimento,
+                            "Grammi": int(gr),
+                            "Calorie": round(info["calorie"] * molt, 1),
+                            "Carboidrati": round(info["carboidrati"] * molt, 1),
+                            "Proteine": round(info["proteine"] * molt, 1),
+                            "Grassi": round(info["grassi"] * molt, 1)
+                        })
+            else:
+                st.write("*Nessun alimento inserito in questo pasto oggi.*")
+                
+        # Ricostruiamo la lista globale mantenendo gli elementi dei pasti vuoti o non toccati
+        if df_pasto.empty:
+            pass 
+
+    # Controllo se l'utente ha fatto modifiche strutturali nelle tabelle (es. eliminato righe o cambiato grammi)
+    # Se il numero di elementi o i dati differiscono dal diario di sessione, sovrascrivi e salva
     if st.session_state.diario:
-        df_diario = pd.DataFrame(st.session_state.diario)
+        # Generiamo una firma rapida per capire se è cambiato qualcosa
+        sf_originale = df_diario[["Pasto", "Alimento", "Grammi"]].to_dict(orient="records")
+        df_nuovo = pd.DataFrame(diario_aggiornato)
+        sf_nuova = df_nuovo[["Pasto", "Alimento", "Grammi"]].to_dict(orient="records") if not df_nuovo.empty else []
         
-        tot_cal = round(df_diario["Calorie"].sum(), 1)
-        tot_carbi = round(df_diario["Carboidrati"].sum(), 1)
-        tot_prot = round(df_diario["Proteine"].sum(), 1)
-        tot_fat = round(df_diario["Grassi"].sum(), 1)
-        
-        target = st.session_state.get('target_calorie', 2000)
-        bilancio = target - tot_cal
-        
-        st.subheader("📊 Stato Giornaliero")
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Calorie Totali", f"{tot_cal} / {target} kcal", delta=f"{int(bilancio)} rim.")
-        col2.metric("Carboidrati", f"{tot_carbi} g")
-        col3.metric("Proteine", f"{tot_prot} g")
-        col4.metric("Grassi", f"{tot_fat} g")
-        
-        st.divider()
-        
-        st.subheader("🍴 I tuoi Pasti (Puoi modificare o eliminare righe)")
-        st.info("💡 **Per eliminare un alimento:** Seleziona la riga cliccando sul quadratino a sinistra nella tabella e premi il tasto **Canc (o Delete)** sulla tastiera del Mac, oppure usa il pulsante elimina integrato.")
-        
-        # Rendiamo la tabella modificabile ed eliminabile in tempo reale!
-        df_editabile = st.data_editor(
-            df_diario,
-            use_container_width=True,
-            num_rows="dynamic", # Permette la cancellazione dinamica
-            hide_index=True
-        )
-        
-        # Se l'utente cancella o modifica qualcosa nella tabella, aggiorna il database e salva
-        if not df_editabile.equals(df_diario):
-            st.session_state.diario = df_editabile.to_dict(orient="records")
+        if sf_originale != sf_nuova:
+            st.session_state.diario = diario_aggiornato
             salva_dati(st.session_state.diario)
             st.rerun()
-        
-        if st.button("🗑️ Svuota Tutto", use_container_width=True):
-            st.session_state.diario = []
-            salva_dati([])
-            st.rerun()
-    else:
-        st.info("Il diario è vuoto. Registra gli alimenti per iniziare.")
+
+    if st.button("🗑️ Svuota Intero Diario Odierno", use_container_width=True):
+        st.session_state.diario = []
+        salva_dati([])
+        st.rerun()
 
 # ==========================================
 # TAB 3: BANCA DATI
 # ==========================================
 with tab_banca_dati:
     st.header("🗂️ Gestione Database Personale")
-    # ... Resto del codice database invariato ...
     df_db = pd.DataFrame.from_dict(st.session_state.db_alimenti, orient='index').reset_index()
     df_db.columns = ["Alimento", "Calorie (kcal)", "Carboidrati (g)", "Proteine (g)", "Grassi (g)"]
     st.dataframe(df_db.sort_values(by="Alimento"), hide_index=True, use_container_width=True)
