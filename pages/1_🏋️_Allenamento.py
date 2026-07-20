@@ -142,7 +142,7 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
-                # Chiamata diretta all'endpoint del calendario di Garmin Connect
+                # Chiamata diretta senza passare il parametro 'method' esplicito
                 url = "https://connect.garmin.com/calendar-service/note"
                 payload = {
                     "date": data_allenamento.isoformat(),
@@ -150,8 +150,8 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
                     "note": testo_allenamento
                 }
                 
-                # Usiamo connectapi che gestisce l'autenticazione e i cookie automaticamente
-                garmin_client.connectapi(url, method="POST", json=payload)
+                # Rimosso method="POST" per evitare il conflitto di argomenti duplicati
+                garmin_client.connectapi(url, json=payload)
                 
                 st.success(f"🎉 Successo! Nota e struttura caricate sul calendario Garmin per il giorno {data_allenamento}.")
                 st.info("Sincronizza il tuo Edge 540 per vederlo apparire nella schermata iniziale!")
