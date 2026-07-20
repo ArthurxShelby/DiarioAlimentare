@@ -129,7 +129,6 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
     else:
         try:
             with st.spinner("Connessione ai server Garmin e programmazione..."):
-                import requests
                 
                 pct_ftp = round((riga_target['Watt'] / ftp_atleta) * 100, 1)
                 
@@ -142,21 +141,7 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
-                # 2. Creiamo una sessione HTTP autonoma
-                session = requests.Session()
-                
-                # 3. Estraiamo la sessione garth direttamente dall'oggetto client appena autenticato
-                client_autenticato = garmin_client.garth
-                
-                # 4. Copiamo i cookie e gli headers di autenticazione senza fare import di moduli esterni
-                session.cookies.update(client_autenticato.client.cookies)
-                session.headers.update({
-                    "Authorization": str(client_autenticato.client.oauth1),
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "NK": "NT"
-                })
-                
-                # 5. Eseguiamo la POST direttamente all'endpoint del calendario note
+                # 2. Definiamo l'endpoint e il payload della nota sul calendario
                 url = "https://connect.garmin.com/calendar-service/note"
                 payload = {
                     "date": data_allenamento.isoformat(),
@@ -164,13 +149,12 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
                     "note": testo_allenamento
                 }
                 
-                response = session.post(url, json=payload)
+                # 3. Usiamo connectapi, il metodo ufficiale per fare richieste POST/GET autenticate
+                st.text("Invio della nota al calendario...")
+                response = garmin_client.connectapi(url, method="POST", json=payload)
                 
-                if response.status_code in [200, 201]:
-                    st.success(f"🎉 Successo! Nota di allenamento caricata sul tuo calendario Garmin per il giorno {data_allenamento}.")
-                    st.info("Sincronizza il tuo Edge 540 o apri l'app Garmin Connect per vedere il blocco pianificato!")
-                else:
-                    st.error(f"Il server Garmin ha risposto con errore {response.status_code}: {response.text}")
+                st.success(f"🎉 Successo! Nota di allenamento caricata sul tuo calendario Garmin per il giorno {data_allenamento}.")
+                st.info("Sincronizza il tuo Edge 540 o apri l'app Garmin Connect per vedere il blocco pianificato!")
                     
         except Exception as e:
             st.error(f"Errore durante la sincronizzazione: {e}")
