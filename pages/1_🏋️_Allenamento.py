@@ -121,6 +121,8 @@ data_allenamento = st.date_input("Per quale giorno vuoi pianificarlo?", datetime
 
 # ... (lascia invariato tutto il codice sopra fino al pulsante)
 
+# ... (lascia invariato tutto il codice sopra fino al pulsante)
+
 if st.button("📤 Carica direttamente su Garmin Connect"):
     if "garmin" not in st.secrets:
         st.error("⚠️ Configura prima le credenziali Garmin nei Secrets di Streamlit Cloud!")
@@ -140,12 +142,16 @@ if st.button("📤 Carica direttamente su Garmin Connect"):
                 garmin_client = Garmin(st.secrets["garmin"]["email"], st.secrets["garmin"]["password"])
                 garmin_client.login()
                 
-                # Metodo corretto per aggiungere un evento/nota strutturata al calendario
-                garmin_client.add_calendar_item(
-                    title=f"🏋️ {riga_target['Esercizio'][:30]}",
-                    date=data_allenamento.isoformat(),
-                    description=testo_allenamento
-                )
+                # Chiamata diretta all'endpoint del calendario di Garmin Connect
+                url = "https://connect.garmin.com/calendar-service/note"
+                payload = {
+                    "date": data_allenamento.isoformat(),
+                    "title": f"🏋️ {riga_target['Esercizio'][:30]}",
+                    "note": testo_allenamento
+                }
+                
+                # Usiamo connectapi che gestisce l'autenticazione e i cookie automaticamente
+                garmin_client.connectapi(url, method="POST", json=payload)
                 
                 st.success(f"🎉 Successo! Nota e struttura caricate sul calendario Garmin per il giorno {data_allenamento}.")
                 st.info("Sincronizza il tuo Edge 540 per vederlo apparire nella schermata iniziale!")
