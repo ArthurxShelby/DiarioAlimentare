@@ -168,38 +168,6 @@ with col_B:
 
 st.markdown("---")
 
-# Funzione di generazione PDF corretta per FPDF
-def genera_pdf_giornaliero(data_riferimento, pasti_data, t_carbo, t_prot, t_grassi, t_kcal):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, f"Report Nutrizionale - {data_riferimento}", ln=True, align="C")
-    pdf.ln(10)
-    
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Riepilogo Totale:", ln=True)
-    pdf.set_font("Arial", "", 11)
-    pdf.cell(0, 8, f"Calorie: {t_kcal:.1f} / {obj_kcal} kcal", ln=True)
-    pdf.cell(0, 8, f"Carboidrati: {t_carbo:.1f} / {obj_carbo} g", ln=True)
-    pdf.cell(0, 8, f"Proteine: {t_prot:.1f} / {obj_prot} g", ln=True)
-    pdf.cell(0, 8, f"Grassi: {t_grassi:.1f} / {obj_grassi} g", ln=True)
-    pdf.ln(10)
-    
-    for pasto in PASTI:
-        pdf.set_font("Arial", "B", 12)
-        pdf.cell(0, 8, f"Pasto: {pasto}", ln=True)
-        pdf.set_font("Arial", "", 10)
-        df_p = pasti_data[pasto]
-        if not df_p.empty:
-            for _, row in df_p.iterrows():
-                testo_riga = f" - {row['Alimento']}: {row['gr/n']}g | Carbo: {row['carbo']}g | Prot: {row['proteine']}g | Grassi: {row['grassi']}g | {row['kcal']} kcal"
-                pdf.cell(0, 6, testo_riga, ln=True)
-        else:
-            pdf.cell(0, 6, " - Nessun alimento registrato", ln=True)
-        pdf.ln(4)
-        
-    return pdf.output(dest='S').encode('latin1') if hasattr(pdf, 'output') and 'dest' in fpdf.__init__.__code__.co_names else bytes(pdf.output())
-
 # Sezione Esportazione PDF
 st.subheader("📄 Esportazione Report in PDF")
 if st.button("Genera e Scarica PDF Giornaliero"):
@@ -232,7 +200,9 @@ if st.button("Genera e Scarica PDF Giornaliero"):
                 pdf_output.cell(0, 6, " - Nessun alimento registrato", ln=True)
             pdf_output.ln(4)
             
-        pdf_bytes = pdf_output.output()
+        # Correzione fondamentale: conversione esplicita in bytes standard per Streamlit
+        raw_output = pdf_output.output()
+        pdf_bytes = bytes(raw_output) if isinstance(raw_output, (bytearray, bytes)) else raw_output.encode('latin1')
         
         st.download_button(
             label="📥 Clicca qui per scaricare il PDF",
