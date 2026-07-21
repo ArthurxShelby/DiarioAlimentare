@@ -168,38 +168,21 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                 st.rerun()
                 
     with col_bd2:
-        st.markdown("### 📥 Integrazione File (CSV, Excel, PDF)")
-        st.info("Il file può avere le colonne in qualsiasi ordine o senza intestazione. L'ordine atteso per colonna è: Alimento, gr/n, carbo, proteine, grassi, kcal.")
-        file_caricato = st.file_uploader("Carica file (CSV, XLSX, XLS, PDF)", type=["csv", "xlsx", "xls", "pdf"], key="uploader_banca_dati")
+        st.markdown("### 📥 Integrazione File CSV")
+        st.info("Carica un file CSV. L'ordine atteso per colonna è: Alimento, gr/n, carbo, proteine, grassi, kcal.")
+        file_caricato = st.file_uploader("Carica file CSV", type=["csv"], key="uploader_banca_dati")
         
         if file_caricato is not None:
-            estensione = file_caricato.name.split('.')[-1].lower()
             try:
                 df_nuovo = None
-                if estensione == "csv":
-                    try:
-                        df_nuovo = pd.read_csv(file_caricato, encoding='utf-8', sep=None, engine='python')
-                    except UnicodeDecodeError:
-                        file_caricato.seek(0)
-                        df_nuovo = pd.read_csv(file_caricato, encoding='latin-1', sep=None, engine='python')
-                    except Exception:
-                        file_caricato.seek(0)
-                        df_nuovo = pd.read_csv(file_caricato, encoding='utf-8', sep=';', engine='python')
-                elif estensione in ["xlsx", "xls"]:
-                    try:
-                        df_nuovo = pd.read_excel(file_caricato, engine='openpyxl')
-                    except Exception as ex_err:
-                        st.error(f"Errore openpyxl: {ex_err}. Assicurati che openpyxl sia installato.")
-                elif estensione == "pdf":
-                    try:
-                        import pypdf
-                        reader = pypdf.PdfReader(file_caricato)
-                        testo_pdf = ""
-                        for pagina in reader.pages:
-                            testo_pdf += pagina.extract_text() + "\n"
-                        st.text_area("Testo estratto dal PDF (anteprima):", testo_pdf, height=150)
-                    except ImportError:
-                        st.error("Libreria pypdf non disponibile.")
+                try:
+                    df_nuovo = pd.read_csv(file_caricato, encoding='utf-8', sep=None, engine='python')
+                except UnicodeDecodeError:
+                    file_caricato.seek(0)
+                    df_nuovo = pd.read_csv(file_caricato, encoding='latin-1', sep=None, engine='python')
+                except Exception:
+                    file_caricato.seek(0)
+                    df_nuovo = pd.read_csv(file_caricato, encoding='utf-8', sep=';', engine='python')
                 
                 if df_nuovo is not None and not df_nuovo.empty:
                     st.write("Anteprima dati letti dal file:", df_nuovo.head())
@@ -235,17 +218,16 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                                 else:
                                     df_finale[col] = 0 if col != "Alimento" else "Sconosciuto"
                             
-                            # Rimuove righe con Alimento nullo o vuoto
                             df_finale = df_finale.dropna(subset=["Alimento"])
                             df_finale = df_finale[df_finale["Alimento"].astype(str).str.strip() != ""]
 
                             st.session_state.banca_dati_df = pd.concat([st.session_state.banca_dati_df, df_finale], ignore_index=True).drop_duplicates(subset=["Alimento"]).reset_index(drop=True)
-                            st.success("Banca dati aggiornata con successo dal file!")
+                            st.success("Banca dati aggiornata con successo dal file CSV!")
                             st.rerun()
                         else:
-                            st.error("Il formato del file non contiene abbastanza colonne valide.")
+                            st.error("Il formato del file CSV non contiene abbastanza colonne valide.")
             except Exception as e:
-                st.error(f"Errore durante la lettura del file: {e}")
+                st.error(f"Errore durante la lettura del file CSV: {e}")
 
 st.markdown("---")
 
@@ -262,7 +244,6 @@ if alimenti_validati:
         alimento_scelto = st.selectbox("Alimento", alimenti_validati, key="sel_alimento_principale")
         item_row = banca_dati_corrente[banca_dati_corrente["Alimento"].astype(str) == str(alimento_scelto)].iloc[0]
         
-        # Conversione robusta e sicura di gr/n in intero (gestisce stringhe come "100g", "50 g", ecc.)
         val_gr_n = item_row["gr/n"]
         if pd.notna(val_gr_n):
             if isinstance(val_gr_n, (int, float)):
