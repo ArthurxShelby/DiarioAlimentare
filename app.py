@@ -386,6 +386,7 @@ DEFAULT_BANCA_DATI = [
 ]
 
 # Inizializzazione della Banca Dati
+# Modifica nell'inizializzazione della Banca Dati:
 if "banca_dati_df" not in st.session_state:
     if (
         dati_salvati
