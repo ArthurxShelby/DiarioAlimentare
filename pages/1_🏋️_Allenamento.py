@@ -3,9 +3,7 @@ from requests.auth import HTTPBasicAuth
 import requests
 import streamlit as st
 
-st.set_page_config(
-    page_config="Pianificazione Allenamento", page_icon="🏋️", layout="wide"
-)
+st.set_page_config(page_title="Pianificazione Allenamento", page_icon="🏋️", layout="wide")
 
 # --- 1. RIFERIMENTI FTP & SIDEBAR ---
 ftp_atleta = 279
