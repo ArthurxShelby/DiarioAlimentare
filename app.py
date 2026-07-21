@@ -1109,4 +1109,3 @@ with col_pdf2:
                 )
         except Exception as e:
             st.error(f"Errore nella generazione del PDF personalizzato: {e}")
-
