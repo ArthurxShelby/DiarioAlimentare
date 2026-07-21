@@ -145,6 +145,50 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
     banca_dati = st.session_state.banca_dati_df
     st.dataframe(banca_dati, use_container_width=True)
     
+    st.markdown("---")
+    
+    # Sezione per l'inserimento manuale di un alimento alla volta
+    st.markdown("### ✍️ Inserimento Manuale Singolo Alimento")
+    with st.form("form_inserimento_manuale"):
+        col_man1, col_man2, col_man3 = st.columns(3)
+        with col_man1:
+            nuovo_nome = st.text_input("Nome Alimento")
+        with col_man2:
+            nuovo_grn = st.number_input("Quantità di Riferimento (g o p)", min_value=1.0, value=100.0)
+        with col_man3:
+            nuovo_kcal = st.number_input("Calorie (kcal)", min_value=0.0, value=0.0, step=0.1)
+            
+        col_man4, col_man5, col_man6 = st.columns(3)
+        with col_man4:
+            nuovo_carbo = st.number_input("Carboidrati (g)", min_value=0.0, value=0.0, step=0.1)
+        with col_man5:
+            nuovo_prot = st.number_input("Proteine (g)", min_value=0.0, value=0.0, step=0.1)
+        with col_man6:
+            nuovo_grassi = st.number_input("Grassi (g)", min_value=0.0, value=0.0, step=0.1)
+            
+        btn_submit_manuale = st.form_submit_button("Aggiungi Alimento alla Banca Dati")
+        if btn_submit_manuale:
+            if nuovo_nome.strip() == "":
+                st.error("Inserisci un nome valido per l'alimento.")
+            else:
+                nuova_riga_df = pd.DataFrame([{
+                    "Alimento": nuovo_nome.strip().lower(),
+                    "gr/n": nuovo_grn,
+                    "carbo": nuovo_carbo,
+                    "proteine": nuovo_prot,
+                    "grassi": nuovo_grassi,
+                    "kcal": nuovo_kcal
+                }])
+                # Se l'alimento esiste già, lo aggiorna/sostituisce
+                st.session_state.banca_dati_df = pd.concat(
+                    [st.session_state.banca_dati_df[st.session_state.banca_dati_df["Alimento"].astype(str).str.lower() != nuovo_nome.strip().lower()], nuova_riga_df],
+                    ignore_index=True
+                ).sort_values("Alimento").reset_index(drop=True)
+                st.success(f"Alimento '{nuovo_nome}' aggiunto/aggiornato con successo nella banca dati!")
+                st.rerun()
+
+    st.markdown("---")
+    
     col_bd1, col_bd2 = st.columns(2)
     
     with col_bd1:
