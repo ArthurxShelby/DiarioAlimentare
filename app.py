@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
+from fpdf import FPDF
 
 # Configurazione della pagina
 st.set_page_config(
@@ -54,7 +55,6 @@ def get_banca_dati():
 
 banca_dati = get_banca_dati()
 
-# Inizializzazione dello State per il diario strutturato per data e pasto
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
 if "db_diario" not in st.session_state:
@@ -67,7 +67,6 @@ st.sidebar.header("🗓️ Seleziona Giorno")
 data_selezionata = st.sidebar.date_input("Data", value=date.today())
 data_str = data_selezionata.strftime("%Y-%m-%d")
 
-# Inizializzazione della giornata se non esiste
 if data_str not in st.session_state.db_diario:
     st.session_state.db_diario[data_str] = {pasto: pd.DataFrame(columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"]) for pasto in PASTI}
 
@@ -84,7 +83,7 @@ if genere == "Uomo":
 else:
     bmr = (10 * peso) + (6.25 * altezza) - (5 * eta) - 161
 
-tdee = bmr * 1.55  # Fattore di attività moderata / ciclista
+tdee = bmr * 1.55
 obj_kcal = round(tdee, 0)
 obj_carbo = 230.0
 obj_prot = 165.0
@@ -92,19 +91,11 @@ obj_grassi = 70.0
 
 st.sidebar.info(f"**BMR stimato:** {bmr:.0f} kcal\n\n**TDEE stimato:** {obj_kcal:.0f} kcal")
 
-# Calcolo dei totali giornalieri aggregati dai 6 pasti
-tot_carbo = 0.0
-tot_prot = 0.0
-tot_grassi = 0.0
-tot_kcal = 0.0
-
-for pasto in PASTI:
-    df_pasto = st.session_state.db_diario[data_str][pasto]
-    if not df_pasto.empty:
-        tot_carbo += df_pasto["carbo"].sum()
-        tot_prot += df_pasto["proteine"].sum()
-        tot_grassi += df_pasto["grassi"].sum()
-        tot_kcal += df_pasto["kcal"].sum()
+# Calcoli totali giornalieri
+tot_carbo = sum([st.session_state.db_diario[data_str][p]["carbo"].sum() for p in PASTI if not st.session_state.db_diario[data_str][p].empty])
+tot_prot = sum([st.session_state.db_diario[data_str][p]["proteine"].sum() for p in PASTI if not st.session_state.db_diario[data_str][p].empty])
+tot_grassi = sum([st.session_state.db_diario[data_str][p]["grassi"].sum() for p in PASTI if not st.session_state.db_diario[data_str][p].empty])
+tot_kcal = sum([st.session_state.db_diario[data_str][p]["kcal"].sum() for p in PASTI if not st.session_state.db_diario[data_str][p].empty])
 
 # Dashboard principale con Progress Bar istantanee
 st.subheader(f"📊 Riepilogo Giornaliero - {data_str}")
@@ -113,29 +104,24 @@ col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 
 with col_m1:
     st.metric("Calorie", f"{tot_kcal:.1f} / {obj_kcal} kcal", delta=f"{obj_kcal - tot_kcal:.1f} rimanenti")
-    p_kcal = min(tot_kcal / obj_kcal, 1.0) if obj_kcal > 0 else 0
-    st.progress(p_kcal)
+    st.progress(min(tot_kcal / obj_kcal, 1.0) if obj_kcal > 0 else 0)
 
 with col_m2:
     st.metric("Carboidrati", f"{tot_carbo:.1f} / {obj_carbo} g", delta=f"{obj_carbo - tot_carbo:.1f} g rimanenti")
-    p_carbo = min(tot_carbo / obj_carbo, 1.0) if obj_carbo > 0 else 0
-    st.progress(p_carbo)
+    st.progress(min(tot_carbo / obj_carbo, 1.0) if obj_carbo > 0 else 0)
 
 with col_m3:
     st.metric("Proteine", f"{tot_prot:.1f} / {obj_prot} g", delta=f"{obj_prot - tot_prot:.1f} g rimanenti")
-    p_prot = min(tot_prot / obj_prot, 1.0) if obj_prot > 0 else 0
-    st.progress(p_prot)
+    st.progress(min(tot_prot / obj_prot, 1.0) if obj_prot > 0 else 0)
 
 with col_m4:
     st.metric("Grassi", f"{tot_grassi:.1f} / {obj_grassi} g", delta=f"{obj_grassi - tot_grassi:.1f} g rimanenti")
-    p_grassi = min(tot_grassi / obj_grassi, 1.0) if obj_grassi > 0 else 0
-    st.progress(p_grassi)
+    st.progress(min(tot_grassi / obj_grassi, 1.0) if obj_grassi > 0 else 0)
 
 st.markdown("---")
 
 # Gestione dei 6 pasti giornalieri
 st.subheader("🍽️ Gestione dei 6 Pasti Giornalieri")
-
 pasto_selezionato = st.selectbox("Seleziona il pasto da modificare:", PASTI)
 
 col_A, col_B = st.columns([1, 1])
@@ -182,30 +168,45 @@ with col_B:
 
 st.markdown("---")
 
-# Sezione Report ed Esportazione
-st.subheader("📄 Esportazione Report")
-col_rep1, col_rep2 = st.columns(2)
+# Funzione di generazione PDF
+def genera_pdf_giornaliero(data_riferimento, pasti_data, t_carbo, t_prot, t_grassi, t_kcal):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, f"Report Nutrizionale - {data_riferimento}", ln=True, align="C")
+    pdf.ln(10)
+    
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Riepilogo Totale:", ln=True)
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(0, 8, f"Calorie: {t_kcal:.1f} / {obj_kcal} kcal", ln=True)
+    pdf.cell(0, 8, f"Carboidrati: {t_carbo:.1f} / {obj_carbo} g", ln=True)
+    pdf.cell(0, 8, f"Proteine: {t_prot:.1f} / {obj_prot} g", ln=True)
+    pdf.cell(0, 8, f"Grassi: {t_grassi:.1f} / {obj_grassi} g", ln=True)
+    pdf.ln(10)
+    
+    for pasto in PASTI:
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 8, f"Pasto: {pasto}", ln=True)
+        pdf.set_font("Arial", "", 10)
+        df_p = pasti_data[pasto]
+        if not df_p.empty:
+            for _, row in df_p.iterrows():
+                testo_riga = f" - {row['Alimento']}: {row['gr/n']}g | Carbo: {row['carbo']}g | Prot: {row['proteine']}g | Grassi: {row['grassi']}g | {row['kcal']} kcal"
+                pdf.cell(0, 6, testo_riga, ln=True)
+        else:
+            pdf.cell(0, 6, " - Nessun alimento registrato", ln=True)
+        pdf.ln(4)
+        
+    return pdf.output(dest='S').encode('latin1')
 
-with col_rep1:
-    if st.button("Genera Report Giornaliero (PDF/Testo)"):
-        report_text = f"--- REPORT GIORNALIERO: {data_str} ---\n"
-        report_text += f"Calorie: {tot_kcal:.1f} / {obj_kcal}\n"
-        report_text += f"Carboidrati: {tot_carbo:.1f}g\nProteine: {tot_prot:.1f}g\nGrassi: {tot_grassi:.1f}g\n\n"
-        for p in PASTI:
-            report_text += f"[{p}]\n"
-            sub_df = st.session_state.db_diario[data_str][p]
-            if not sub_df.empty:
-                for _, row in sub_df.iterrows():
-                    report_text += f" - {row['Alimento']}: {row['gr/n']}g | {row['kcal']} kcal\n"
-            else:
-                report_text += " - Vuoto\n"
-        st.download_button("Scarica Report Giornaliero", report_text, file_name=f"report_{data_str}.txt", mime="text/plain")
-
-with col_rep2:
-    if st.button("Genera Report Settimanale / Globale"):
-        global_text = "--- REPORT GLOBALE ARCHIVIATO ---\n\n"
-        for d, pasti_dict in st.session_state.db_diario.items():
-            global_text += f"Data: {d}\n"
-            g_kcal = sum([pasti_dict[p]["kcal"].sum() for p in PASTI if not pasti_dict[p].empty])
-            global_text += f"Totale Calorie consumate: {g_kcal:.1f}\n-------------------\n"
-        st.download_button("Scarica Report Globale", global_text, file_name="report_globale.txt", mime="text/plain")
+# Sezione Esportazione PDF
+st.subheader("📄 Esportazione Report in PDF")
+if st.button("Genera e Scarica PDF Giornaliero"):
+    pdf_bytes = genera_pdf_giornaliero(data_str, st.session_state.db_diario[data_str], tot_carbo, tot_prot, tot_grassi, tot_kcal)
+    st.download_button(
+        label="📥 Scarica PDF della Giornata",
+        data=pdf_bytes,
+        file_name=f"report_alimentare_{data_str}.pdf",
+        mime="application/pdf"
+    )
