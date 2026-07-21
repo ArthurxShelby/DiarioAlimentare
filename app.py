@@ -55,6 +55,7 @@ if 'db_alimenti' not in st.session_state:
         "Riso basmati": {"calorie": 350, "carboidrati": 78.0, "proteine": 8.5, "grassi": 0.9},
         "Salmone": {"calorie": 208, "carboidrati": 0.0, "proteine": 20.0, "grassi": 13.0},
         "Sciroppo d'acero": {"calorie": 260, "carboidrati": 67.0, "proteine": 0.0, "grassi": 0.1},
+        "Sciroppo d'agave": {"calorie": 310, "carboidrati": 76.0, "proteine": 0.0, "grassi": 0.5},
         "Semi di chia": {"calorie": 486, "carboidrati": 42.0, "proteine": 17.0, "grassi": 31.0},
         "Semi di zucca": {"calorie": 559, "carboidrati": 10.0, "proteine": 30.0, "grassi": 49.0},
         "Tacchino": {"calorie": 135, "carboidrati": 0.0, "proteine": 30.0, "grassi": 1.0},
@@ -63,7 +64,6 @@ if 'db_alimenti' not in st.session_state:
         "Waxy maize Yamamoto": {"calorie": 360, "carboidrati": 90.0, "proteine": 0.0, "grassi": 0.0},
         "Yogurt greco": {"calorie": 59, "carboidrati": 4.0, "proteine": 10.3, "grassi": 0.0}
     }
-
 def salva_db_alimenti(db):
     with open("database_alimenti.json", "w") as f:
         json.dump(db, f)
