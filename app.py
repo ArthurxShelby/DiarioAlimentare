@@ -136,7 +136,7 @@ with col_m4:
 
 st.markdown("---")
 
-with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
+with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=True):
     st.markdown("### Accesso e Visualizzazione")
     banca_dati = st.session_state.banca_dati_df
     st.dataframe(banca_dati, use_container_width=True)
@@ -165,7 +165,7 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                 
     with col_bd2:
         st.markdown("### 📥 Integrazione File (CSV, Excel, PDF)")
-        st.info("I file devono contenere colonne o dati per: Alimento, gr/n, carbo, proteine, grassi, kcal.")
+        st.info("Il file può avere le colonne in qualsiasi ordine o senza intestazione. L'ordine atteso per colonna è: Alimento, gr/n, carbo, proteine, grassi, kcal.")
         file_caricato = st.file_uploader("Carica file (CSV, XLSX, XLS, PDF)", type=["csv", "xlsx", "xls", "pdf"], key="uploader_banca_dati")
         
         if file_caricato is not None:
@@ -185,7 +185,7 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                     try:
                         df_nuovo = pd.read_excel(file_caricato, engine='openpyxl')
                     except Exception as ex_err:
-                        st.error(f"Errore openpyxl: {ex_err}. Assicurati che openpyxl sia installato nel tuo ambiente.")
+                        st.error(f"Errore openpyxl: {ex_err}. Assicurati che openpyxl sia installato.")
                 elif estensione == "pdf":
                     try:
                         import pypdf
@@ -201,12 +201,13 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                     st.write("Anteprima dati letti dal file:", df_nuovo.head())
                     if st.button("Conferma e Aggiungi alla Banca Dati"):
                         colonne_attese = ["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"]
-                        df_nuovo.columns = [str(c).strip().lower() for c in df_nuovo.columns]
                         
+                        # Tentativo di mappatura intelligente per nome colonna
+                        df_nuovo.columns = [str(c).strip().lower() for c in df_nuovo.columns]
                         mapping_colonne = {}
                         for c in df_nuovo.columns:
-                            if "alimento" in c: mapping_colonne[c] = "Alimento"
-                            elif "gr" in c or "quant" in c: mapping_colonne[c] = "gr/n"
+                            if "alimento" in c or "nome" in c: mapping_colonne[c] = "Alimento"
+                            elif "gr" in c or "quant" in c or "peso" in c: mapping_colonne[c] = "gr/n"
                             elif "carb" in c: mapping_colonne[c] = "carbo"
                             elif "prot" in c: mapping_colonne[c] = "proteine"
                             elif "grass" in c or "fat" in c: mapping_colonne[c] = "grassi"
@@ -214,13 +215,31 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                             
                         df_nuovo = df_nuovo.rename(columns=mapping_colonne)
                         
-                        colonne_presenti = [col for col in colonne_attese if col in df_nuovo.columns]
-                        if len(colonne_presenti) >= 4:
-                            st.session_state.banca_dati_df = pd.concat([st.session_state.banca_dati_df, df_nuovo[colonne_presenti]], ignore_index=True).drop_duplicates(subset=["Alimento"]).reset_index(drop=True)
+                        # Se mancano colonne chiave ma il file ha almeno 4-6 colonne, le assegniamo per posizione
+                        presenti = [col for col in colonne_attese if col in df_nuovo.columns]
+                        if len(presenti) < 4 and len(df_nuovo.columns) >= 4:
+                            # Assegnazione posizionale sicura
+                            col_mapping_pos = {}
+                            for idx, col_name in enumerate(df_nuovo.columns):
+                                if idx < len(colonne_attese):
+                                    col_mapping_pos[col_name] = colonne_attese[idx]
+                            df_nuovo = df_nuovo.rename(columns=col_mapping_pos)
+                            presenti = [col for col in colonne_attese if col in df_nuovo.columns]
+
+                        if len(presenti) >= 4:
+                            # Riordina e riempie eventuali mancanti
+                            df_finale = pd.DataFrame(columns=colonne_attese)
+                            for col in colonne_attese:
+                                if col in df_nuovo.columns:
+                                    df_finale[col] = df_nuovo[col]
+                                else:
+                                    df_finale[col] = 0 if col != "Alimento" else "Sconosciuto"
+                            
+                            st.session_state.banca_dati_df = pd.concat([st.session_state.banca_dati_df, df_finale], ignore_index=True).drop_duplicates(subset=["Alimento"]).reset_index(drop=True)
                             st.success("Banca dati aggiornata con successo dal file!")
                             st.rerun()
                         else:
-                            st.error("Il formato del file non corrisponde ai campi richiesti.")
+                            st.error("Il formato del file non contiene abbastanza colonne valide.")
             except Exception as e:
                 st.error(f"Errore durante la lettura del file: {e}")
 
