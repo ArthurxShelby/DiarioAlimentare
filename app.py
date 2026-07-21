@@ -6,13 +6,16 @@ from fpdf import FPDF
 import pandas as pd
 import streamlit as st
 
-# Configurazione della pagina (deve essere la prima istruzione Streamlit)
+# Configurazione della pagina
 st.set_page_config(
-    page_title="Diario Alimentare & Allenamento", page_icon="", layout="wide"
+    page_title="Diario Alimentare & Allenamento - Multi-Atleta",
+    page_icon="",
+    layout="wide",
 )
 
 # --- 0. GESTIONE PERSISTENZA DATI E PULIZIA ---
-FILE_PERSISTENZA = "diario_alimentare_db.pkl"
+FILE_PERSISTENZA = "diario_alimentare_multi_db.pkl"
+OLD_FILE_PERSISTENZA = "diario_alimentare_db.pkl"
 
 
 def safe_float(val):
@@ -39,18 +42,12 @@ def pulisci_dataframe_banca_dati(df):
 
 
 def salva_dati_disco():
-    """Salva lo stato della banca dati, del diario e dei parametri Mifflin nel file locale."""
+    """Salva lo stato della banca dati, degli atleti e dell'atleta corrente nel file locale."""
     try:
         dati = {
+            "atleti": st.session_state.get("atleti", {}),
             "banca_dati_df": st.session_state.get("banca_dati_df"),
-            "db_diario": st.session_state.get("db_diario"),
-            "peso": st.session_state.get("peso", 70.0),
-            "altezza": st.session_state.get("altezza", 175.0),
-            "eta": st.session_state.get("eta", 56),
-            "genere": st.session_state.get("genere", "Uomo"),
-            "livello_allenamento": st.session_state.get(
-                "livello_allenamento", "Allenamento Moderato (PAL 1.55)"
-            ),
+            "atleta_corrente": st.session_state.get("atleta_corrente"),
         }
         with open(FILE_PERSISTENZA, "wb") as f:
             pickle.dump(dati, f)
@@ -59,20 +56,44 @@ def salva_dati_disco():
 
 
 def carica_dati_disco():
-    """Carica i dati salvati dal file locale se esiste."""
+    """Carica i dati salvati dal file locale (con supporto alla migrazione dal vecchio formato singolo)."""
     if os.path.exists(FILE_PERSISTENZA):
         try:
             with open(FILE_PERSISTENZA, "rb") as f:
                 return pickle.load(f)
         except Exception as e:
             st.error(f"Errore durante il caricamento dei dati salvati: {e}")
+    elif os.path.exists(OLD_FILE_PERSISTENZA):
+        try:
+            with open(OLD_FILE_PERSISTENZA, "rb") as f:
+                old_dati = pickle.load(f)
+            # Migrazione automatica al formato multi-atleta
+            migrated = {
+                "atleti": {
+                    "Atleta Principale": {
+                        "peso": old_dati.get("peso", 70.0),
+                        "altezza": old_dati.get("altezza", 175.0),
+                        "eta": old_dati.get("eta", 56),
+                        "genere": old_dati.get("genere", "Uomo"),
+                        "livello_allenamento": old_dati.get(
+                            "livello_allenamento",
+                            "Allenamento Moderato (PAL 1.55)",
+                        ),
+                        "db_diario": old_dati.get("db_diario", {}),
+                    }
+                },
+                "banca_dati_df": old_dati.get("banca_dati_df", None),
+                "atleta_corrente": "Atleta Principale",
+            }
+            return migrated
+        except Exception as e:
+            st.error(f"Errore durante la migrazione dei vecchi dati: {e}")
     return None
 
 
-# Caricamento iniziale dal file di persistenza (se presente)
 dati_salvati = carica_dati_disco()
 
-# Banca dati precompilata iniziale
+# Banca dati precompilata iniziale (condivisa tra gli atleti)
 DEFAULT_BANCA_DATI = [
     {
         "Alimento": "anguria",
@@ -364,14 +385,17 @@ DEFAULT_BANCA_DATI = [
     },
 ]
 
-# Inizializzazione della Banca Dati da sessione o disco
+# Inizializzazione della Banca Dati
 if "banca_dati_df" not in st.session_state:
-    if dati_salvati and "banca_dati_df" in dati_salvati:
+    if (
+        dati_salvati
+        and "banca_dati_df" in dati_salvati
+        and dati_salvati["banca_dati_df"] is not None
+    ):
         st.session_state.banca_dati_df = dati_salvati["banca_dati_df"]
     else:
         st.session_state.banca_dati_df = pd.DataFrame(DEFAULT_BANCA_DATI)
 
-# Pulizia automatica di tutta la banca dati
 st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(
     st.session_state.banca_dati_df
 )
@@ -382,44 +406,105 @@ st.session_state.banca_dati_df = st.session_state.banca_dati_df[
     st.session_state.banca_dati_df["Alimento"].astype(str).str.strip() != ""
 ]
 
+# Inizializzazione Atleti
+if "atleti" not in st.session_state:
+    if dati_salvati and "atleti" in dati_salvati:
+        st.session_state.atleti = dati_salvati["atleti"]
+    else:
+        st.session_state.atleti = {
+            "Atleta Principale": {
+                "peso": 70.0,
+                "altezza": 175.0,
+                "eta": 56,
+                "genere": "Uomo",
+                "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
+                "db_diario": {},
+            }
+        }
+
+if "atleta_corrente" not in st.session_state:
+    if (
+        dati_salvati
+        and "atleta_corrente" in dati_salvati
+        and dati_salvati["atleta_corrente"] in st.session_state.atleti
+    ):
+        st.session_state.atleta_corrente = dati_salvati["atleta_corrente"]
+    else:
+        st.session_state.atleta_corrente = list(st.session_state.atleti.keys())[
+            0
+        ]
+
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
-# Inizializzazione del Diario da sessione o disco
-if "db_diario" not in st.session_state:
-    if dati_salvati and "db_diario" in dati_salvati:
-        st.session_state.db_diario = dati_salvati["db_diario"]
-    else:
-        st.session_state.db_diario = {}
+st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta (Mifflin)")
 
-st.title("Pianificatore Alimentare & Allenamento (Mifflin)")
+# --- SEZIONE GESTIONE ATLETI NELLA SIDEBAR ---
+st.sidebar.header("Gestione Atleti")
+lista_atleti = list(st.session_state.atleti.keys())
+atleta_selezionato = st.sidebar.selectbox(
+    "Seleziona Atleta",
+    lista_atleti,
+    index=lista_atleti.index(st.session_state.atleta_corrente)
+    if st.session_state.atleta_corrente in lista_atleti
+    else 0,
+    key="selectbox_atleta",
+)
 
-st.sidebar.header("Seleziona Giorno")
-data_selezionata = st.sidebar.date_input("Data", value=date.today())
-data_str = data_selezionata.strftime("%Y-%m-%d")
-
-if data_str not in st.session_state.db_diario:
-    st.session_state.db_diario[data_str] = {
-        pasto: pd.DataFrame(
-            columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"]
-        )
-        for pasto in PASTI
-    }
+if atleta_selezionato != st.session_state.atleta_corrente:
+    st.session_state.atleta_corrente = atleta_selezionato
     salva_dati_disco()
+    st.rerun()
+
+with st.sidebar.expander("Aggiungi o Gestisci Atleti"):
+    nuovo_atleta_nome = st.text_input("Nome Nuovo Atleta")
+    if st.button("Crea Nuovo Atleta"):
+        nome_pulito = nuovo_atleta_nome.strip()
+        if nome_pulito == "":
+            st.error("Inserisci un nome valido.")
+        elif nome_pulito in st.session_state.atleti:
+            st.warning("Esiste già un atleta con questo nome.")
+        else:
+            st.session_state.atleti[nome_pulito] = {
+                "peso": 70.0,
+                "altezza": 175.0,
+                "eta": 30,
+                "genere": "Uomo",
+                "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
+                "db_diario": {},
+            }
+            st.session_state.atleta_corrente = nome_pulito
+            salva_dati_disco()
+            st.success(f"Atleta '{nome_pulito}' aggiunto con successo!")
+            st.rerun()
+
+    if len(st.session_state.atleti) > 1:
+        atleta_da_eliminare = st.selectbox(
+            "Elimina Atleta",
+            [a for a in lista_atleti if a != st.session_state.atleta_corrente],
+        )
+        if st.button("Conferma ed Elimina Atleta", type="primary"):
+            if atleta_da_eliminare in st.session_state.atleti:
+                del st.session_state.atleti[atleta_da_eliminare]
+                st.session_state.atleta_corrente = list(
+                    st.session_state.atleti.keys()
+                )[0]
+                salva_dati_disco()
+                st.success(f"Atleta '{atleta_da_eliminare}' eliminato.")
+                st.rerun()
 
 st.sidebar.markdown("---")
-st.sidebar.header("Parametri Mifflin-St Jeor & Allenamento")
+st.sidebar.header(
+    f"Parametri Mifflin & Allenamento: {st.session_state.atleta_corrente}"
+)
 
-# Recupero dei parametri Mifflin salvati (se presenti)
-saved_peso = dati_salvati.get("peso", 70.0) if dati_salvati else 70.0
-saved_altezza = dati_salvati.get("altezza", 175.0) if dati_salvati else 175.0
-saved_eta = dati_salvati.get("eta", 56) if dati_salvati else 56
-saved_genere = dati_salvati.get("genere", "Uomo") if dati_salvati else "Uomo"
-saved_allenamento = (
-    dati_salvati.get(
-        "livello_allenamento", "Allenamento Moderato (PAL 1.55)"
-    )
-    if dati_salvati
-    else "Allenamento Moderato (PAL 1.55)"
+atleta_data = st.session_state.atleti[st.session_state.atleta_corrente]
+
+saved_peso = atleta_data.get("peso", 70.0)
+saved_altezza = atleta_data.get("altezza", 175.0)
+saved_eta = atleta_data.get("eta", 56)
+saved_genere = atleta_data.get("genere", "Uomo")
+saved_allenamento = atleta_data.get(
+    "livello_allenamento", "Allenamento Moderato (PAL 1.55)"
 )
 
 genere_opzioni = ["Uomo", "Donna"]
@@ -440,31 +525,46 @@ allenamento_index = (
     else 2
 )
 
-peso = st.sidebar.number_input("Peso (kg)", value=float(saved_peso), key="peso")
+peso = st.sidebar.number_input(
+    "Peso (kg)",
+    value=float(saved_peso),
+    key=f"peso_{st.session_state.atleta_corrente}",
+)
 altezza = st.sidebar.number_input(
-    "Altezza (cm)", value=float(saved_altezza), key="altezza"
+    "Altezza (cm)",
+    value=float(saved_altezza),
+    key=f"altezza_{st.session_state.atleta_corrente}",
 )
-eta = st.sidebar.number_input("Età (anni)", value=int(saved_eta), key="eta")
+eta = st.sidebar.number_input(
+    "Età (anni)",
+    value=int(saved_eta),
+    key=f"eta_{st.session_state.atleta_corrente}",
+)
 genere = st.sidebar.selectbox(
-    "Genere", genere_opzioni, index=genere_index, key="genere"
+    "Genere",
+    genere_opzioni,
+    index=genere_index,
+    key=f"genere_{st.session_state.atleta_corrente}",
 )
-
 livello_allenamento = st.sidebar.selectbox(
-    "Intensità Allenamento / Attività Giornaliera",
+    "Intensità Allenamento / Attività",
     allenamento_opzioni,
     index=allenamento_index,
-    key="livello_allenamento",
+    key=f"allenamento_{st.session_state.atleta_corrente}",
 )
 
-# Controllo e salvataggio automatico se i parametri Mifflin vengono modificati
 if (
-    dati_salvati is None
-    or dati_salvati.get("peso") != peso
-    or dati_salvati.get("altezza") != altezza
-    or dati_salvati.get("eta") != eta
-    or dati_salvati.get("genere") != genere
-    or dati_salvati.get("livello_allenamento") != livello_allenamento
+    atleta_data.get("peso") != peso
+    or atleta_data.get("altezza") != altezza
+    or atleta_data.get("eta") != eta
+    or atleta_data.get("genere") != genere
+    or atleta_data.get("livello_allenamento") != livello_allenamento
 ):
+    atleta_data["peso"] = peso
+    atleta_data["altezza"] = altezza
+    atleta_data["eta"] = eta
+    atleta_data["genere"] = genere
+    atleta_data["livello_allenamento"] = livello_allenamento
     salva_dati_disco()
 
 pal_dict = {
@@ -488,39 +588,56 @@ obj_prot = 165.0
 obj_grassi = 70.0
 
 st.sidebar.info(
-    f"**BMR stimato:** {bmr:.0f} kcal\n\n**TDEE dinamico:** {obj_kcal:.0f} kcal"
+    f"**Atleta in uso:** {st.session_state.atleta_corrente}\n\n**BMR stimato:** {bmr:.0f} kcal\n\n**TDEE dinamico:** {obj_kcal:.0f} kcal"
 )
+
+st.sidebar.markdown("---")
+st.sidebar.header("Seleziona Giorno")
+data_selezionata = st.sidebar.date_input("Data", value=date.today())
+data_str = data_selezionata.strftime("%Y-%m-%d")
+
+db_diario_atleta = atleta_data.setdefault("db_diario", {})
+if data_str not in db_diario_atleta:
+    db_diario_atleta[data_str] = {
+        pasto: pd.DataFrame(
+            columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"]
+        )
+        for pasto in PASTI
+    }
+    salva_dati_disco()
 
 tot_carbo = sum(
     [
-        st.session_state.db_diario[data_str][p]["carbo"].sum()
+        db_diario_atleta[data_str][p]["carbo"].sum()
         for p in PASTI
-        if not st.session_state.db_diario[data_str][p].empty
+        if not db_diario_atleta[data_str][p].empty
     ]
 )
 tot_prot = sum(
     [
-        st.session_state.db_diario[data_str][p]["proteine"].sum()
+        db_diario_atleta[data_str][p]["proteine"].sum()
         for p in PASTI
-        if not st.session_state.db_diario[data_str][p].empty
+        if not db_diario_atleta[data_str][p].empty
     ]
 )
 tot_grassi = sum(
     [
-        st.session_state.db_diario[data_str][p]["grassi"].sum()
+        db_diario_atleta[data_str][p]["grassi"].sum()
         for p in PASTI
-        if not st.session_state.db_diario[data_str][p].empty
+        if not db_diario_atleta[data_str][p].empty
     ]
 )
 tot_kcal = sum(
     [
-        st.session_state.db_diario[data_str][p]["kcal"].sum()
+        db_diario_atleta[data_str][p]["kcal"].sum()
         for p in PASTI
-        if not st.session_state.db_diario[data_str][p].empty
+        if not db_diario_atleta[data_str][p].empty
     ]
 )
 
-st.subheader(f"Riepilogo Giornaliero - {data_str}")
+st.subheader(
+    f"Riepilogo Giornaliero - {st.session_state.atleta_corrente} ({data_str})"
+)
 
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 
@@ -558,7 +675,7 @@ with col_m4:
 
 st.markdown("---")
 
-with st.expander("Gestione Avanzata Banca Dati Alimenti", expanded=False):
+with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=False):
     st.markdown("### Accesso e Visualizzazione")
     banca_dati = st.session_state.banca_dati_df
     st.dataframe(banca_dati, use_container_width=True)
@@ -717,7 +834,6 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti", expanded=False):
                             "grassi",
                             "kcal",
                         ]
-
                         cols_orig = [
                             str(c).strip().lower() for c in df_nuovo.columns
                         ]
@@ -776,7 +892,6 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti", expanded=False):
 
                         df_finale = pd.DataFrame(data_dict)
                         df_finale = pulisci_dataframe_banca_dati(df_finale)
-
                         df_finale = df_finale.dropna(subset=["Alimento"])
                         df_finale = df_finale[
                             df_finale["Alimento"].astype(str).str.strip() != ""
@@ -854,8 +969,8 @@ if alimenti_validati:
                 }
             ]
         )
-        st.session_state.db_diario[data_str][pasto_selezionato] = pd.concat(
-            [st.session_state.db_diario[data_str][pasto_selezionato], nuova_riga],
+        db_diario_atleta[data_str][pasto_selezionato] = pd.concat(
+            [db_diario_atleta[data_str][pasto_selezionato], nuova_riga],
             ignore_index=True,
         )
         salva_dati_disco()
@@ -865,7 +980,9 @@ else:
 
 st.markdown("---")
 
-st.subheader("Panoramica dei 6 Pasti Giornalieri")
+st.subheader(
+    f"Panoramica dei 6 Pasti Giornalieri - {st.session_state.atleta_corrente}"
+)
 
 cols_pasti = st.columns(3)
 for i, pasto in enumerate(PASTI):
@@ -873,7 +990,7 @@ for i, pasto in enumerate(PASTI):
     with col_target:
         with st.container(border=True):
             st.markdown(f"### {pasto}")
-            df_p = st.session_state.db_diario[data_str][pasto]
+            df_p = db_diario_atleta[data_str][pasto]
 
             if not df_p.empty:
                 p_kcal = safe_float(df_p["kcal"].sum())
@@ -902,14 +1019,14 @@ for i, pasto in enumerate(PASTI):
                 with col_btn1:
                     if st.button("Elimina", key=f"btn_del_{pasto}"):
                         idx_to_drop = opzioni_rimozione[voce_da_rimuovere]
-                        st.session_state.db_diario[data_str][pasto] = df_p.drop(
+                        db_diario_atleta[data_str][pasto] = df_p.drop(
                             idx_to_drop
                         ).reset_index(drop=True)
                         salva_dati_disco()
                         st.rerun()
                 with col_btn2:
                     if st.button("Svuota", key=f"clear_{pasto}"):
-                        st.session_state.db_diario[data_str][
+                        db_diario_atleta[data_str][
                             pasto
                         ] = pd.DataFrame(
                             columns=[
@@ -928,7 +1045,9 @@ for i, pasto in enumerate(PASTI):
 
 st.markdown("---")
 
-st.subheader("Esportazione Report in PDF")
+st.subheader(
+    f"Esportazione Report in PDF - {st.session_state.atleta_corrente}"
+)
 
 col_pdf1, col_pdf2 = st.columns(2)
 
@@ -940,7 +1059,11 @@ with col_pdf1:
             pdf_output.add_page()
             pdf_output.set_font("Arial", "B", 16)
             pdf_output.cell(
-                0, 10, f"Report Nutrizionale - {data_str}", ln=True, align="C"
+                0,
+                10,
+                f"Report Nutrizionale - {st.session_state.atleta_corrente} ({data_str})",
+                ln=True,
+                align="C",
             )
             pdf_output.ln(10)
 
@@ -968,7 +1091,7 @@ with col_pdf1:
                 pdf_output.set_font("Arial", "B", 12)
                 pdf_output.cell(0, 8, f"Pasto: {pasto}", ln=True)
                 pdf_output.set_font("Arial", "", 10)
-                df_p = st.session_state.db_diario[data_str][pasto]
+                df_p = db_diario_atleta[data_str][pasto]
                 if not df_p.empty:
                     for _, row in df_p.iterrows():
                         testo_riga = f" - {row['Alimento']}: {row['gr/n']}g | Carbo: {row['carbo']}g | Prot: {row['proteine']}g | Grassi: {row['grassi']}g | {row['kcal']} kcal"
@@ -989,7 +1112,7 @@ with col_pdf1:
             st.download_button(
                 label="Scarica PDF Giornaliero",
                 data=pdf_bytes,
-                file_name=f"report_giornaliero_{data_str}.pdf",
+                file_name=f"report_{st.session_state.atleta_corrente}_{data_str}.pdf",
                 mime="application/pdf",
             )
         except Exception as e:
@@ -1028,49 +1151,43 @@ with col_pdf2:
                 for i in range(delta_giorni):
                     d_corrente = data_inizio + timedelta(days=i)
                     d_str = d_corrente.strftime("%Y-%m-%d")
-                    if d_str in st.session_state.db_diario:
+                    if d_str in db_diario_atleta:
                         d_kcal = sum(
                             [
                                 safe_float(
-                                    st.session_state.db_diario[d_str][p][
-                                        "kcal"
-                                    ].sum()
+                                    db_diario_atleta[d_str][p]["kcal"].sum()
                                 )
                                 for p in PASTI
-                                if not st.session_state.db_diario[d_str][p].empty
+                                if not db_diario_atleta[d_str][p].empty
                             ]
                         )
                         d_carbo = sum(
                             [
                                 safe_float(
-                                    st.session_state.db_diario[d_str][p][
-                                        "carbo"
-                                    ].sum()
+                                    db_diario_atleta[d_str][p]["carbo"].sum()
                                 )
                                 for p in PASTI
-                                if not st.session_state.db_diario[d_str][p].empty
+                                if not db_diario_atleta[d_str][p].empty
                             ]
                         )
                         d_prot = sum(
                             [
                                 safe_float(
-                                    st.session_state.db_diario[d_str][p][
+                                    db_diario_atleta[d_str][p][
                                         "proteine"
                                     ].sum()
                                 )
                                 for p in PASTI
-                                if not st.session_state.db_diario[d_str][p].empty
+                                if not db_diario_atleta[d_str][p].empty
                             ]
                         )
                         d_grassi = sum(
                             [
                                 safe_float(
-                                    st.session_state.db_diario[d_str][p][
-                                        "grassi"
-                                    ].sum()
+                                    db_diario_atleta[d_str][p]["grassi"].sum()
                                 )
                                 for p in PASTI
-                                if not st.session_state.db_diario[d_str][p].empty
+                                if not db_diario_atleta[d_str][p].empty
                             ]
                         )
 
@@ -1090,7 +1207,7 @@ with col_pdf2:
                 pdf_output.cell(
                     0,
                     10,
-                    f"Report Nutrizionale ({data_inizio.strftime('%d/%m/%Y')} - {data_fine.strftime('%d/%m/%Y')})",
+                    f"Report Nutrizionale - {st.session_state.atleta_corrente} ({data_inizio.strftime('%d/%m/%Y')} - {data_fine.strftime('%d/%m/%Y')})",
                     ln=True,
                     align="C",
                 )
@@ -1153,7 +1270,7 @@ with col_pdf2:
                 st.download_button(
                     label="Scarica PDF Periodo Personalizzato",
                     data=pdf_bytes,
-                    file_name=f"report_periodo_{data_inizio}_al_{data_fine}.pdf",
+                    file_name=f"report_periodo_{st.session_state.atleta_corrente}_{data_inizio}_al_{data_fine}.pdf",
                     mime="application/pdf",
                 )
         except Exception as e:
