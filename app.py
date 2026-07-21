@@ -71,11 +71,34 @@ if data_str not in st.session_state.db_diario:
     st.session_state.db_diario[data_str] = {pasto: pd.DataFrame(columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"]) for pasto in PASTI}
 
 st.sidebar.markdown("---")
-st.sidebar.header("⚙️ Parametri Mifflin-St Jeor")
+st.sidebar.header("⚙️ Parametri Mifflin-St Jeor & Allenamento")
 peso = st.sidebar.number_input("Peso (kg)", value=70.0)
 altezza = st.sidebar.number_input("Altezza (cm)", value=175.0)
 eta = st.sidebar.number_input("Età (anni)", value=56)
 genere = st.sidebar.selectbox("Genere", ["Uomo", "Donna"])
+
+# Selezione dell'intensità / tipologia di allenamento giornaliero per modulare il TDEE
+livello_allenamento = st.sidebar.selectbox(
+    "Intensità Allenamento / Attività Giornaliera",
+    [
+        "Riposo / Sedentario (PAL 1.2)", 
+        "Attività Leggera (PAL 1.375)", 
+        "Allenamento Moderato (PAL 1.55)", 
+        "Allenamento Intenso / Rouleur-Climber (PAL 1.725)", 
+        "Doppio Allenamento / Estremo (PAL 1.9)"
+    ],
+    index=2
+)
+
+# Associazione del fattore PAL in base alla selezione
+pal_dict = {
+    "Riposo / Sedentario (PAL 1.2)": 1.2,
+    "Attività Leggera (PAL 1.375)": 1.375,
+    "Allenamento Moderato (PAL 1.55)": 1.55,
+    "Allenamento Intenso / Rouleur-Climber (PAL 1.725)": 1.725,
+    "Doppio Allenamento / Estremo (PAL 1.9)": 1.9
+}
+pal_selezionato = pal_dict[livello_allenamento]
 
 # Calcolo BMR Mifflin-St Jeor
 if genere == "Uomo":
@@ -83,13 +106,13 @@ if genere == "Uomo":
 else:
     bmr = (10 * peso) + (6.25 * altezza) - (5 * eta) - 161
 
-tdee = bmr * 1.55
+tdee = bmr * pal_selezionato
 obj_kcal = round(tdee, 0)
 obj_carbo = 230.0
 obj_prot = 165.0
 obj_grassi = 70.0
 
-st.sidebar.info(f"**BMR stimato:** {bmr:.0f} kcal\n\n**TDEE stimato:** {obj_kcal:.0f} kcal")
+st.sidebar.info(f"**BMR stimato:** {bmr:.0f} kcal\n\n**TDEE dinamico (con {livello_allenamento.split(' ')[0]}):** {obj_kcal:.0f} kcal")
 
 # Calcoli totali giornalieri
 tot_carbo = sum([st.session_state.db_diario[data_str][p]["carbo"].sum() for p in PASTI if not st.session_state.db_diario[data_str][p].empty])
@@ -167,7 +190,6 @@ for i, pasto in enumerate(PASTI):
             df_p = st.session_state.db_diario[data_str][pasto]
             
             if not df_p.empty:
-                # Mostra riepilogo rapido del pasto
                 p_kcal = df_p["kcal"].sum()
                 p_carb = df_p["carbo"].sum()
                 p_prot = df_p["proteine"].sum()
@@ -176,7 +198,6 @@ for i, pasto in enumerate(PASTI):
                 
                 st.dataframe(df_p, use_container_width=True)
                 
-                # Opzione di cancellazione singola o svuota
                 indices_disponibili = df_p.index.tolist()
                 opzioni_rimozione = {f"Riga {idx}: {df_p.loc[idx, 'Alimento']} ({df_p.loc[idx, 'gr/n']}g)": idx for idx in indices_disponibili}
                 
@@ -210,7 +231,7 @@ if st.button("Genera e Scarica PDF Giornaliero"):
         pdf_output.set_font("Arial", "B", 12)
         pdf_output.cell(0, 10, "Riepilogo Totale:", ln=True)
         pdf_output.set_font("Arial", "", 11)
-        pdf_output.cell(0, 8, f"Calorie: {tot_kcal:.1f} / {obj_kcal} kcal", ln=True)
+        pdf_output.cell(0, 8, f"Calorie: {tot_kcal:.1f} / {obj_kcal} kcal ({livello_allenamento})", ln=True)
         pdf_output.cell(0, 8, f"Carboidrati: {tot_carbo:.1f} / {obj_carbo} g", ln=True)
         pdf_output.cell(0, 8, f"Proteine: {tot_prot:.1f} / {obj_prot} g", ln=True)
         pdf_output.cell(0, 8, f"Grassi: {tot_grassi:.1f} / {obj_grassi} g", ln=True)
