@@ -11,8 +11,31 @@ st.set_page_config(
     page_title="Diario Alimentare & Allenamento", page_icon="🥗", layout="wide"
 )
 
-# --- 0. GESTIONE PERSISTENZA DATI SU DISCO ---
+# --- 0. GESTIONE PERSISTENZA DATI E PULIZIA ---
 FILE_PERSISTENZA = "diario_alimentare_db.pkl"
+
+
+def safe_float(val):
+    """Converte in modo sicuro qualsiasi valore in float, gestendo virgole e stringhe."""
+    if pd.isna(val):
+        return 0.0
+    try:
+        if isinstance(val, (int, float)):
+            return float(val)
+        val_str = str(val).strip().replace(",", ".")
+        val_clean = re.sub(r"[^\d.-]", "", val_str)
+        return float(val_clean) if val_clean else 0.0
+    except:
+        return 0.0
+
+
+def pulisci_dataframe_banca_dati(df):
+    """Assicura che tutte le colonne numeriche siano float puliti."""
+    colonne_numeriche = ["gr/n", "carbo", "proteine", "grassi", "kcal"]
+    for col in colonne_numeriche:
+        if col in df.columns:
+            df[col] = df[col].apply(safe_float)
+    return df
 
 
 def salva_dati_disco():
@@ -341,7 +364,10 @@ if "banca_dati_df" not in st.session_state:
     else:
         st.session_state.banca_dati_df = pd.DataFrame(DEFAULT_BANCA_DATI)
 
-# Pulizia preventiva della banca dati da eventuali valori NaN o stringhe vuote
+# Pulizia automatica di tutta la banca dati
+st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(
+    st.session_state.banca_dati_df
+)
 st.session_state.banca_dati_df = st.session_state.banca_dati_df.dropna(
     subset=["Alimento"]
 )
@@ -490,7 +516,6 @@ with st.expander("📖 Gestione Avanzata Banca Dati Alimenti", expanded=False):
 
     st.markdown("---")
 
-    # Sezione per l'inserimento manuale di un alimento alla volta
     st.markdown("### ➕ Inserimento Manuale Singolo Alimento")
     with st.form("form_inserimento_manuale"):
         col_man1, col_man2, col_man3 = st.columns(3)
@@ -538,6 +563,7 @@ with st.expander("📖 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                         }
                     ]
                 )
+                nuova_riga_df = pulisci_dataframe_banca_dati(nuova_riga_df)
                 st.session_state.banca_dati_df = (
                     pd.concat(
                         [
@@ -700,6 +726,7 @@ with st.expander("📖 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                                 )
 
                         df_finale = pd.DataFrame(data_dict)
+                        df_finale = pulisci_dataframe_banca_dati(df_finale)
 
                         df_finale = df_finale.dropna(subset=["Alimento"])
                         df_finale = df_finale[
@@ -747,46 +774,24 @@ if alimenti_validati:
             banca_dati_corrente["Alimento"].astype(str) == str(alimento_scelto)
         ].iloc[0]
 
-        val_gr_n = item_row["gr/n"]
-        if pd.notna(val_gr_n):
-            if isinstance(val_gr_n, (int, float)):
-                default_q = int(val_gr_n)
-            else:
-                numeri_estratti = re.findall(r"\d+", str(val_gr_n))
-                default_q = int(numeri_estratti[0]) if numeri_estratti else 100
-        else:
-            default_q = 100
+        val_gr_n = safe_float(item_row["gr/n"])
+        default_q = int(val_gr_n) if val_gr_n > 0 else 100
 
     with col_ins2:
         quantita = st.number_input(
             "Quantità (g o porzione)",
-            min_value=1,
-            value=default_q,
+            min_value=1.0,
+            value=float(default_q),
             key="num_quantita_principale",
         )
 
     if st.button("Aggiungi al pasto selezionato", key="btn_aggiungi_principale"):
         fattore = quantita / default_q if default_q > 0 else 1
-        c_calc = (
-            round(float(item_row["carbo"]) * fattore, 2)
-            if pd.notna(item_row["carbo"])
-            else 0.0
-        )
-        p_calc = (
-            round(float(item_row["proteine"]) * fattore, 2)
-            if pd.notna(item_row["proteine"])
-            else 0.0
-        )
-        g_calc = (
-            round(float(item_row["grassi"]) * fattore, 2)
-            if pd.notna(item_row["grassi"])
-            else 0.0
-        )
-        k_calc = (
-            round(float(item_row["kcal"]) * fattore, 2)
-            if pd.notna(item_row["kcal"])
-            else 0.0
-        )
+
+        c_calc = round(safe_float(item_row["carbo"]) * fattore, 2)
+        p_calc = round(safe_float(item_row["proteine"]) * fattore, 2)
+        g_calc = round(safe_float(item_row["grassi"]) * fattore, 2)
+        k_calc = round(safe_float(item_row["kcal"]) * fattore, 2)
 
         nuova_riga = pd.DataFrame(
             [
@@ -822,10 +827,10 @@ for i, pasto in enumerate(PASTI):
             df_p = st.session_state.db_diario[data_str][pasto]
 
             if not df_p.empty:
-                p_kcal = df_p["kcal"].sum()
-                p_carb = df_p["carbo"].sum()
-                p_prot = df_p["proteine"].sum()
-                p_gras = df_p["grassi"].sum()
+                p_kcal = safe_float(df_p["kcal"].sum())
+                p_carb = safe_float(df_p["carbo"].sum())
+                p_prot = safe_float(df_p["proteine"].sum())
+                p_gras = safe_float(df_p["grassi"].sum())
                 st.caption(
                     f"Totale: {p_kcal:.1f} kcal | C: {p_carb:.1f}g | P: {p_prot:.1f}g | G: {p_gras:.1f}g"
                 )
@@ -977,34 +982,44 @@ with col_pdf2:
                     if d_str in st.session_state.db_diario:
                         d_kcal = sum(
                             [
-                                st.session_state.db_diario[d_str][p]["kcal"].sum()
+                                safe_float(
+                                    st.session_state.db_diario[d_str][p][
+                                        "kcal"
+                                    ].sum()
+                                )
                                 for p in PASTI
                                 if not st.session_state.db_diario[d_str][p].empty
                             ]
                         )
                         d_carbo = sum(
                             [
-                                st.session_state.db_diario[d_str][p][
-                                    "carbo"
-                                ].sum()
+                                safe_float(
+                                    st.session_state.db_diario[d_str][p][
+                                        "carbo"
+                                    ].sum()
+                                )
                                 for p in PASTI
                                 if not st.session_state.db_diario[d_str][p].empty
                             ]
                         )
                         d_prot = sum(
                             [
-                                st.session_state.db_diario[d_str][p][
-                                    "proteine"
-                                ].sum()
+                                safe_float(
+                                    st.session_state.db_diario[d_str][p][
+                                        "proteine"
+                                    ].sum()
+                                )
                                 for p in PASTI
                                 if not st.session_state.db_diario[d_str][p].empty
                             ]
                         )
                         d_grassi = sum(
                             [
-                                st.session_state.db_diario[d_str][p][
-                                    "grassi"
-                                ].sum()
+                                safe_float(
+                                    st.session_state.db_diario[d_str][p][
+                                        "grassi"
+                                    ].sum()
+                                )
                                 for p in PASTI
                                 if not st.session_state.db_diario[d_str][p].empty
                             ]
