@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from datetime import date
 
 # Configurazione della pagina
 st.set_page_config(
@@ -8,7 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Banca dati precompilata degli alimenti (valori per 100g o porzione indicata)
+# Banca dati precompilata con le 35 voci alimentari
 @st.cache_data
 def get_banca_dati():
     data = [
@@ -51,104 +52,160 @@ def get_banca_dati():
     ]
     return pd.DataFrame(data)
 
-st.title("🚴‍♂️ Gestione Diario Alimentare e Allenamenti")
-
-# Inizializzazione dello stato per il diario giornaliero
-if "diario" not in st.session_state:
-    st.session_state.diario = pd.DataFrame(columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"])
-
 banca_dati = get_banca_dati()
 
-# Sidebar per navigazione
-st.sidebar.header("Navigazione")
-scelta = st.sidebar.radio("Vai a:", ["Diario Alimentare", "Banca Dati Alimenti"])
+# Inizializzazione dello State per il diario strutturato per data e pasto
+PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
-if scelta == "Banca Dati Alimenti":
-    st.header("📋 Banca Dati Alimenti")
-    st.dataframe(banca_dati, use_container_width=True)
-    
-    with st.expander("Aggiungi nuovo alimento alla banca dati"):
-        nuovo_alimento = st.text_input("Nome Alimento")
-        q_base = st.number_input("Quantità di riferimento (g)", min_value=1, value=100)
-        c_base = st.number_input("Carboidrati (g)", min_value=0.0, value=0.0)
-        p_base = st.number_input("Proteine (g)", min_value=0.0, value=0.0)
-        g_base = st.number_input("Grassi (g)", min_value=0.0, value=0.0)
-        k_base = st.number_input("Calorie (kcal)", min_value=0.0, value=0.0)
-        
-        if st.button("Salva in Banca Dati"):
-            st.success(f"Alimento '{nuovo_alimento}' aggiunto con successo!")
+if "db_diario" not in st.session_state:
+    st.session_state.db_diario = {}
 
-elif scelta == "Diario Alimentare":
-    st.header("🍽️ Diario Alimentare Giornaliero")
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.subheader("Aggiungi Alimento al Pasto")
-        alimento_selezionato = st.selectbox("Seleziona dalla banca dati", banca_dati["Alimento"].tolist())
-        
-        # Recupera i valori di default basati sulla banca dati
-        item_row = banca_dati[banca_dati["Alimento"] == alimento_selezionato].iloc[0]
-        default_q = int(item_row["gr/n"])
-        
-        quantita = st.number_input("Quantità effettiva (g o porzioni)", min_value=1, value=default_q)
-        
-        # Calcolo proporzionale
-        fattore = quantita / default_q
-        c_calc = round(item_row["carbo"] * fattore, 2)
-        p_calc = round(item_row["proteine"] * fattore, 2)
-        g_calc = round(item_row["grassi"] * fattore, 2)
-        k_calc = round(item_row["kcal"] * fattore, 2)
-        
-        if st.button("Aggiungi al Diario"):
-            nuova_riga = pd.DataFrame([{
-                "Alimento": alimento_selezionato,
-                "gr/n": quantita,
-                "carbo": c_calc,
-                "proteine": p_calc,
-                "grassi": g_calc,
-                "kcal": k_calc
-            }])
-            st.session_state.diario = pd.concat([st.session_state.diario, nuova_riga], ignore_index=True)
-            st.rerun()
+st.title("🚴‍♂️ Pianificatore Alimentare & Allenamento (Mifflin)")
 
-    with col2:
-        st.subheader("🎯 Obiettivi Giornalieri")
-        obj_carbo = 230
-        obj_prot = 165
-        obj_grassi = 70
-        obj_kcal = 2250
-        
-        st.metric("Carboidrati Obiettivo", f"{obj_carbo} g")
-        st.metric("Proteine Obiettivo", f"{obj_prot} g")
-        st.metric("Grassi Obiettivo", f"{obj_grassi} g")
-        st.metric("Calorie Obiettivo", f"{obj_kcal} kcal")
+# Selezione della data tramite Calendario
+st.sidebar.header("🗓️ Seleziona Giorno")
+data_selezionata = st.sidebar.date_input("Data", value=date.today())
+data_str = data_selezionata.strftime("%Y-%m-%d")
 
-    st.markdown("---")
-    st.subheader("📝 RIEPILOGO GIORNATA")
+# Inizializzazione della giornata se non esiste
+if data_str not in st.session_state.db_diario:
+    st.session_state.db_diario[data_str] = {pasto: pd.DataFrame(columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"]) for pasto in PASTI}
+
+st.sidebar.markdown("---")
+st.sidebar.header("⚙️ Parametri Mifflin-St Jeor")
+peso = st.sidebar.number_input("Peso (kg)", value=70.0)
+altezza = st.sidebar.number_input("Altezza (cm)", value=175.0)
+eta = st.sidebar.number_input("Età (anni)", value=56)
+genere = st.sidebar.selectbox("Genere", ["Uomo", "Donna"])
+
+# Calcolo BMR Mifflin-St Jeor
+if genere == "Uomo":
+    bmr = (10 * peso) + (6.25 * altezza) - (5 * eta) + 5
+else:
+    bmr = (10 * peso) + (6.25 * altezza) - (5 * eta) - 161
+
+tdee = bmr * 1.55  # Fattore di attività moderata / ciclista
+obj_kcal = round(tdee, 0)
+obj_carbo = 230.0
+obj_prot = 165.0
+obj_grassi = 70.0
+
+st.sidebar.info(f"**BMR stimato:** {bmr:.0f} kcal\n\n**TDEE stimato:** {obj_kcal:.0f} kcal")
+
+# Calcolo dei totali giornalieri aggregati dai 6 pasti
+tot_carbo = 0.0
+tot_prot = 0.0
+tot_grassi = 0.0
+tot_kcal = 0.0
+
+for pasto in PASTI:
+    df_pasto = st.session_state.db_diario[data_str][pasto]
+    if not df_pasto.empty:
+        tot_carbo += df_pasto["carbo"].sum()
+        tot_prot += df_pasto["proteine"].sum()
+        tot_grassi += df_pasto["grassi"].sum()
+        tot_kcal += df_pasto["kcal"].sum()
+
+# Dashboard principale con Progress Bar istantanee
+st.subheader(f"📊 Riepilogo Giornaliero - {data_str}")
+
+col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+
+with col_m1:
+    st.metric("Calorie", f"{tot_kcal:.1f} / {obj_kcal} kcal", delta=f"{obj_kcal - tot_kcal:.1f} rimanenti")
+    p_kcal = min(tot_kcal / obj_kcal, 1.0) if obj_kcal > 0 else 0
+    st.progress(p_kcal)
+
+with col_m2:
+    st.metric("Carboidrati", f"{tot_carbo:.1f} / {obj_carbo} g", delta=f"{obj_carbo - tot_carbo:.1f} g rimanenti")
+    p_carbo = min(tot_carbo / obj_carbo, 1.0) if obj_carbo > 0 else 0
+    st.progress(p_carbo)
+
+with col_m3:
+    st.metric("Proteine", f"{tot_prot:.1f} / {obj_prot} g", delta=f"{obj_prot - tot_prot:.1f} g rimanenti")
+    p_prot = min(tot_prot / obj_prot, 1.0) if obj_prot > 0 else 0
+    st.progress(p_prot)
+
+with col_m4:
+    st.metric("Grassi", f"{tot_grassi:.1f} / {obj_grassi} g", delta=f"{obj_grassi - tot_grassi:.1f} g rimanenti")
+    p_grassi = min(tot_grassi / obj_grassi, 1.0) if obj_grassi > 0 else 0
+    st.progress(p_grassi)
+
+st.markdown("---")
+
+# Gestione dei 6 pasti giornalieri
+st.subheader("🍽️ Gestione dei 6 Pasti Giornalieri")
+
+pasto_selezionato = st.selectbox("Seleziona il pasto da modificare:", PASTI)
+
+col_A, col_B = st.columns([1, 1])
+
+with col_A:
+    st.markdown(f"### Aggiungi a: {pasto_selezionato}")
+    alimento_scelto = st.selectbox("Alimento", banca_dati["Alimento"].tolist(), key=f"sel_{pasto_selezionato}")
     
-    if not st.session_state.diario.empty:
-        st.dataframe(st.session_state.diario, use_container_width=True)
-        
-        tot_carbo = st.session_state.diario["carbo"].sum()
-        tot_prot = st.session_state.diario["proteine"].sum()
-        tot_grassi = st.session_state.diario["grassi"].sum()
-        tot_kcal = st.session_state.diario["kcal"].sum()
-        
-        st.markdown("### 📊 Totali vs Rimanenze")
-        t_col1, t_col2, t_col3, t_col4 = st.columns(4)
-        
-        with t_col1:
-            st.metric("Carboidrati Totali", f"{tot_carbo:.2f} g", f"{tot_carbo - obj_carbo:.2f} g")
-        with t_col2:
-            st.metric("Proteine Totali", f"{tot_prot:.2f} g", f"{tot_prot - obj_prot:.2f} g")
-        with t_col3:
-            st.metric("Grassi Totali", f"{tot_grassi:.2f} g", f"{tot_grassi - obj_grassi:.2f} g")
-        with t_col4:
-            st.metric("Calorie Totali", f"{tot_kcal:.2f} kcal", f"{tot_kcal - obj_kcal:.2f} kcal")
-            
-        if st.button("Svuota Diario"):
-            st.session_state.diario = pd.DataFrame(columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"])
+    item_row = banca_dati[banca_dati["Alimento"] == alimento_scelto].iloc[0]
+    default_q = int(item_row["gr/n"])
+    
+    quantita = st.number_input("Quantità (g o porzione)", min_value=1, value=default_q, key=f"q_{pasto_selezionato}")
+    
+    fattore = quantita / default_q
+    c_calc = round(item_row["carbo"] * fattore, 2)
+    p_calc = round(item_row["proteine"] * fattore, 2)
+    g_calc = round(item_row["grassi"] * fattore, 2)
+    k_calc = round(item_row["kcal"] * fattore, 2)
+    
+    if st.button("Aggiungi Alimento", key=f"btn_{pasto_selezionato}"):
+        nuova_riga = pd.DataFrame([{
+            "Alimento": alimento_scelto,
+            "gr/n": quantita,
+            "carbo": c_calc,
+            "proteine": p_calc,
+            "grassi": g_calc,
+            "kcal": k_calc
+        }])
+        st.session_state.db_diario[data_str][pasto_selezionato] = pd.concat(
+            [st.session_state.db_diario[data_str][pasto_selezionato], nuova_riga], ignore_index=True
+        )
+        st.rerun()
+
+with col_B:
+    st.markdown(f"### Contenuto: {pasto_selezionato}")
+    df_corrente = st.session_state.db_diario[data_str][pasto_selezionato]
+    if not df_corrente.empty:
+        st.dataframe(df_corrente, use_container_width=True)
+        if st.button(f"Svuota {pasto_selezionato}", key=f"clear_{pasto_selezionato}"):
+            st.session_state.db_diario[data_str][pasto_selezionato] = pd.DataFrame(columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"])
             st.rerun()
     else:
-        st.info("Il diario di oggi è ancora vuoto. Aggiungi il primo alimento dal pannello sopra.")
+        st.info(f"Nessun alimento inserito in {pasto_selezionato} per questa data.")
+
+st.markdown("---")
+
+# Sezione Report ed Esportazione
+st.subheader("📄 Esportazione Report")
+col_rep1, col_rep2 = st.columns(2)
+
+with col_rep1:
+    if st.button("Genera Report Giornaliero (PDF/Testo)"):
+        report_text = f"--- REPORT GIORNALIERO: {data_str} ---\n"
+        report_text += f"Calorie: {tot_kcal:.1f} / {obj_kcal}\n"
+        report_text += f"Carboidrati: {tot_carbo:.1f}g\nProteine: {tot_prot:.1f}g\nGrassi: {tot_grassi:.1f}g\n\n"
+        for p in PASTI:
+            report_text += f"[{p}]\n"
+            sub_df = st.session_state.db_diario[data_str][p]
+            if not sub_df.empty:
+                for _, row in sub_df.iterrows():
+                    report_text += f" - {row['Alimento']}: {row['gr/n']}g | {row['kcal']} kcal\n"
+            else:
+                report_text += " - Vuoto\n"
+        st.download_button("Scarica Report Giornaliero", report_text, file_name=f"report_{data_str}.txt", mime="text/plain")
+
+with col_rep2:
+    if st.button("Genera Report Settimanale / Globale"):
+        global_text = "--- REPORT GLOBALE ARCHIVIATO ---\n\n"
+        for d, pasti_dict in st.session_state.db_diario.items():
+            global_text += f"Data: {d}\n"
+            g_kcal = sum([pasti_dict[p]["kcal"].sum() for p in PASTI if not pasti_dict[p].empty])
+            global_text += f"Totale Calorie consumate: {g_kcal:.1f}\n-------------------\n"
+        st.download_button("Scarica Report Globale", global_text, file_name="report_globale.txt", mime="text/plain")
