@@ -843,6 +843,8 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                         for c in cols_orig:
                             if "alimento" in c or "nome" in c:
                                 mapping_colonne[c] = "Alimento"
+                            elif "grass" in c or c == "g":
+                                mapping_colonne[c] = "grassi"
                             elif (
                                 "gr" in c
                                 or "quant" in c
@@ -854,8 +856,6 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                                 mapping_colonne[c] = "carbo"
                             elif "prot" in c:
                                 mapping_colonne[c] = "proteine"
-                            elif "grass" in c or "fat" in c:
-                                mapping_colonne[c] = "grassi"
                             elif "kcal" in c or "calorie" in c or "kca" in c:
                                 mapping_colonne[c] = "kcal"
 
