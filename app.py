@@ -179,13 +179,11 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                 if estensione in ["csv"]:
                     df_nuovo = pd.read_csv(file_caricato)
                 elif estensione in ["xlsx", "xls", "numbers"]:
-                    # Streamlit gestisce xlsx/xls direttamente. Per file Numbers puri (.numbers), se salvati come fogli di calcolo zip/compatibili o convertiti, Pandas legge excel se in formato zip strutturato, altrimenti avvisiamo l'utente o proviamo read_excel.
                     try:
                         df_nuovo = pd.read_excel(file_caricato)
                     except Exception:
                         df_nuovo = pd.read_csv(file_caricato, sep=None, engine='python')
                 elif estensione in ["pdf"]:
-                    # Tentativo di estrazione tabelle da PDF se pypdf/pdfplumber è disponibile, oppure lettura testuale
                     try:
                         import pypdf
                         reader = pypdf.PdfReader(file_caricato)
@@ -200,9 +198,7 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                 if df_nuovo is not None:
                     st.write("Anteprima dati letti dal file:", df_nuovo.head())
                     if st.button("Conferma e Aggiungi alla Banca Dati"):
-                        # Verifica colonne minime richieste
                         colonne_attese = ["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"]
-                        # Controllo flessibile normalizzando le stringhe
                         df_nuovo.columns = [str(c).strip().lower() for c in df_nuovo.columns]
                         
                         mapping_colonne = {}
@@ -216,7 +212,6 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                             
                         df_nuovo = df_nuovo.rename(columns=mapping_colonne)
                         
-                        # Se ha le colonne giuste, uniamo
                         colonne_presenti = [col for col in colonne_attese if col in df_nuovo.columns]
                         if len(colonne_presenti) >= 4:
                             st.session_state.banca_dati_df = pd.concat([st.session_state.banca_dati_df, df_nuovo[colonne_presenti]], ignore_index=True).drop_duplicates(subset=["Alimento"]).reset_index(drop=True)
@@ -225,7 +220,7 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                         else:
                             st.error("Il formato del file non corrisponde ai campi richiesti (Alimento, gr/n, carbo, proteine, grassi, kcal).")
             except Exception as e:
-                st.error(f motores="Errore durante la lettura del file: {e}")
+                st.error(f"Errore durante la lettura del file: {e}")
 
 st.markdown("---")
 
