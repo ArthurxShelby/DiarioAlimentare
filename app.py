@@ -3,6 +3,8 @@ import pandas as pd
 from datetime import date, timedelta
 from fpdf import FPDF
 import io
+import zipfile
+import xml.etree.ElementTree as ET
 
 # Configurazione della pagina
 st.set_page_config(
@@ -139,7 +141,7 @@ with col_m4:
 
 st.markdown("---")
 
-# SEZIONE GESTIONE BANCA DATI (Accesso, Cancellazione Parziale/Totale, Integrazione File)
+# SEZIONE GESTIONE BANCA DATI
 with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
     st.markdown("### Accesso e Visualizzazione")
     banca_dati = st.session_state.banca_dati_df
@@ -176,14 +178,29 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
             estensione = file_caricato.name.split('.')[-1].lower()
             try:
                 df_nuovo = None
-                if estensione in ["csv"]:
-                    df_nuovo = pd.read_csv(file_caricato)
-                elif estensione in ["xlsx", "xls", "numbers"]:
+                if estensione == "csv":
                     try:
-                        df_nuovo = pd.read_excel(file_caricato)
-                    except Exception:
-                        df_nuovo = pd.read_csv(file_caricato, sep=None, engine='python')
-                elif estensione in ["pdf"]:
+                        df_nuovo = pd.read_csv(file_caricato, encoding='utf-8')
+                    except UnicodeDecodeError:
+                        file_caricato.seek(0)
+                        df_nuovo = pd.read_csv(file_caricato, encoding='latin-1')
+                elif estensione in ["xlsx", "xls"]:
+                    df_nuovo = pd.read_excel(file_caricato)
+                elif estensione == "numbers":
+                    # Lettura sicura file Apple Numbers (archivio zip contenente tabelle/xml o anteprima csv)
+                    try:
+                        with zipfile.ZipFile(file_caricato) as z:
+                            # Cerchiamo file di testo o csv interni o file index.xml
+                            file_interni = z.namelist()
+                            csv_interni = [f for f in file_interni if f.endswith('.csv') or 'table' in f.lower()]
+                            if csv_interni:
+                                with z.open(csv_interni[0]) as csv_file:
+                                    df_nuovo = pd.read_csv(csv_file)
+                            else:
+                                st.error("Impossibile estrarre tabelle direttamente dal file Numbers. Si consiglia di esportare il file Numbers in formato Excel (.xlsx) o CSV prima di caricarlo.")
+                    except Exception as num_err:
+                        st.error(f"Errore nella lettura del file Numbers: {num_err}. Suggerimento: Esporta in CSV o XLSX.")
+                elif estensione == "pdf":
                     try:
                         import pypdf
                         reader = pypdf.PdfReader(file_caricato)
@@ -195,7 +212,7 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                     except ImportError:
                         st.error("Libreria pypdf non disponibile per leggere il PDF.")
                 
-                if df_nuovo is not None:
+                if df_nuovo is not None and not df_nuovo.empty:
                     st.write("Anteprima dati letti dal file:", df_nuovo.head())
                     if st.button("Conferma e Aggiungi alla Banca Dati"):
                         colonne_attese = ["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"]
@@ -263,7 +280,7 @@ else:
 
 st.markdown("---")
 
-# Macro visualizzazione sempre visibile dei 6 pasti
+# Panoramica dei 6 Pasti Giornalieri
 st.subheader("📋 Panoramica dei 6 Pasti Giornalieri")
 
 cols_pasti = st.columns(3)
@@ -303,7 +320,7 @@ for i, pasto in enumerate(PASTI):
 
 st.markdown("---")
 
-# Sezione Esportazione PDF (Giornaliero e Periodo Personalizzato)
+# Sezione Esportazione PDF
 st.subheader("📄 Esportazione Report in PDF")
 
 col_pdf1, col_pdf2 = st.columns(2)
