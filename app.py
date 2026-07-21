@@ -120,51 +120,80 @@ with col_m4:
 
 st.markdown("---")
 
-# Gestione dei 6 pasti giornalieri
-st.subheader("🍽️ Gestione dei 6 Pasti Giornalieri")
-pasto_selezionato = st.selectbox("Seleziona il pasto da modificare:", PASTI)
+# Sezione Aggiunta Alimenti
+st.subheader("🍽️ Inserimento Alimenti nei Pasti")
+pasto_selezionato = st.selectbox("Seleziona il pasto a cui aggiungere l'alimento:", PASTI)
 
-col_A, col_B = st.columns([1, 1])
-
-with col_A:
-    st.markdown(f"### Aggiungi a: {pasto_selezionato}")
-    alimento_scelto = st.selectbox("Alimento", banca_dati["Alimento"].tolist(), key=f"sel_{pasto_selezionato}")
-    
+col_ins1, col_ins2 = st.columns(2)
+with col_ins1:
+    alimento_scelto = st.selectbox("Alimento", banca_dati["Alimento"].tolist(), key="sel_alimento_principale")
     item_row = banca_dati[banca_dati["Alimento"] == alimento_scelto].iloc[0]
     default_q = int(item_row["gr/n"])
-    
-    quantita = st.number_input("Quantità (g o porzione)", min_value=1, value=default_q, key=f"q_{pasto_selezionato}")
-    
+
+with col_ins2:
+    quantita = st.number_input("Quantità (g o porzione)", min_value=1, value=default_q, key="num_quantita_principale")
+
+if st.button("Aggiungi al pasto selezionato", key="btn_aggiungi_principale"):
     fattore = quantita / default_q
     c_calc = round(item_row["carbo"] * fattore, 2)
     p_calc = round(item_row["proteine"] * fattore, 2)
     g_calc = round(item_row["grassi"] * fattore, 2)
     k_calc = round(item_row["kcal"] * fattore, 2)
     
-    if st.button("Aggiungi Alimento", key=f"btn_{pasto_selezionato}"):
-        nuova_riga = pd.DataFrame([{
-            "Alimento": alimento_scelto,
-            "gr/n": quantita,
-            "carbo": c_calc,
-            "proteine": p_calc,
-            "grassi": g_calc,
-            "kcal": k_calc
-        }])
-        st.session_state.db_diario[data_str][pasto_selezionato] = pd.concat(
-            [st.session_state.db_diario[data_str][pasto_selezionato], nuova_riga], ignore_index=True
-        )
-        st.rerun()
+    nuova_riga = pd.DataFrame([{
+        "Alimento": alimento_scelto,
+        "gr/n": quantita,
+        "carbo": c_calc,
+        "proteine": p_calc,
+        "grassi": g_calc,
+        "kcal": k_calc
+    }])
+    st.session_state.db_diario[data_str][pasto_selezionato] = pd.concat(
+        [st.session_state.db_diario[data_str][pasto_selezionato], nuova_riga], ignore_index=True
+    )
+    st.rerun()
 
-with col_B:
-    st.markdown(f"### Contenuto: {pasto_selezionato}")
-    df_corrente = st.session_state.db_diario[data_str][pasto_selezionato]
-    if not df_corrente.empty:
-        st.dataframe(df_corrente, use_container_width=True)
-        if st.button(f"Svuota {pasto_selezionato}", key=f"clear_{pasto_selezionato}"):
-            st.session_state.db_diario[data_str][pasto_selezionato] = pd.DataFrame(columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"])
-            st.rerun()
-    else:
-        st.info(f"Nessun alimento inserito in {pasto_selezionato} per questa data.")
+st.markdown("---")
+
+# Macro visualizzazione sempre visibile dei 6 pasti
+st.subheader("📋 Panoramica dei 6 Pasti Giornalieri")
+
+cols_pasti = st.columns(3)
+for i, pasto in enumerate(PASTI):
+    col_target = cols_pasti[i % 3]
+    with col_target:
+        with st.container(border=True):
+            st.markdown(f"### 🥣 {pasto}")
+            df_p = st.session_state.db_diario[data_str][pasto]
+            
+            if not df_p.empty:
+                # Mostra riepilogo rapido del pasto
+                p_kcal = df_p["kcal"].sum()
+                p_carb = df_p["carbo"].sum()
+                p_prot = df_p["proteine"].sum()
+                p_gras = df_p["grassi"].sum()
+                st.caption(f"Totale: {p_kcal:.1f} kcal | C: {p_carb:.1f}g | P: {p_prot:.1f}g | G: {p_gras:.1f}g")
+                
+                st.dataframe(df_p, use_container_width=True)
+                
+                # Opzione di cancellazione singola o svuota
+                indices_disponibili = df_p.index.tolist()
+                opzioni_rimozione = {f"Riga {idx}: {df_p.loc[idx, 'Alimento']} ({df_p.loc[idx, 'gr/n']}g)": idx for idx in indices_disponibili}
+                
+                voce_da_rimuovere = st.selectbox("Elimina voce:", list(opzioni_rimozione.keys()), key=f"del_box_{pasto}")
+                
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("Elimina", key=f"btn_del_{pasto}"):
+                        idx_to_drop = opzioni_rimozione[voce_da_rimuovere]
+                        st.session_state.db_diario[data_str][pasto] = df_p.drop(idx_to_drop).reset_index(drop=True)
+                        st.rerun()
+                with col_btn2:
+                    if st.button("Svuota", key=f"clear_{pasto}"):
+                        st.session_state.db_diario[data_str][pasto] = pd.DataFrame(columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"])
+                        st.rerun()
+            else:
+                st.info("Nessun alimento registrato.")
 
 st.markdown("---")
 
@@ -200,7 +229,6 @@ if st.button("Genera e Scarica PDF Giornaliero"):
                 pdf_output.cell(0, 6, " - Nessun alimento registrato", ln=True)
             pdf_output.ln(4)
             
-        # Correzione fondamentale: conversione esplicita in bytes standard per Streamlit
         raw_output = pdf_output.output()
         pdf_bytes = bytes(raw_output) if isinstance(raw_output, (bytearray, bytes)) else raw_output.encode('latin1')
         
