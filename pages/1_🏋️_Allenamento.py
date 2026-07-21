@@ -1,5 +1,6 @@
 import datetime
 from requests.auth import HTTPBasicAuth
+import pandas as pd
 import requests
 import streamlit as st
 
@@ -392,72 +393,65 @@ database_allenamenti = {
     },
 }
 
-st.title("🏋️ Pianificazione Allenamento")
+st.title("🏋️ Pianificazione Allenamento Mensile")
 
-# --- 3. SELEZIONE A CASCATA ---
-st.subheader("🚀 Selezione Sessione del Piano")
-col_m, col_s, col_g = st.columns(3)
-
-with col_m:
+# --- 3. SELEZIONE MESE ---
+st.subheader("📅 Seleziona il Mese da Gestire")
+col_sel, _ = st.columns([1, 2])
+with col_sel:
     mese_selezionato = st.selectbox("Mese:", list(database_allenamenti.keys()))
-with col_s:
-    settimane_disponibili = list(database_allenamenti[mese_selezionato].keys())
-    settimana_selezionata = st.selectbox("Settimana:", settimane_disponibili)
-with col_g:
-    giorni_disponibili = list(
-        database_allenamenti[mese_selezionato][settimana_selezionata].keys()
-    )
-    giorno_selezionato = st.selectbox("Giorno:", giorni_disponibili)
-
-allenamento_base = database_allenamenti[mese_selezionato][settimana_selezionata][
-    giorno_selezionato
-]
 
 st.markdown("---")
 
-# --- 4. PANNELLO DI MODIFICA ---
-st.subheader("✍️ Modifica o Verifica i dati")
+# --- 4. PREPARAZIONE DATI IN FORMATO TABELLARE (TUTTI GLI 8 ALLENAMENTI) ---
+# Trasformiamo la struttura annidata del mese in una lista piatta per st.data_editor
+righe_tabella = []
+for settimana, giorni in database_allenamenti[mese_selezionato].items():
+    for giorno, dettagli in giorni.items():
+        righe_tabella.append(
+            {
+                "Settimana": settimana,
+                "Giorno": giorno,
+                "Esercizio / Nome": dettagli["Esercizio"],
+                "Watt": int(dettagli["Watt"]),
+                "RPM": int(dettagli["RPM"]),
+                "Ripetizioni": int(dettagli["Ripetizioni"]),
+                "Lavoro (min)": int(dettagli["Lavoro_m"]),
+                "Recupero (min)": int(dettagli["Recupero_m"]),
+            }
+        )
 
-col_w, col_r, col_l, col_rec = st.columns(4)
+df_mese = pd.DataFrame(righe_tabella)
 
-with col_w:
-    watt_modificati = st.number_input(
-        "Target Watt:",
-        min_value=50,
-        max_value=500,
-        value=int(allenamento_base["Watt"]),
-    )
-with col_r:
-    ripetizioni_modificate = st.number_input(
-        "Numero Serie/Ripetizioni:",
-        min_value=1,
-        max_value=20,
-        value=int(allenamento_base["Ripetizioni"]),
-    )
-with col_l:
-    lavoro_modificato = st.number_input(
-        "Durata Lavoro (minuti ciascuno):",
-        min_value=1,
-        max_value=120,
-        value=int(allenamento_base["Lavoro_m"]),
-    )
-with col_rec:
-    recupero_modificato = st.number_input(
-        "Durata Recupero (minuti):",
-        min_value=0,
-        max_value=30,
-        value=int(allenamento_base["Recupero_m"]),
-    )
+st.subheader(
+    f"✍️ Modifica diretta dei 8 allenamenti del mese di **{mese_selezionato}**"
+)
+st.write(
+    "Puoi modificare direttamente qui sotto i watt, la durata, i nomi o le ripetizioni di qualsiasi sessione del mese prima di inviarle al calendario."
+)
 
-col_n, col_d = st.columns([2, 1])
-with col_n:
-    nome_allenamento = st.text_input(
-        "Nome Allenamento:", value=f"{allenamento_base['Esercizio']}"
-    )
-with col_d:
-    data_pianificazione = st.date_input(
-        "Data nel Calendario:", datetime.date.today()
-    )
+# Tabella interattiva modificabile dall'utente
+df_modificato = st.data_editor(
+    df_mese,
+    num_rows="fixed",
+    use_container_width=True,
+    key=f"editor_{mese_selezionato}",
+    column_config={
+        "Settimana": st.column_config.TextColumn(disabled=True),
+        "Giorno": st.column_config.TextColumn(disabled=True),
+        "Watt": st.column_config.NumberColumn(min_value=50, max_value=500, step=1),
+        "RPM": st.column_config.NumberColumn(min_value=60, max_value=120, step=1),
+        "Ripetizioni": st.column_config.NumberColumn(
+            min_value=1, max_value=20, step=1
+        ),
+        "Lavoro (min)": st.column_config.NumberColumn(
+            min_value=1, max_value=180, step=1
+        ),
+        "Recupero (min)": st.column_config.NumberColumn(
+            min_value=0, max_value=60, step=1
+        ),
+    },
+)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -495,7 +489,6 @@ with st.expander("🛠️ Pannello di Emergenza: Cancella file dal calendario"):
                     eventi = response.json()
                     count = 0
                     for evento in eventi:
-                        # Cancella gli eventi generati dall'app (riconoscibili dall'emoji)
                         if "🏋️" in evento.get("name", ""):
                             event_id = evento["id"]
                             url_del = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events/{event_id}"
