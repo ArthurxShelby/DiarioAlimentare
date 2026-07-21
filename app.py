@@ -20,15 +20,42 @@ def carica_db_alimenti():
     except:
         # Database iniziale di base se il file non esiste
         return {
-            "Anguria": {"calorie": 30, "carboidrati": 8.0, "proteine": 0.6, "grassi": 0.2},
-            "Arista": {"calorie": 130, "carboidrati": 0.0, "proteine": 22.0, "grassi": 4.5},
-            "Avena": {"calorie": 389, "carboidrati": 66.0, "proteine": 16.9, "grassi": 6.9},
-            "Banana": {"calorie": 89, "carboidrati": 23.0, "proteine": 1.1, "grassi": 0.3},
-            "Pollo": {"calorie": 165, "carboidrati": 0.0, "proteine": 31.0, "grassi": 3.6},
-            "Riso basmati": {"calorie": 350, "carboidrati": 78.0, "proteine": 8.5, "grassi": 0.9},
-            "Olio EVO": {"calorie": 884, "carboidrati": 0.0, "proteine": 0.0, "grassi": 100.0},
-            "Yogurt greco": {"calorie": 59, "carboidrati": 4.0, "proteine": 10.3, "grassi": 0.0}
-        }
+        "Anguria": {"calorie": 30, "carboidrati": 8.0, "proteine": 0.6, "grassi": 0.2},
+        "Arista": {"calorie": 130, "carboidrati": 0.0, "proteine": 22.0, "grassi": 4.5},
+        "Avena": {"calorie": 389, "carboidrati": 66.0, "proteine": 16.9, "grassi": 6.9},
+        "Banana": {"calorie": 89, "carboidrati": 23.0, "proteine": 1.1, "grassi": 0.3},
+        "Besaola": {"calorie": 151, "carboidrati": 0.0, "proteine": 32.0, "grassi": 2.6},
+        "Burro d'arachidi": {"calorie": 588, "carboidrati": 20.0, "proteine": 25.0, "grassi": 50.0},
+        "Cacao amaro": {"calorie": 228, "carboidrati": 58.0, "proteine": 20.0, "grassi": 14.0},
+        "Carote": {"calorie": 41, "carboidrati": 10.0, "proteine": 0.9, "grassi": 0.2},
+        "Cavolfiore": {"calorie": 25, "carboidrati": 5.0, "proteine": 2.0, "grassi": 0.3},
+        " Ceci": {"calorie": 364, "carboidrati": 61.0, "proteine": 19.0, "grassi": 6.0},
+        "Cioccolato fondente 85%": {"calorie": 595, "carboidrati": 19.0, "proteine": 10.0, "grassi": 46.0},
+        "Fette biscottate integrali": {"calorie": 381, "carboidrati": 67.0, "proteine": 11.0, "grassi": 6.5},
+        "Filetto di maiale": {"calorie": 143, "carboidrati": 0.0, "proteine": 21.5, "grassi": 6.0},
+        "Fiocchi di latte": {"calorie": 98, "carboidrati": 1.8, "proteine": 12.5, "grassi": 4.5},
+        "Fichi secchi": {"calorie": 249, "carboidrati": 64.0, "proteine": 3.3, "grassi": 0.9},
+        "Gallette di riso": {"calorie": 387, "carboidrati": 82.0, "proteine": 8.0, "grassi": 2.8},
+        "Mandarini": {"calorie": 53, "carboidrati": 13.0, "proteine": 0.8, "grassi": 0.3},
+        "Mela": {"calorie": 52, "carboidrati": 14.0, "proteine": 0.3, "grassi": 0.2},
+        "Miele": {"calorie": 304, "carboidrati": 82.0, "proteine": 0.3, "grassi": 0.0},
+        "Noci": {"calorie": 654, "carboidrati": 14.0, "proteine": 14.0, "grassi": 65.0},
+        "Olio EVO": {"calorie": 884, "carboidrati": 0.0, "proteine": 0.0, "grassi": 100.0},
+        "Pane integrale": {"calorie": 247, "carboidrati": 41.0, "proteine": 9.0, "grassi": 2.2},
+        "Parmigiano": {"calorie": 431, "carboidrati": 0.0, "proteine": 38.0, "grassi": 29.0},
+        "Pasta di semola": {"calorie": 356, "carboidrati": 72.0, "proteine": 12.0, "grassi": 1.5},
+        "Patate dolci": {"calorie": 86, "carboidrati": 20.0, "proteine": 1.6, "grassi": 0.1},
+        "Petto di tacchino": {"calorie": 135, "carboidrati": 0.0, "proteine": 30.0, "grassi": 1.0},
+        "Pollo": {"calorie": 165, "carboidrati": 0.0, "proteine": 31.0, "grassi": 3.6},
+        "Ricotta di vacca": {"calorie": 146, "carboidrati": 3.5, "proteine": 8.8, "grassi": 10.9},
+        "Riso basmati": {"calorie": 350, "carboidrati": 78.0, "proteine": 8.5, "grassi": 0.9},
+        "Salmone": {"calorie": 206, "carboidrati": 0.0, "proteine": 22.0, "grassi": 12.3},
+        "Spezzatino di manzo": {"calorie": 175, "carboidrati": 0.0, "proteine": 26.0, "grassi": 7.5},
+        "Uova": {"calorie": 143, "carboidrati": 1.1, "proteine": 12.4, "grassi": 9.5},
+        "Uvetta": {"calorie": 299, "carboidrati": 79.0, "proteine": 3.0, "grassi": 0.5},
+        "Zucchine": {"calorie": 17, "carboidrati": 3.1, "proteine": 1.2, "grassi": 0.3},
+        "Yogurt greco": {"calorie": 59, "carboidrati": 4.0, "proteine": 10.3, "grassi": 0.0}
+    }
 
 def salva_db_alimenti(db):
     with open("database_alimenti.json", "w") as f:
