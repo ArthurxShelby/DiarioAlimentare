@@ -21,7 +21,7 @@ st.sidebar.markdown(
 st.sidebar.markdown("**Cadenza Soglia:** ~90 RPM")
 st.sidebar.markdown("**Cadenza SS:** ~85 RPM")
 
-# --- 2. DATABASE STRUTTURATO PER ANNO SOLARE ---
+# --- 2. DATABASE STRUTTURATO PER ANNO SOLARE (2026 e 2027) ---
 database_allenamenti = {
     2026: {
         "Agosto": {
@@ -394,7 +394,157 @@ database_allenamenti = {
                 },
             },
         },
-    }
+    },
+    2027: {
+        "Gennaio": {
+            "Settimana 1 (Carico Base)": {
+                "Martedì": {
+                    "Esercizio": "Ripresa Base Z4: 2 x 8 min",
+                    "Watt": 265,
+                    "RPM": 90,
+                    "Ripetizioni": 2,
+                    "Lavoro_m": 8,
+                    "Recupero_m": 5,
+                },
+                "Giovedì": {
+                    "Esercizio": "Sweet Spot iniziale: 2 x 15 min",
+                    "Watt": 245,
+                    "RPM": 85,
+                    "Ripetizioni": 2,
+                    "Lavoro_m": 15,
+                    "Recupero_m": 5,
+                },
+            },
+            "Settimana 2 (Carico Intermedio)": {
+                "Martedì": {
+                    "Esercizio": "Soglia Z4: 3 x 8 min",
+                    "Watt": 268,
+                    "RPM": 90,
+                    "Ripetizioni": 3,
+                    "Lavoro_m": 8,
+                    "Recupero_m": 5,
+                },
+                "Giovedì": {
+                    "Esercizio": "Sweet Spot: 2 x 20 min",
+                    "Watt": 248,
+                    "RPM": 85,
+                    "Ripetizioni": 2,
+                    "Lavoro_m": 20,
+                    "Recupero_m": 5,
+                },
+            },
+            "Settimana 3 (Picco di Carico)": {
+                "Martedì": {
+                    "Esercizio": "Soglia Z4: 3 x 10 min",
+                    "Watt": 270,
+                    "RPM": 90,
+                    "Ripetizioni": 3,
+                    "Lavoro_m": 10,
+                    "Recupero_m": 5,
+                },
+                "Giovedì": {
+                    "Esercizio": "Sweet Spot: 1 x 45 min",
+                    "Watt": 250,
+                    "RPM": 85,
+                    "Ripetizioni": 1,
+                    "Lavoro_m": 45,
+                    "Recupero_m": 0,
+                },
+            },
+            "Settimana 4 (Scarico)": {
+                "Martedì": {
+                    "Esercizio": "Agilità e scarico Z2",
+                    "Watt": 160,
+                    "RPM": 95,
+                    "Ripetizioni": 1,
+                    "Lavoro_m": 20,
+                    "Recupero_m": 0,
+                },
+                "Giovedì": {
+                    "Esercizio": "Scarico attivo",
+                    "Watt": 140,
+                    "RPM": 95,
+                    "Ripetizioni": 1,
+                    "Lavoro_m": 15,
+                    "Recupero_m": 0,
+                },
+            },
+        },
+        "Febbraio": {
+            "Settimana 1 (Carico Base)": {
+                "Martedì": {
+                    "Esercizio": "Soglia Z4: 3 x 10 min",
+                    "Watt": 272,
+                    "RPM": 90,
+                    "Ripetizioni": 3,
+                    "Lavoro_m": 10,
+                    "Recupero_m": 5,
+                },
+                "Giovedì": {
+                    "Esercizio": "Sweet Spot: 2 x 25 min",
+                    "Watt": 252,
+                    "RPM": 85,
+                    "Ripetizioni": 2,
+                    "Lavoro_m": 25,
+                    "Recupero_m": 5,
+                },
+            },
+            "Settimana 2 (Carico Intermedio)": {
+                "Martedì": {
+                    "Esercizio": "Soglia Z4: 3 x 12 min",
+                    "Watt": 275,
+                    "RPM": 90,
+                    "Ripetizioni": 3,
+                    "Lavoro_m": 12,
+                    "Recupero_m": 5,
+                },
+                "Giovedì": {
+                    "Esercizio": "Sweet Spot: 1 x 50 min",
+                    "Watt": 255,
+                    "RPM": 85,
+                    "Ripetizioni": 1,
+                    "Lavoro_m": 50,
+                    "Recupero_m": 0,
+                },
+            },
+            "Settimana 3 (Picco di Carico)": {
+                "Martedì": {
+                    "Esercizio": "Soglia Z4: 2 x 20 min",
+                    "Watt": 278,
+                    "RPM": 90,
+                    "Ripetizioni": 2,
+                    "Lavoro_m": 20,
+                    "Recupero_m": 5,
+                },
+                "Giovedì": {
+                    "Esercizio": "Sweet Spot: 1 x 60 min",
+                    "Watt": 258,
+                    "RPM": 85,
+                    "Ripetizioni": 1,
+                    "Lavoro_m": 60,
+                    "Recupero_m": 0,
+                },
+            },
+            "Settimana 4 (Scarico)": {
+                "Martedì": {
+                    "Esercizio": "Scarico agile",
+                    "Watt": 160,
+                    "RPM": 95,
+                    "Ripetizioni": 1,
+                    "Lavoro_m": 20,
+                    "Recupero_m": 0,
+                },
+                "Giovedì": {
+                    "Esercizio": "Scarico totale",
+                    "Watt": 140,
+                    "RPM": 95,
+                    "Ripetizioni": 1,
+                    "Lavoro_m": 15,
+                    "Recupero_m": 0,
+                },
+            },
+        },
+    },
 }
 
 st.title("🏋️ Pianificazione Allenamento per Anno Solare")
@@ -412,10 +562,8 @@ with col_mese:
 st.markdown("---")
 
 # --- 4. GESTIONE STATO / CARICAMENTO CSV ---
-# Inizializziamo lo stato della sessione per mantenere le modifiche o l'importazione CSV
 key_stato_db = f"db_{anno_selezionato}_{mese_selezionato}"
 
-# Creazione del DataFrame di partenza per il mese selezionato
 righe_tabella = []
 for settimana, giorni in database_allenamenti[anno_selezionato][
     mese_selezionato
@@ -441,7 +589,7 @@ with st.expander(
     "📂 Integra o carica piano di lavoro tramite file CSV", expanded=False
 ):
     st.write(
-        "Carica un file CSV formattato con le stesse colonne della tabella sottostante per aggiornare o sostituire istantaneamente i 8 allenamenti del mese."
+        f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**. Carica il file CSV formattato con le colonne corrette."
     )
     file_caricato = st.file_uploader(
         "Seleziona il file CSV", type=["csv"], key=f"uploader_{key_stato_db}"
@@ -449,12 +597,7 @@ with st.expander(
 
     if file_caricato is not None:
         try:
-            # Modificato con sep=None e engine='python' per gestire automaticamente virgole o punti e virgola
-            df_caricato = pd.read_csv(
-                file_caricato, sep=None, engine="python"
-            )
-
-            # Pulizia preventiva degli spazi nei nomi delle colonne (es. eventuali spazi accidentali)
+            df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
             df_caricato.columns = df_caricato.columns.str.strip()
 
             colonne_attese = [
@@ -471,7 +614,7 @@ with st.expander(
             if all(col in df_caricato.columns for col in colonne_attese):
                 df_base_mese = df_caricato[colonne_attese]
                 st.success(
-                    "File CSV caricato e integrato con successo nella tabella sottostante!"
+                    f"File CSV caricato e integrato con successo per {mese_selezionato} {anno_selezionato}!"
                 )
             else:
                 st.error(
@@ -485,7 +628,7 @@ st.subheader(
     f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**"
 )
 st.write(
-    "Puoi modificare direttamente i valori in tabella o incollare i dati aggiornati."
+    "Puoi modificare direttamente i valori in tabella o caricarli tramite il file CSV sopra."
 )
 
 df_modificato = st.data_editor(
