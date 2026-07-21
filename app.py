@@ -3,8 +3,6 @@ import pandas as pd
 from datetime import date, timedelta
 from fpdf import FPDF
 import io
-import zipfile
-import xml.etree.ElementTree as ET
 
 # Configurazione della pagina
 st.set_page_config(
@@ -187,19 +185,7 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                 elif estensione in ["xlsx", "xls"]:
                     df_nuovo = pd.read_excel(file_caricato)
                 elif estensione == "numbers":
-                    # Lettura sicura file Apple Numbers (archivio zip contenente tabelle/xml o anteprima csv)
-                    try:
-                        with zipfile.ZipFile(file_caricato) as z:
-                            # Cerchiamo file di testo o csv interni o file index.xml
-                            file_interni = z.namelist()
-                            csv_interni = [f for f in file_interni if f.endswith('.csv') or 'table' in f.lower()]
-                            if csv_interni:
-                                with z.open(csv_interni[0]) as csv_file:
-                                    df_nuovo = pd.read_csv(csv_file)
-                            else:
-                                st.error("Impossibile estrarre tabelle direttamente dal file Numbers. Si consiglia di esportare il file Numbers in formato Excel (.xlsx) o CSV prima di caricarlo.")
-                    except Exception as num_err:
-                        st.error(f"Errore nella lettura del file Numbers: {num_err}. Suggerimento: Esporta in CSV o XLSX.")
+                    st.error("I file Apple Numbers (.numbers) proprietari richiedono l'esportazione in Excel (.xlsx) o CSV. Apri il file in Numbers e seleziona 'File -> Esporta a -> Excel'.")
                 elif estensione == "pdf":
                     try:
                         import pypdf
