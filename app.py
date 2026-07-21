@@ -215,7 +215,7 @@ for i, pasto in enumerate(PASTI):
 
 st.markdown("---")
 
-# Sezione Esportazione PDF (Giornaliero e Settimanale)
+# Sezione Esportazione PDF (Giornaliero e Periodo Personalizzato)
 st.subheader("📄 Esportazione Report in PDF")
 
 col_pdf1, col_pdf2 = st.columns(2)
@@ -265,66 +265,74 @@ with col_pdf1:
             st.error(f"Errore nella generazione del PDF giornaliero: {e}")
 
 with col_pdf2:
-    st.markdown("### Report Settimanale (Ultimi 7 Giorni)")
-    giorni_indietro = st.number_input("Seleziona quanti giorni includere nel report:", min_value=1, max_value=30, value=7, key="num_giorni_settimana")
+    st.markdown("### Report Personalizzato per Intervallo di Date")
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        data_inizio = st.date_input("Data Inizio", value=date.today() - timedelta(days=6), key="pdf_data_inizio")
+    with col_d2:
+        data_fine = st.date_input("Data Fine", value=date.today(), key="pdf_data_fine")
     
-    if st.button("Genera e Scarica PDF Settimanale (Traccia Totale)"):
+    if st.button("Genera e Scarica PDF Intervallo (Traccia Totale)"):
         try:
-            # Calcolo dei totali aggregati per il periodo selezionato
-            tot_w_kcal, tot_w_carbo, tot_w_prot, tot_w_grassi = 0.0, 0.0, 0.0, 0.0
-            data_corrente = data_selezionata
-            dettaglio_periodo = []
-            
-            for i in range(giorni_indietro):
-                d_str = (data_corrente - timedelta(days=i)).strftime("%Y-%m-%d")
-                if d_str in st.session_state.db_diario:
-                    d_kcal = sum([st.session_state.db_diario[d_str][p]["kcal"].sum() for p in PASTI if not st.session_state.db_diario[d_str][p].empty])
-                    d_carbo = sum([st.session_state.db_diario[d_str][p]["carbo"].sum() for p in PASTI if not st.session_state.db_diario[d_str][p].empty])
-                    d_prot = sum([st.session_state.db_diario[d_str][p]["proteine"].sum() for p in PASTI if not st.session_state.db_diario[d_str][p].empty])
-                    d_grassi = sum([st.session_state.db_diario[d_str][p]["grassi"].sum() for p in PASTI if not st.session_state.db_diario[d_str][p].empty])
-                    
-                    tot_w_kcal += d_kcal
-                    tot_w_carbo += d_carbo
-                    tot_w_prot += d_prot
-                    tot_w_grassi += d_grassi
-                    
-                    if d_kcal > 0 or d_carbo > 0:
-                        dettaglio_periodo.append((d_str, d_kcal, d_carbo, d_prot, d_grassi))
-
-            pdf_output = FPDF()
-            pdf_output.add_page()
-            pdf_output.set_font("Arial", "B", 16)
-            pdf_output.cell(0, 10, f"Report Nutrizionale Settimanale ({giorni_indietro} Giorni)", ln=True, align="C")
-            pdf_output.ln(10)
-            
-            pdf_output.set_font("Arial", "B", 12)
-            pdf_output.cell(0, 10, "Riepilogo Totale del Periodo:", ln=True)
-            pdf_output.set_font("Arial", "", 11)
-            pdf_output.cell(0, 8, f"Calorie Totali: {tot_w_kcal:.1f} kcal (Media giornaliera: {tot_w_kcal / giorni_indietro:.1f} kcal)", ln=True)
-            pdf_output.cell(0, 8, f"Carboidrati Totali: {tot_w_carbo:.1f} g (Media: {tot_w_carbo / giorni_indietro:.1f} g)", ln=True)
-            pdf_output.cell(0, 8, f"Proteine Totali: {tot_w_prot:.1f} g (Media: {tot_w_prot / giorni_indietro:.1f} g)", ln=True)
-            pdf_output.cell(0, 8, f"Grassi Totali: {tot_w_grassi:.1f} g (Media: {tot_w_grassi / giorni_indietro:.1f} g)", ln=True)
-            pdf_output.ln(10)
-            
-            pdf_output.set_font("Arial", "B", 12)
-            pdf_output.cell(0, 10, "Traccia Giornaliera dei Macronutrienti:", ln=True)
-            pdf_output.set_font("Arial", "", 10)
-            
-            if dettaglio_periodo:
-                for d_str, dk, dc, dp, dg in dettaglio_periodo:
-                    riga_traccia = f" - {d_str}: {dk:.1f} kcal | Carbo: {dc:.1f}g | Prot: {dp:.1f}g | Grassi: {dg:.1f}g"
-                    pdf_output.cell(0, 6, riga_traccia, ln=True)
+            if data_inizio > data_fine:
+                st.error("La data di inizio non può essere successiva alla data di fine.")
             else:
-                pdf_output.cell(0, 6, " - Nessun dato registrato nel periodo selezionato", ln=True)
+                # Generazione range di date selezionato dall'utente
+                delta_giorni = (data_fine - data_inizio).days + 1
+                tot_p_kcal, tot_p_carbo, tot_p_prot, tot_p_grassi = 0.0, 0.0, 0.0, 0.0
+                dettaglio_periodo = []
                 
-            raw_output = pdf_output.output()
-            pdf_bytes = bytes(raw_output) if isinstance(raw_output, (bytearray, bytes)) else raw_output.encode('latin1')
-            
-            st.download_button(
-                label="📥 Scarica PDF Settimanale",
-                data=pdf_bytes,
-                file_name=f"report_settimanale_{data_str}.pdf",
-                mime="application/pdf"
-            )
+                for i in range(delta_giorni):
+                    d_corrente = data_inizio + timedelta(days=i)
+                    d_str = d_corrente.strftime("%Y-%m-%d")
+                    if d_str in st.session_state.db_diario:
+                        d_kcal = sum([st.session_state.db_diario[d_str][p]["kcal"].sum() for p in PASTI if not st.session_state.db_diario[d_str][p].empty])
+                        d_carbo = sum([st.session_state.db_diario[d_str][p]["carbo"].sum() for p in PASTI if not st.session_state.db_diario[d_str][p].empty])
+                        d_prot = sum([st.session_state.db_diario[d_str][p]["proteine"].sum() for p in PASTI if not st.session_state.db_diario[d_str][p].empty])
+                        d_grassi = sum([st.session_state.db_diario[d_str][p]["grassi"].sum() for p in PASTI if not st.session_state.db_diario[d_str][p].empty])
+                        
+                        tot_p_kcal += d_kcal
+                        tot_p_carbo += d_carbo
+                        tot_p_prot += d_prot
+                        tot_p_grassi += d_grassi
+                        
+                        if d_kcal > 0 or d_carbo > 0:
+                            dettaglio_periodo.append((d_str, d_kcal, d_carbo, d_prot, d_grassi))
+
+                pdf_output = FPDF()
+                pdf_output.add_page()
+                pdf_output.set_font("Arial", "B", 16)
+                pdf_output.cell(0, 10, f"Report Nutrizionale ({data_inizio.strftime('%d/%m/%Y')} - {data_fine.strftime('%d/%m/%Y')})", ln=True, align="C")
+                pdf_output.ln(10)
+                
+                pdf_output.set_font("Arial", "B", 12)
+                pdf_output.cell(0, 10, "Riepilogo Totale del Periodo:", ln=True)
+                pdf_output.set_font("Arial", "", 11)
+                pdf_output.cell(0, 8, f"Calorie Totali: {tot_p_kcal:.1f} kcal (Media giornaliera: {tot_p_kcal / delta_giorni:.1f} kcal)", ln=True)
+                pdf_output.cell(0, 8, f"Carboidrati Totali: {tot_p_carbo:.1f} g (Media: {tot_p_carbo / delta_giorni:.1f} g)", ln=True)
+                pdf_output.cell(0, 8, f"Proteine Totali: {tot_p_prot:.1f} g (Media: {tot_p_prot / delta_giorni:.1f} g)", ln=True)
+                pdf_output.cell(0, 8, f"Grassi Totali: {tot_p_grassi:.1f} g (Media: {tot_p_grassi / delta_giorni:.1f} g)", ln=True)
+                pdf_output.ln(10)
+                
+                pdf_output.set_font("Arial", "B", 12)
+                pdf_output.cell(0, 10, "Traccia Giornaliera dei Macronutrienti:", ln=True)
+                pdf_output.set_font("Arial", "", 10)
+                
+                if dettaglio_periodo:
+                    for d_str, dk, dc, dp, dg in dettaglio_periodo:
+                        riga_traccia = f" - {d_str}: {dk:.1f} kcal | Carbo: {dc:.1f}g | Prot: {dp:.1f}g | Grassi: {dg:.1f}g"
+                        pdf_output.cell(0, 6, riga_traccia, ln=True)
+                else:
+                    pdf_output.cell(0, 6, " - Nessun dato registrato nel periodo selezionato", ln=True)
+                    
+                raw_output = pdf_output.output()
+                pdf_bytes = bytes(raw_output) if isinstance(raw_output, (bytearray, bytes)) else raw_output.encode('latin1')
+                
+                st.download_button(
+                    label="📥 Scarica PDF Periodo Personalizzato",
+                    data=pdf_bytes,
+                    file_name=f"report_periodo_{data_inizio}_al_{data_fine}.pdf",
+                    mime="application/pdf"
+                )
         except Exception as e:
-            st.error(f"Errore nella generazione del PDF settimanale: {e}")
+            st.error(f"Errore nella generazione del PDF personalizzato: {e}")
