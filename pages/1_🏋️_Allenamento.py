@@ -22,7 +22,6 @@ st.sidebar.markdown("**Cadenza Soglia:** ~90 RPM")
 st.sidebar.markdown("**Cadenza SS:** ~85 RPM")
 
 # --- 2. DATABASE STRUTTURATO PER ANNO SOLARE ---
-# Puoi mantenere o espandere questo dizionario come preferisci
 database_allenamenti = {
     2026: {
         "Agosto": {
@@ -44,7 +43,6 @@ database_allenamenti = {
                     "Recupero_m": 0,
                 },
             },
-            # ... (restanti settimane di agosto e altri mesi del 2026/2027)
         }
     }
 }
@@ -67,22 +65,16 @@ elenco_mesi_completo = [
 
 st.title("🏋️ Pianificazione Allenamento per Anno Solare")
 
-# --- 3. SELEZIONE ANNO E MESE ---
+# --- 3. SELEZIONE ANNO (LIBERO FINO AL 2100) E MESE ---
 col_anno, col_mese = st.columns(2)
 
 with col_anno:
-    # Permette di selezionare gli anni esistenti o di aggiungerne uno nuovo digitandolo
-    anni_disponibili = sorted(list(database_allenamenti.keys()))
-    # Aggiungiamo anche il 2027 se non è già esplicitamente chiave principale nel dict
-    if 2027 not in anni_disponibili:
-        anni_disponibili.append(2027)
-    if 2028 not in anni_disponibili:
-        anni_disponibili.append(2028)
-
-    anno_selezionato = st.selectbox("Anno Solare:", sorted(list(set(anni_disponibili))))
+    # Selezione dinamica e libera dell'anno da tastiera o frecce (da 2020 a 2100)
+    anno_selezionato = st.number_input(
+        "Anno Solare:", min_value=2020, max_value=2100, value=2026, step=1
+    )
 
 with col_mese:
-    # Mostra sempre tutti i 12 mesi indipendentemente da quali siano precompilati nel dizionario
     mese_selezionato = st.selectbox("Mese:", elenco_mesi_completo)
 
 st.markdown("---")
@@ -90,27 +82,37 @@ st.markdown("---")
 # --- 4. GESTIONE STATO / CARICAMENTO CSV ---
 key_stato_db = f"db_{anno_selezionato}_{mese_selezionato}"
 
+# Assicura che l'anno e il mese selezionati esistano nel dizionario del database
+if anno_selezionato not in database_allenamenti:
+    database_allenamenti[anno_selezionato] = {}
+
+if mese_selezionato not in database_allenamenti[anno_selezionato]:
+    database_allenamenti[anno_selezionato][mese_selezionato] = {}
+
 righe_tabella = []
 
-# Controlla se l'anno e il mese esistono nel database, altrimenti crea una struttura vuota pronta per l'inserimento o l'upload CSV
+# Controlla se ci sono allenamenti registrati per il periodo
 try:
     dati_periodo = database_allenamenti[anno_selezionato][mese_selezionato]
-    for settimana, giorni in dati_periodo.items():
-        for giorno, dettagli in giorni.items():
-            righe_tabella.append(
-                {
-                    "Settimana": settimana,
-                    "Giorno": giorno,
-                    "Esercizio / Nome": dettagli["Esercizio"],
-                    "Watt": int(dettagli["Watt"]),
-                    "RPM": int(dettagli["RPM"]),
-                    "Ripetizioni": int(dettagli["Ripetizioni"]),
-                    "Lavoro (min)": int(dettagli["Lavoro_m"]),
-                    "Recupero (min)": int(dettagli["Recupero_m"]),
-                }
-            )
+    if dati_periodo:
+        for settimana, giorni in dati_periodo.items():
+            for giorno, dettagli in giorni.items():
+                righe_tabella.append(
+                    {
+                        "Settimana": settimana,
+                        "Giorno": giorno,
+                        "Esercizio / Nome": dettagli["Esercizio"],
+                        "Watt": int(dettagli["Watt"]),
+                        "RPM": int(dettagli["RPM"]),
+                        "Ripetizioni": int(dettagli["Ripetizioni"]),
+                        "Lavoro (min)": int(dettagli["Lavoro_m"]),
+                        "Recupero (min)": int(dettagli["Recupero_m"]),
+                    }
+                )
+    else:
+        raise KeyError
 except (KeyError, TypeError):
-    # Se il mese non è ancora censito nel dizionario, genera righe vuote di default o un DataFrame vuoto
+    # Se il mese è vuoto, genera una riga di default pronta per la compilazione o l'upload CSV
     righe_tabella = [
         {
             "Settimana": "Settimana 1 (Carico Base)",
@@ -119,8 +121,8 @@ except (KeyError, TypeError):
             "Watt": int(ftp_atleta * 0.9),
             "RPM": 90,
             "Ripetizioni": 1,
-            "Lavoro_m": 10,
-            "Recupero_m": 5,
+            "Lavoro (min)": 10,
+            "Recupero (min)": 5,
         }
     ]
 
