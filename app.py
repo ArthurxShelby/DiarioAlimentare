@@ -1,8 +1,5 @@
 import streamlit as st
 import pandas as pd
-import json
-from fpdf import FPDF
-import io
 
 # Configurazione della pagina
 st.set_page_config(
@@ -155,4 +152,4 @@ elif scelta == "Diario Alimentare":
             st.session_state.diario = pd.DataFrame(columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"])
             st.rerun()
     else:
-        st.info("Il diario di oggi è ancora vuoto. Aggiungi il primo alimento dal pannello sopra.")=True, use_container_width=True)
+        st.info("Il diario di oggi è ancora vuoto. Aggiungi il primo alimento dal pannello sopra.")
