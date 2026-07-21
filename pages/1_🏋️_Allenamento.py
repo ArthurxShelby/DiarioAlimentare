@@ -1,7 +1,4 @@
-import datetime
-from requests.auth import HTTPBasicAuth
 import pandas as pd
-import requests
 import streamlit as st
 
 st.set_page_config(
@@ -442,66 +439,3 @@ df_modificato = st.data_editor(
         ),
     },
 )
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# --- 7. STRUMENTO DI PULIZIA DI EMERGENZA ---
-with st.expander("🛠️ Pannello di Emergenza: Cancella file dal calendario"):
-    st.write(
-        "Seleziona il periodo corretto (Data Inizio precedente a Data Fine) per pulire gli eventi."
-    )
-
-    col_start, col_end = st.columns(2)
-    with col_start:
-        data_inizio_pulizia = st.date_input(
-            "Data Inizio:",
-            datetime.date(2026, 8, 1),
-        )
-    with col_end:
-        data_fine_pulizia = st.date_input(
-            "Data Fine:",
-            datetime.date(2026, 12, 31),
-        )
-
-    # Verifica credenziali con guida chiara
-    if "intervals" not in st.secrets:
-        st.error("⚠️ Configura prima le credenziali nel file `.streamlit/secrets.toml`!")
-        st.code(
-            """
-[intervals]
-athlete_id = "IL_TUO_ATHLETE_ID"
-api_key = "LA_TUA_API_KEY"
-        """,
-            language="toml",
-        )
-    else:
-        if st.button(
-            "🗑️ Elimina tutti gli allenamenti (🏋️) nel periodo selezionato"
-        ):
-            try:
-                atleta_id = st.secrets["intervals"]["athlete_id"]
-                api_key = st.secrets["intervals"]["api_key"]
-                auth = HTTPBasicAuth("API_KEY", api_key)
-
-                url_get = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events?oldest={data_inizio_pulizia.isoformat()}&newest={data_fine_pulizia.isoformat()}"
-                response = requests.get(url_get, auth=auth)
-
-                if response.status_code == 200:
-                    eventi = response.json()
-                    count = 0
-                    for evento in eventi:
-                        if "🏋️" in evento.get("name", ""):
-                            event_id = evento["id"]
-                            url_del = f"https://intervals.icu/api/v1/athlete/{atleta_id}/events/{event_id}"
-                            requests.delete(url_del, auth=auth)
-                            count += 1
-                    st.success(
-                        f"Pulizia completata! Eliminati {count} eventi dal calendario."
-                    )
-                    st.rerun()
-                else:
-                    st.error(
-                        f"Errore nel recupero eventi: {response.text}"
-                    )
-            except Exception as e:
-                st.error(f"Errore: {e}")
