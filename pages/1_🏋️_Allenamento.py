@@ -449,8 +449,14 @@ with st.expander(
 
     if file_caricato is not None:
         try:
-            df_caricato = pd.read_csv(file_caricato)
-            # Verifica colonne essenziali
+            # Modificato con sep=None e engine='python' per gestire automaticamente virgole o punti e virgola
+            df_caricato = pd.read_csv(
+                file_caricato, sep=None, engine="python"
+            )
+
+            # Pulizia preventiva degli spazi nei nomi delle colonne (es. eventuali spazi accidentali)
+            df_caricato.columns = df_caricato.columns.str.strip()
+
             colonne_attese = [
                 "Settimana",
                 "Giorno",
@@ -461,8 +467,9 @@ with st.expander(
                 "Lavoro (min)",
                 "Recupero (min)",
             ]
+
             if all(col in df_caricato.columns for col in colonne_attese):
-                df_base_mese = df_caricato
+                df_base_mese = df_caricato[colonne_attese]
                 st.success(
                     "File CSV caricato e integrato con successo nella tabella sottostante!"
                 )
