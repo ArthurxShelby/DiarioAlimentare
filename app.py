@@ -61,7 +61,6 @@ if "db_diario" not in st.session_state:
 
 st.title("🚴‍♂️ Pianificatore Alimentare & Allenamento (Mifflin)")
 
-# Selezione della data tramite Calendario
 st.sidebar.header("🗓️ Seleziona Giorno")
 data_selezionata = st.sidebar.date_input("Data", value=date.today())
 data_str = data_selezionata.strftime("%Y-%m-%d")
@@ -110,13 +109,11 @@ obj_grassi = 70.0
 
 st.sidebar.info(f"**BMR stimato:** {bmr:.0f} kcal\n\n**TDEE dinamico:** {obj_kcal:.0f} kcal")
 
-# Calcoli totali giornalieri
 tot_carbo = sum([st.session_state.db_diario[data_str][p]["carbo"].sum() for p in PASTI if not st.session_state.db_diario[data_str][p].empty])
 tot_prot = sum([st.session_state.db_diario[data_str][p]["proteine"].sum() for p in PASTI if not st.session_state.db_diario[data_str][p].empty])
 tot_grassi = sum([st.session_state.db_diario[data_str][p]["grassi"].sum() for p in PASTI if not st.session_state.db_diario[data_str][p].empty])
 tot_kcal = sum([st.session_state.db_diario[data_str][p]["kcal"].sum() for p in PASTI if not st.session_state.db_diario[data_str][p].empty])
 
-# Dashboard principale con Progress Bar istantanee
 st.subheader(f"📊 Riepilogo Giornaliero - {data_str}")
 
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
@@ -139,7 +136,6 @@ with col_m4:
 
 st.markdown("---")
 
-# SEZIONE GESTIONE BANCA DATI
 with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
     st.markdown("### Accesso e Visualizzazione")
     banca_dati = st.session_state.banca_dati_df
@@ -185,7 +181,12 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                 elif estensione in ["xlsx", "xls"]:
                     df_nuovo = pd.read_excel(file_caricato)
                 elif estensione == "numbers":
-                    st.error("I file Apple Numbers (.numbers) proprietari richiedono l'esportazione in Excel (.xlsx) o CSV. Apri il file in Numbers e seleziona 'File -> Esporta a -> Excel'.")
+                    try:
+                        import zipfile
+                        with zipfile.ZipFile(file_caricato, 'r') as z:
+                            st.info("Archivio Apple Numbers rilevato. Per una compatibilità nativa immediata e priva di errori, ti consigliamo di esportare in Excel (.xlsx) o CSV da Numbers.")
+                    except Exception as numbers_err:
+                        st.error(f"Impossibile leggere il file Numbers direttamente: {numbers_err}. Esporta in .xlsx o .csv.")
                 elif estensione == "pdf":
                     try:
                         import pypdf
@@ -194,9 +195,8 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                         for pagina in reader.pages:
                             testo_pdf += pagina.extract_text() + "\n"
                         st.text_area("Testo estratto dal PDF (anteprima):", testo_pdf, height=150)
-                        st.warning("Per i PDF, assicurati di strutturare l'importazione o inserire i dati in CSV/Excel per un caricamento tabellare automatico.")
                     except ImportError:
-                        st.error("Libreria pypdf non disponibile per leggere il PDF.")
+                        st.error("Libreria pypdf non disponibile.")
                 
                 if df_nuovo is not None and not df_nuovo.empty:
                     st.write("Anteprima dati letti dal file:", df_nuovo.head())
@@ -221,13 +221,12 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                             st.success("Banca dati aggiornata con successo dal file!")
                             st.rerun()
                         else:
-                            st.error("Il formato del file non corrisponde ai campi richiesti (Alimento, gr/n, carbo, proteine, grassi, kcal).")
+                            st.error("Il formato del file non corrisponde ai campi richiesti.")
             except Exception as e:
                 st.error(f"Errore durante la lettura del file: {e}")
 
 st.markdown("---")
 
-# Sezione Aggiunta Alimenti al Diario
 st.subheader("🍽️ Inserimento Alimenti nei Pasti")
 pasto_selezionato = st.selectbox("Seleziona il pasto a cui aggiungere l'alimento:", PASTI)
 
@@ -262,11 +261,10 @@ if not banca_dati_corrente.empty:
         )
         st.rerun()
 else:
-    st.warning("La banca dati è vuota. Carica un file o ripristina i dati nella sezione sopra.")
+    st.warning("La banca dati è vuota.")
 
 st.markdown("---")
 
-# Panoramica dei 6 Pasti Giornalieri
 st.subheader("📋 Panoramica dei 6 Pasti Giornalieri")
 
 cols_pasti = st.columns(3)
@@ -306,7 +304,6 @@ for i, pasto in enumerate(PASTI):
 
 st.markdown("---")
 
-# Sezione Esportazione PDF
 st.subheader("📄 Esportazione Report in PDF")
 
 col_pdf1, col_pdf2 = st.columns(2)
