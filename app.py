@@ -386,7 +386,6 @@ DEFAULT_BANCA_DATI = [
 ]
 
 # Inizializzazione della Banca Dati
-# Modifica nell'inizializzazione della Banca Dati:
 if "banca_dati_df" not in st.session_state:
     if (
         dati_salvati
@@ -672,7 +671,10 @@ with col_m4:
         f"{tot_grassi:.1f} / {obj_grassi} g",
         delta=f"{obj_grassi - tot_grassi:.1f} g rimanenti",
     )
-    st.progress(min(tot_grassi / obj_grassi, 1.0) if obj_grassi > 0 else 0)
+    progresso_grassi = (
+        float(min(tot_grassi / obj_grassi, 1.0)) if obj_grassi > 0 else 0.0
+    )
+    st.progress(progresso_grassi)
 
 st.markdown("---")
 
@@ -680,6 +682,15 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
     st.markdown("### Accesso e Visualizzazione")
     banca_dati = st.session_state.banca_dati_df
     st.dataframe(banca_dati, use_container_width=True)
+
+    # Pulsante per il backup / estrazione della banca dati in CSV
+    csv_backup_data = banca_dati.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="📥 Scarica Backup Banca Dati (CSV)",
+        data=csv_backup_data,
+        file_name=f"banca_dati_alimentare_backup_{date.today().strftime('%Y-%m-%d')}.csv",
+        mime="text/csv",
+    )
 
     st.markdown("---")
 
