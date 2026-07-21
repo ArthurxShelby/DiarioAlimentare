@@ -10,7 +10,6 @@ st.set_page_config(
 
 # Banca dati precompilata degli alimenti (valori per 100g o porzione indicata)
 @st.cache_data
-ato
 def get_banca_dati():
     data = [
         {"Alimento": "anguria", "gr/n": 300, "carbo": 111.0, "proteine": 1.2, "grassi": 0.6, "kcal": 48.0},
@@ -95,7 +94,7 @@ elif scelta == "Diario Alimentare":
         quantita = st.number_input("Quantità effettiva (g o porzioni)", min_value=1, value=default_q)
         
         # Calcolo proporzionale
- fattore = quantita / default_q
+        fattore = quantita / default_q
         c_calc = round(item_row["carbo"] * fattore, 2)
         p_calc = round(item_row["proteine"] * fattore, 2)
         g_calc = round(item_row["grassi"] * fattore, 2)
