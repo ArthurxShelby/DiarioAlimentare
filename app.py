@@ -20,8 +20,11 @@ def carica_db_alimenti():
     except:
         # Database iniziale di base se il file non esiste
       # Sostituisci la tua lista di alimenti predefinita con questa:
-if 'banca_dati' not in st.session_state:
-    st.session_state['banca_dati'] = {
+import streamlit as st
+
+# 1. INIZIALIZZAZIONE DELLA BANCA DATI (Aggiungi questo blocco all'inizio)
+if 'db_alimenti' not in st.session_state:
+    st.session_state.db_alimenti = {
         "Anguria": {"calorie": 30, "carboidrati": 8.0, "proteine": 0.6, "grassi": 0.2},
         "Arista": {"calorie": 130, "carboidrati": 0.0, "proteine": 22.0, "grassi": 4.5},
         "Avena": {"calorie": 389, "carboidrati": 66.0, "proteine": 16.9, "grassi": 6.9},
@@ -59,7 +62,7 @@ if 'banca_dati' not in st.session_state:
         "Uova": {"calorie": 155, "carboidrati": 1.1, "proteine": 13.0, "grassi": 11.0},
         "Waxy maize Yamamoto": {"calorie": 360, "carboidrati": 90.0, "proteine": 0.0, "grassi": 0.0},
         "Yogurt greco": {"calorie": 59, "carboidrati": 4.0, "proteine": 10.3, "grassi": 0.0}
-    }}
+    }
 
 def salva_db_alimenti(db):
     with open("database_alimenti.json", "w") as f:
