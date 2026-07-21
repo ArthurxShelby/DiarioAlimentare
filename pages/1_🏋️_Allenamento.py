@@ -1,3 +1,4 @@
+import datetime
 import pandas as pd
 import streamlit as st
 
@@ -18,8 +19,8 @@ st.sidebar.markdown(
 st.sidebar.markdown("**Cadenza Soglia:** ~90 RPM")
 st.sidebar.markdown("**Cadenza SS:** ~85 RPM")
 
-# --- 2. DATABASE STRUTTURATO PER ANNO SOLARE (2026 COMPLETO) ---
-database_allenamenti = {
+# --- 2. DATABASE INIZIALE STRUTTURATO ---
+database_iniziale = {
     2026: {
         "Gennaio": {
             "Settimana 1 (Base Invernale)": {
@@ -195,25 +196,7 @@ database_allenamenti = {
                     "Lavoro_m": 3,
                     "Recupero_m": 3,
                 },
-            },
-            "Settimana 2 (Sviluppo)": {
-                "Martedì": {
-                    "Esercizio": "VO2Max: 4 x 3 min. Rec. 3 min",
-                    "Watt": 290,
-                    "RPM": 100,
-                    "Ripetizioni": 4,
-                    "Lavoro_m": 3,
-                    "Recupero_m": 3,
-                },
-                "Giovedì": {
-                    "Esercizio": "Soglia Z4: 3 x 8 min. Rec. 4 min",
-                    "Watt": 260,
-                    "RPM": 90,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 8,
-                    "Recupero_m": 4,
-                },
-            },
+            }
         },
         "Settembre": {
             "Settimana 1 (Ripresa)": {
@@ -313,6 +296,10 @@ elenco_mesi_completo = [
     "Dicembre",
 ]
 
+# Inizializzazione della memoria persistente (Session State)
+if "database_allenamenti" not in st.session_state:
+    st.session_state.database_allenamenti = database_iniziale
+
 st.title("🏋️ Pianificazione Allenamento per Anno Solare")
 
 # --- 3. SELEZIONE ANNO E MESE ---
@@ -328,53 +315,59 @@ with col_mese:
 
 st.markdown("---")
 
-# --- 4. GESTIONE STATO / CARICAMENTO CSV ---
-key_stato_db = f"db_{anno_selezionato}_{mese_selezionato}"
+# Assicuriamoci che l'anno e il mese esistano nello state
+if anno_selezionato not in st.session_state.database_allenamenti:
+    st.session_state.database_allenamenti[anno_selezionato] = {}
 
-if anno_selezionato not in database_allenamenti:
-    database_allenamenti[anno_selezionato] = {}
+if (
+    mese_selezionato
+    not in st.session_state.database_allenamenti[anno_selezionato]
+):
+    st.session_state.database_allenamenti[anno_selezionato][
+        mese_selezionato
+    ] = pd.DataFrame(
+        columns=[
+            "Settimana",
+            "Giorno",
+            "Esercizio / Nome",
+            "Watt",
+            "RPM",
+            "Ripetizioni",
+            "Lavoro (min)",
+            "Recupero (min)",
+        ]
+    )
 
-if mese_selezionato not in database_allenamenti[anno_selezionato]:
-    database_allenamenti[anno_selezionato][mese_selezionato] = {}
+# Recupera i dati correnti del mese/anno in memoria sotto forma di DataFrame
+dati_correnti = st.session_state.database_allenamenti[anno_selezionato][
+    mese_selezionato
+]
 
-righe_tabella = []
+if isinstance(dati_correnti, dict):
+    # Converte il dizionario iniziale in DataFrame se necessario
+    righe_tabella = []
+    for settimana, giorni in dati_correnti.items():
+        for giorno, dettagli in giorni.items():
+            righe_tabella.append(
+                {
+                    "Settimana": settimana,
+                    "Giorno": giorno,
+                    "Esercizio / Nome": dettagli["Esercizio"],
+                    "Watt": int(dettagli["Watt"]),
+                    "RPM": int(dettagli["RPM"]),
+                    "Ripetizioni": int(dettagli["Ripetizioni"]),
+                    "Lavoro (min)": int(dettagli["Lavoro_m"]),
+                    "Recupero (min)": int(dettagli["Recupero_m"]),
+                }
+            )
+    df_base_mese = pd.DataFrame(righe_tabella)
+    st.session_state.database_allenamenti[anno_selezionato][
+        mese_selezionato
+    ] = df_base_mese
+else:
+    df_base_mese = dati_correnti
 
-try:
-    dati_periodo = database_allenamenti[anno_selezionato][mese_selezionato]
-    if dati_periodo:
-        for settimana, giorni in dati_periodo.items():
-            for giorno, dettagli in giorni.items():
-                righe_tabella.append(
-                    {
-                        "Settimana": settimana,
-                        "Giorno": giorno,
-                        "Esercizio / Nome": dettagli["Esercizio"],
-                        "Watt": int(dettagli["Watt"]),
-                        "RPM": int(dettagli["RPM"]),
-                        "Ripetizioni": int(dettagli["Ripetizioni"]),
-                        "Lavoro (min)": int(dettagli["Lavoro_m"]),
-                        "Recupero (min)": int(dettagli["Recupero_m"]),
-                    }
-                )
-    else:
-        raise KeyError
-except (KeyError, TypeError):
-    righe_tabella = [
-        {
-            "Settimana": "Settimana 1 (Carico Base)",
-            "Giorno": "Martedì",
-            "Esercizio / Nome": "Inserisci esercizio o carica CSV",
-            "Watt": int(ftp_atleta * 0.9),
-            "RPM": 90,
-            "Ripetizioni": 1,
-            "Lavoro (min)": 10,
-            "Recupero (min)": 5,
-        }
-    ]
-
-df_base_mese = pd.DataFrame(righe_tabella)
-
-# --- 5. SEZIONE IMPORTAZIONE CSV ---
+# --- 4. SEZIONE IMPORTAZIONE CSV ---
 with st.expander(
     "📂 Integra o carica piano di lavoro tramite file CSV", expanded=False
 ):
@@ -382,7 +375,7 @@ with st.expander(
         f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**."
     )
     file_caricato = st.file_uploader(
-        "Seleziona il file CSV", type=["csv"], key=f"uploader_{key_stato_db}"
+        "Seleziona il file CSV", type=["csv"], key=f"uploader_{anno_selezionato}_{mese_selezionato}"
     )
 
     if file_caricato is not None:
@@ -402,10 +395,14 @@ with st.expander(
             ]
 
             if all(col in df_caricato.columns for col in colonne_attese):
-                df_base_mese = df_caricato[colonne_attese]
+                # Salva subito nel session_state così resta in memoria
+                st.session_state.database_allenamenti[anno_selezionato][
+                    mese_selezionato
+                ] = df_caricato[colonne_attese]
                 st.success(
-                    f"File CSV caricato con successo per {mese_selezionato} {anno_selezionato}!"
+                    f"File CSV caricato e salvato in memoria per {mese_selezionato} {anno_selezionato}!"
                 )
+                st.rerun()
             else:
                 st.error(
                     f"Il file CSV non contiene le colonne corrette: {colonne_attese}"
@@ -413,19 +410,17 @@ with st.expander(
         except Exception as e:
             st.error(f"Errore nella lettura del file CSV: {e}")
 
-# --- 6. TABELLA INTERATTIVA DI MODIFICA ---
+# --- 5. TABELLA INTERATTIVA DI MODIFICA (CON MEMORIA PERSISTENTE) ---
 st.subheader(
     f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**"
 )
 
 df_modificato = st.data_editor(
     df_base_mese,
-    num_rows="fixed",
+    num_rows="dynamic",
     use_container_width=True,
-    key=f"editor_{key_stato_db}",
+    key=f"editor_{anno_selezionato}_{mese_selezionato}",
     column_config={
-        "Settimana": st.column_config.TextColumn(disabled=True),
-        "Giorno": st.column_config.TextColumn(disabled=True),
         "Watt": st.column_config.NumberColumn(min_value=50, max_value=500, step=1),
         "RPM": st.column_config.NumberColumn(min_value=60, max_value=120, step=1),
         "Ripetizioni": st.column_config.NumberColumn(
@@ -439,3 +434,64 @@ df_modificato = st.data_editor(
         ),
     },
 )
+
+# Aggiorna lo stato in tempo reale ogni volta che l'utente modifica la tabella
+st.session_state.database_allenamenti[anno_selezionato][
+    mese_selezionato
+] = df_modificato
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# --- 6. PANNELLO DI CANCELLAZIONE DAL PERIODO AL PERIODO ---
+with st.expander("🛠️ Pannello di Pulizia / Cancellazione Periodo"):
+    st.write(
+        "Seleziona un intervallo di mesi/anno o pulisci i dati memorizzati nel periodo scelto."
+    )
+
+    col_p1, col_p2 = st.columns(2)
+    with col_p1:
+        mese_inizio_del = st.selectbox(
+            "Mese Inizio:", elenco_mesi_completo, key="m_ini"
+        )
+    with col_p2:
+        mese_fine_del = st.selectbox(
+            "Mese Fine:", elenco_mesi_completo, index=11, key="m_fin"
+        )
+
+    if st.button("🗑️ Svuota dati per il periodo selezionato"):
+        try:
+            idx_i = elenco_mesi_completo.index(mese_inizio_del)
+            idx_f = elenco_mesi_completo.index(mese_fine_del)
+            if idx_i <= idx_f:
+                mesi_da_pulire = elenco_mesi_completo[idx_i : idx_f + 1]
+                for m in mesi_da_pulire:
+                    if (
+                        anno_selezionato
+                        in st.session_state.database_allenamenti
+                        and m
+                        in st.session_state.database_allenamenti[
+                            anno_selezionato
+                        ]
+                    ):
+                        st.session_state.database_allenamenti[
+                            anno_selezionato
+                        ][m] = pd.DataFrame(
+                            columns=[
+                                "Settimana",
+                                "Giorno",
+                                "Esercizio / Nome",
+                                "Watt",
+                                "RPM",
+                                "Ripetizioni",
+                                "Lavoro (min)",
+                                "Recupero (min)",
+                            ]
+                        )
+                st.success(
+                    f"Dati svuotati con successo da {mese_inizio_del} a {mese_fine_del} {anno_selezionato}!"
+                )
+                st.rerun()
+            else:
+                st.error("Il Mese Inizio deve precedere o coincidere con il Mese Fine.")
+        except Exception as e:
+            st.error(f"Errore durante la pulizia: {e}")
