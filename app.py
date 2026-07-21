@@ -671,10 +671,7 @@ with col_m4:
         f"{tot_grassi:.1f} / {obj_grassi} g",
         delta=f"{obj_grassi - tot_grassi:.1f} g rimanenti",
     )
-    progresso_grassi = (
-        float(min(tot_grassi / obj_grassi, 1.0)) if obj_grassi > 0 else 0.0
-    )
-    st.progress(progresso_grassi)
+    st.progress(min(tot_grassi / obj_grassi, 1.0) if obj_grassi > 0 else 0)
 
 st.markdown("---")
 
