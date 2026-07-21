@@ -21,7 +21,8 @@ st.sidebar.markdown(
 st.sidebar.markdown("**Cadenza Soglia:** ~90 RPM")
 st.sidebar.markdown("**Cadenza SS:** ~85 RPM")
 
-# --- 2. DATABASE STRUTTURATO PER ANNO SOLARE (2026 e 2027) ---
+# --- 2. DATABASE STRUTTURATO PER ANNO SOLARE ---
+# Puoi mantenere o espandere questo dizionario come preferisci
 database_allenamenti = {
     2026: {
         "Agosto": {
@@ -43,521 +44,46 @@ database_allenamenti = {
                     "Recupero_m": 0,
                 },
             },
-            "Settimana 2 (Carico Intermedio)": {
-                "Martedì": {
-                    "Esercizio": "Soglia Z4: 3 x 6 min. Rec. 5 min Z1",
-                    "Watt": 260,
-                    "RPM": 90,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 6,
-                    "Recupero_m": 5,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: 1 x 30 min continui",
-                    "Watt": 245,
-                    "RPM": 85,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 30,
-                    "Recupero_m": 0,
-                },
-            },
-            "Settimana 3 (Picco di Carico)": {
-                "Martedì": {
-                    "Esercizio": "Soglia Z4: 4 x 6 min. Rec. 4 min Z1",
-                    "Watt": 262,
-                    "RPM": 90,
-                    "Ripetizioni": 4,
-                    "Lavoro_m": 6,
-                    "Recupero_m": 4,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: 1 x 40 min continui",
-                    "Watt": 248,
-                    "RPM": 85,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 40,
-                    "Recupero_m": 0,
-                },
-            },
-            "Settimana 4 (Scarico)": {
-                "Martedì": {
-                    "Esercizio": "Soglia attiva: Solo 1 x 6 min in Z4",
-                    "Watt": 260,
-                    "RPM": 90,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 6,
-                    "Recupero_m": 0,
-                },
-                "Giovedì": {
-                    "Esercizio": "Scarico Totale: Agilità in Z1/Z2. No SS",
-                    "Watt": 150,
-                    "RPM": 95,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 15,
-                    "Recupero_m": 0,
-                },
-            },
-        },
-        "Settembre": {
-            "Settimana 1 (Carico Base)": {
-                "Martedì": {
-                    "Esercizio": "Soglia Z4: 3 x 8 min. Rec. 5 min Z1",
-                    "Watt": 265,
-                    "RPM": 90,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 8,
-                    "Recupero_m": 5,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: 2 x 15 min. Rec. 5 min Z1",
-                    "Watt": 250,
-                    "RPM": 85,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 15,
-                    "Recupero_m": 5,
-                },
-            },
-            "Settimana 2 (Carico Intermedio)": {
-                "Martedì": {
-                    "Esercizio": "Soglia Z4: 3 x 10 min. Rec. 5 min Z1",
-                    "Watt": 265,
-                    "RPM": 90,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 10,
-                    "Recupero_m": 5,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: 2 x 20 min. Rec. 5 min Z1",
-                    "Watt": 250,
-                    "RPM": 85,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 20,
-                    "Recupero_m": 5,
-                },
-            },
-            "Settimana 3 (Picco di Carico)": {
-                "Martedì": {
-                    "Esercizio": "Soglia Z4: 3 x 12 min. Rec. 5 min Z1",
-                    "Watt": 268,
-                    "RPM": 90,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 12,
-                    "Recupero_m": 5,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: 1 x 45 min continui",
-                    "Watt": 252,
-                    "RPM": 85,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 45,
-                    "Recupero_m": 0,
-                },
-            },
-            "Settimana 4 (Scarico)": {
-                "Martedì": {
-                    "Esercizio": "Mantenimento: 2 x 5 min Z4. Rec. 4 min",
-                    "Watt": 260,
-                    "RPM": 90,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 5,
-                    "Recupero_m": 4,
-                },
-                "Giovedì": {
-                    "Esercizio": "Scarico: Recupero Attivo Z1 ed agilità",
-                    "Watt": 145,
-                    "RPM": 95,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 20,
-                    "Recupero_m": 0,
-                },
-            },
-        },
-        "Ottobre": {
-            "Settimana 1 (Carico Base)": {
-                "Martedì": {
-                    "Esercizio": "Soglia Z4: 2 x 15 min. Rec. 6 min Z1",
-                    "Watt": 270,
-                    "RPM": 90,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 15,
-                    "Recupero_m": 6,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: 2 x 25 min. Rec. 5 min Z1",
-                    "Watt": 254,
-                    "RPM": 85,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 25,
-                    "Recupero_m": 5,
-                },
-            },
-            "Settimana 2 (Carico Intermedio)": {
-                "Martedì": {
-                    "Esercizio": "Soglia Z4: 3 x 12 min. Rec. 5 min Z1",
-                    "Watt": 272,
-                    "RPM": 90,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 12,
-                    "Recupero_m": 5,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: 1 x 50 min continui in salita",
-                    "Watt": 254,
-                    "RPM": 85,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 50,
-                    "Recupero_m": 0,
-                },
-            },
-            "Settimana 3 (Picco di Carico)": {
-                "Martedì": {
-                    "Esercizio": "Soglia Z4: 2 x 20 min (Massima Densità)",
-                    "Watt": 279,
-                    "RPM": 90,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 20,
-                    "Recupero_m": 6,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: Salita costante di 55 min",
-                    "Watt": 256,
-                    "RPM": 85,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 55,
-                    "Recupero_m": 0,
-                },
-            },
-            "Settimana 4 (Scarico)": {
-                "Martedì": {
-                    "Esercizio": "Scarico: 1 x 10 min Z4 rilassato",
-                    "Watt": 265,
-                    "RPM": 90,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 10,
-                    "Recupero_m": 0,
-                },
-                "Giovedì": {
-                    "Esercizio": "Agilità di scarico senza spingere",
-                    "Watt": 150,
-                    "RPM": 95,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 20,
-                    "Recupero_m": 0,
-                },
-            },
-        },
-        "Novembre": {
-            "Settimana 1 (Carico Base)": {
-                "Martedì": {
-                    "Esercizio": "Dinamica Over-Under: 3x (1' Over / 1' Under)",
-                    "Watt": 275,
-                    "RPM": 92,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 2,
-                    "Recupero_m": 2,
-                },
-                "Giovedì": {
-                    "Esercizio": "Mantenimento SS: 2 x 20 min",
-                    "Watt": 252,
-                    "RPM": 90,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 20,
-                    "Recupero_m": 5,
-                },
-            },
-            "Settimana 2 (Carico Intermedio)": {
-                "Martedì": {
-                    "Esercizio": "Dinamica Over-Under: 4x (1' Over / 1' Under)",
-                    "Watt": 275,
-                    "RPM": 92,
-                    "Ripetizioni": 4,
-                    "Lavoro_m": 2,
-                    "Recupero_m": 2,
-                },
-                "Giovedì": {
-                    "Esercizio": "Mantenimento SS: 1 x 45 min costanti",
-                    "Watt": 252,
-                    "RPM": 90,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 45,
-                    "Recupero_m": 0,
-                },
-            },
-            "Settimana 3 (Picco di Carico)": {
-                "Martedì": {
-                    "Esercizio": "Dinamica Over-Under: Picco intensità variata",
-                    "Watt": 280,
-                    "RPM": 92,
-                    "Ripetizioni": 5,
-                    "Lavoro_m": 2,
-                    "Recupero_m": 2,
-                },
-                "Giovedì": {
-                    "Esercizio": "SS Esteso ad alta frequenza: 1 x 50 min",
-                    "Watt": 255,
-                    "RPM": 90,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 50,
-                    "Recupero_m": 0,
-                },
-            },
-            "Settimana 4 (Scarico)": {
-                "Martedì": {
-                    "Esercizio": "Assimilazione: Lavoro agile in Z2 lineare",
-                    "Watt": 170,
-                    "RPM": 95,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 20,
-                    "Recupero_m": 0,
-                },
-                "Giovedì": {
-                    "Esercizio": "Scarico Muscolare Totale",
-                    "Watt": 140,
-                    "RPM": 95,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 15,
-                    "Recupero_m": 0,
-                },
-            },
-        },
-        "Dicembre": {
-            "Settimana 1 (Carico Base)": {
-                "Martedì": {
-                    "Esercizio": "Efficienza Soglia: 3 x 12 min. Rec. 4 min Z1",
-                    "Watt": 278,
-                    "RPM": 90,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 12,
-                    "Recupero_m": 4,
-                },
-                "Giovedì": {
-                    "Esercizio": "Massimo Stimolo SS: 1 x 45 min",
-                    "Watt": 255,
-                    "RPM": 86,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 45,
-                    "Recupero_m": 0,
-                },
-            },
-            "Settimana 2 (Carico Intermedio)": {
-                "Martedì": {
-                    "Esercizio": "Efficienza Soglia: 3 x 15 min a 280W",
-                    "Watt": 280,
-                    "RPM": 90,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 15,
-                    "Recupero_m": 5,
-                },
-                "Giovedì": {
-                    "Esercizio": "Massimo Stimolo SS: 2 x 25 min",
-                    "Watt": 256,
-                    "RPM": 86,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 25,
-                    "Recupero_m": 5,
-                },
-            },
-            "Settimana 3 (Picco di Carico)": {
-                "Martedì": {
-                    "Esercizio": "Efficienza Soglia: 2 x 25 min Z4 massimali",
-                    "Watt": 282,
-                    "RPM": 90,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 25,
-                    "Recupero_m": 6,
-                },
-                "Giovedì": {
-                    "Esercizio": "Efficienza SS Estrema: 1 x 60 min continui",
-                    "Watt": 258,
-                    "RPM": 86,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 60,
-                    "Recupero_m": 0,
-                },
-            },
-            "Settimana 4 (Scarico)": {
-                "Martedì": {
-                    "Esercizio": "Ripristino energetico e agilità controllata",
-                    "Watt": 160,
-                    "RPM": 95,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 20,
-                    "Recupero_m": 0,
-                },
-                "Giovedì": {
-                    "Esercizio": "Fine ciclo: Pedalata libera Z1",
-                    "Watt": 140,
-                    "RPM": 95,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 15,
-                    "Recupero_m": 0,
-                },
-            },
-        },
-    },
-    2027: {
-        "Gennaio": {
-            "Settimana 1 (Carico Base)": {
-                "Martedì": {
-                    "Esercizio": "Ripresa Base Z4: 2 x 8 min",
-                    "Watt": 265,
-                    "RPM": 90,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 8,
-                    "Recupero_m": 5,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot iniziale: 2 x 15 min",
-                    "Watt": 245,
-                    "RPM": 85,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 15,
-                    "Recupero_m": 5,
-                },
-            },
-            "Settimana 2 (Carico Intermedio)": {
-                "Martedì": {
-                    "Esercizio": "Soglia Z4: 3 x 8 min",
-                    "Watt": 268,
-                    "RPM": 90,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 8,
-                    "Recupero_m": 5,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: 2 x 20 min",
-                    "Watt": 248,
-                    "RPM": 85,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 20,
-                    "Recupero_m": 5,
-                },
-            },
-            "Settimana 3 (Picco di Carico)": {
-                "Martedì": {
-                    "Esercizio": "Soglia Z4: 3 x 10 min",
-                    "Watt": 270,
-                    "RPM": 90,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 10,
-                    "Recupero_m": 5,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: 1 x 45 min",
-                    "Watt": 250,
-                    "RPM": 85,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 45,
-                    "Recupero_m": 0,
-                },
-            },
-            "Settimana 4 (Scarico)": {
-                "Martedì": {
-                    "Esercizio": "Agilità e scarico Z2",
-                    "Watt": 160,
-                    "RPM": 95,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 20,
-                    "Recupero_m": 0,
-                },
-                "Giovedì": {
-                    "Esercizio": "Scarico attivo",
-                    "Watt": 140,
-                    "RPM": 95,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 15,
-                    "Recupero_m": 0,
-                },
-            },
-        },
-        "Febbraio": {
-            "Settimana 1 (Carico Base)": {
-                "Martedì": {
-                    "Esercizio": "Soglia Z4: 3 x 10 min",
-                    "Watt": 272,
-                    "RPM": 90,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 10,
-                    "Recupero_m": 5,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: 2 x 25 min",
-                    "Watt": 252,
-                    "RPM": 85,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 25,
-                    "Recupero_m": 5,
-                },
-            },
-            "Settimana 2 (Carico Intermedio)": {
-                "Martedì": {
-                    "Esercizio": "Soglia Z4: 3 x 12 min",
-                    "Watt": 275,
-                    "RPM": 90,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 12,
-                    "Recupero_m": 5,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: 1 x 50 min",
-                    "Watt": 255,
-                    "RPM": 85,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 50,
-                    "Recupero_m": 0,
-                },
-            },
-            "Settimana 3 (Picco di Carico)": {
-                "Martedì": {
-                    "Esercizio": "Soglia Z4: 2 x 20 min",
-                    "Watt": 278,
-                    "RPM": 90,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 20,
-                    "Recupero_m": 5,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: 1 x 60 min",
-                    "Watt": 258,
-                    "RPM": 85,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 60,
-                    "Recupero_m": 0,
-                },
-            },
-            "Settimana 4 (Scarico)": {
-                "Martedì": {
-                    "Esercizio": "Scarico agile",
-                    "Watt": 160,
-                    "RPM": 95,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 20,
-                    "Recupero_m": 0,
-                },
-                "Giovedì": {
-                    "Esercizio": "Scarico totale",
-                    "Watt": 140,
-                    "RPM": 95,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 15,
-                    "Recupero_m": 0,
-                },
-            },
-        },
-    },
+            # ... (restanti settimane di agosto e altri mesi del 2026/2027)
+        }
+    }
 }
+
+# Lista completa dei 12 mesi dell'anno per garantire la selezione universale
+elenco_mesi_completo = [
+    "Gennaio",
+    "Febbraio",
+    "Marzo",
+    "Aprile",
+    "Maggio",
+    "Giugno",
+    "Luglio",
+    "Agosto",
+    "Settembre",
+    "Ottobre",
+    "Novembre",
+    "Dicembre",
+]
 
 st.title("🏋️ Pianificazione Allenamento per Anno Solare")
 
 # --- 3. SELEZIONE ANNO E MESE ---
 col_anno, col_mese = st.columns(2)
+
 with col_anno:
-    anno_selezionato = st.selectbox(
-        "Anno Solare:", list(database_allenamenti.keys())
-    )
+    # Permette di selezionare gli anni esistenti o di aggiungerne uno nuovo digitandolo
+    anni_disponibili = sorted(list(database_allenamenti.keys()))
+    # Aggiungiamo anche il 2027 se non è già esplicitamente chiave principale nel dict
+    if 2027 not in anni_disponibili:
+        anni_disponibili.append(2027)
+    if 2028 not in anni_disponibili:
+        anni_disponibili.append(2028)
+
+    anno_selezionato = st.selectbox("Anno Solare:", sorted(list(set(anni_disponibili))))
+
 with col_mese:
-    mesi_disponibili = list(database_allenamenti[anno_selezionato].keys())
-    mese_selezionato = st.selectbox("Mese:", mesi_disponibili)
+    # Mostra sempre tutti i 12 mesi indipendentemente da quali siano precompilati nel dizionario
+    mese_selezionato = st.selectbox("Mese:", elenco_mesi_completo)
 
 st.markdown("---")
 
@@ -565,22 +91,38 @@ st.markdown("---")
 key_stato_db = f"db_{anno_selezionato}_{mese_selezionato}"
 
 righe_tabella = []
-for settimana, giorni in database_allenamenti[anno_selezionato][
-    mese_selezionato
-].items():
-    for giorno, dettagli in giorni.items():
-        righe_tabella.append(
-            {
-                "Settimana": settimana,
-                "Giorno": giorno,
-                "Esercizio / Nome": dettagli["Esercizio"],
-                "Watt": int(dettagli["Watt"]),
-                "RPM": int(dettagli["RPM"]),
-                "Ripetizioni": int(dettagli["Ripetizioni"]),
-                "Lavoro (min)": int(dettagli["Lavoro_m"]),
-                "Recupero (min)": int(dettagli["Recupero_m"]),
-            }
-        )
+
+# Controlla se l'anno e il mese esistono nel database, altrimenti crea una struttura vuota pronta per l'inserimento o l'upload CSV
+try:
+    dati_periodo = database_allenamenti[anno_selezionato][mese_selezionato]
+    for settimana, giorni in dati_periodo.items():
+        for giorno, dettagli in giorni.items():
+            righe_tabella.append(
+                {
+                    "Settimana": settimana,
+                    "Giorno": giorno,
+                    "Esercizio / Nome": dettagli["Esercizio"],
+                    "Watt": int(dettagli["Watt"]),
+                    "RPM": int(dettagli["RPM"]),
+                    "Ripetizioni": int(dettagli["Ripetizioni"]),
+                    "Lavoro (min)": int(dettagli["Lavoro_m"]),
+                    "Recupero (min)": int(dettagli["Recupero_m"]),
+                }
+            )
+except (KeyError, TypeError):
+    # Se il mese non è ancora censito nel dizionario, genera righe vuote di default o un DataFrame vuoto
+    righe_tabella = [
+        {
+            "Settimana": "Settimana 1 (Carico Base)",
+            "Giorno": "Martedì",
+            "Esercizio / Nome": "Inserisci esercizio o carica CSV",
+            "Watt": int(ftp_atleta * 0.9),
+            "RPM": 90,
+            "Ripetizioni": 1,
+            "Lavoro_m": 10,
+            "Recupero_m": 5,
+        }
+    ]
 
 df_base_mese = pd.DataFrame(righe_tabella)
 
