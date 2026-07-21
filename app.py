@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import date, timedelta
 from fpdf import FPDF
-import io
+import re
 
 # Configurazione della pagina (deve essere la prima istruzione Streamlit)
 st.set_page_config(
@@ -253,7 +253,6 @@ st.subheader("🍽️ Inserimento Alimenti nei Pasti")
 pasto_selezionato = st.selectbox("Seleziona il pasto a cui aggiungere l'alimento:", PASTI)
 
 banca_dati_corrente = st.session_state.banca_dati_df
-# Filtro di sicurezza ulteriore prima di estrarre la lista
 alimenti_validi = banca_dati_corrente["Alimento"].dropna().tolist()
 alimenti_validati = [str(a) for a in alimenti_validi if str(a).strip() != "" and str(a).lower() != "nan"]
 
@@ -262,7 +261,17 @@ if alimenti_validati:
     with col_ins1:
         alimento_scelto = st.selectbox("Alimento", alimenti_validati, key="sel_alimento_principale")
         item_row = banca_dati_corrente[banca_dati_corrente["Alimento"].astype(str) == str(alimento_scelto)].iloc[0]
-        default_q = int(item_row["gr/n"]) if pd.notna(item_row["gr/n"]) else 100
+        
+        # Conversione robusta e sicura di gr/n in intero (gestisce stringhe come "100g", "50 g", ecc.)
+        val_gr_n = item_row["gr/n"]
+        if pd.notna(val_gr_n):
+            if isinstance(val_gr_n, (int, float)):
+                default_q = int(val_gr_n)
+            else:
+                numeri_estratti = re.findall(r'\d+', str(val_gr_n))
+                default_q = int(numeri_estratti[0]) if numeri_estratti else 100
+        else:
+            default_q = 100
 
     with col_ins2:
         quantita = st.number_input("Quantità (g o porzione)", min_value=1, value=default_q, key="num_quantita_principale")
