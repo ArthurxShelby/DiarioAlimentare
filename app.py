@@ -8,7 +8,7 @@ import streamlit as st
 
 # Configurazione della pagina (deve essere la prima istruzione Streamlit)
 st.set_page_config(
-    page_title="Diario Alimentare & Allenamento", page_icon="🥗", layout="wide"
+    page_title="Diario Alimentare & Allenamento", page_icon="", layout="wide"
 )
 
 # --- 0. GESTIONE PERSISTENZA DATI E PULIZIA ---
@@ -39,11 +39,18 @@ def pulisci_dataframe_banca_dati(df):
 
 
 def salva_dati_disco():
-    """Salva lo stato della banca dati e del diario nel file locale."""
+    """Salva lo stato della banca dati, del diario e dei parametri Mifflin nel file locale."""
     try:
         dati = {
-            "banca_dati_df": st.session_state.banca_dati_df,
-            "db_diario": st.session_state.db_diario,
+            "banca_dati_df": st.session_state.get("banca_dati_df"),
+            "db_diario": st.session_state.get("db_diario"),
+            "peso": st.session_state.get("peso", 70.0),
+            "altezza": st.session_state.get("altezza", 175.0),
+            "eta": st.session_state.get("eta", 56),
+            "genere": st.session_state.get("genere", "Uomo"),
+            "livello_allenamento": st.session_state.get(
+                "livello_allenamento", "Allenamento Moderato (PAL 1.55)"
+            ),
         }
         with open(FILE_PERSISTENZA, "wb") as f:
             pickle.dump(dati, f)
@@ -384,9 +391,9 @@ if "db_diario" not in st.session_state:
     else:
         st.session_state.db_diario = {}
 
-st.title("🥗 Pianificatore Alimentare & Allenamento (Mifflin)")
+st.title("Pianificatore Alimentare & Allenamento (Mifflin)")
 
-st.sidebar.header("📅 Seleziona Giorno")
+st.sidebar.header("Seleziona Giorno")
 data_selezionata = st.sidebar.date_input("Data", value=date.today())
 data_str = data_selezionata.strftime("%Y-%m-%d")
 
@@ -400,23 +407,65 @@ if data_str not in st.session_state.db_diario:
     salva_dati_disco()
 
 st.sidebar.markdown("---")
-st.sidebar.header("⚙️ Parametri Mifflin-St Jeor & Allenamento")
-peso = st.sidebar.number_input("Peso (kg)", value=70.0)
-altezza = st.sidebar.number_input("Altezza (cm)", value=175.0)
-eta = st.sidebar.number_input("Età (anni)", value=56)
-genere = st.sidebar.selectbox("Genere", ["Uomo", "Donna"])
+st.sidebar.header("Parametri Mifflin-St Jeor & Allenamento")
+
+# Recupero dei parametri Mifflin salvati (se presenti)
+saved_peso = dati_salvati.get("peso", 70.0) if dati_salvati else 70.0
+saved_altezza = dati_salvati.get("altezza", 175.0) if dati_salvati else 175.0
+saved_eta = dati_salvati.get("eta", 56) if dati_salvati else 56
+saved_genere = dati_salvati.get("genere", "Uomo") if dati_salvati else "Uomo"
+saved_allenamento = (
+    dati_salvati.get(
+        "livello_allenamento", "Allenamento Moderato (PAL 1.55)"
+    )
+    if dati_salvati
+    else "Allenamento Moderato (PAL 1.55)"
+)
+
+genere_opzioni = ["Uomo", "Donna"]
+genere_index = (
+    genere_opzioni.index(saved_genere) if saved_genere in genere_opzioni else 0
+)
+
+allenamento_opzioni = [
+    "Riposo / Sedentario (PAL 1.2)",
+    "Attività Leggera (PAL 1.375)",
+    "Allenamento Moderato (PAL 1.55)",
+    "Allenamento Intenso / Rouleur-Climber (PAL 1.725)",
+    "Doppio Allenamento / Estremo (PAL 1.9)",
+]
+allenamento_index = (
+    allenamento_opzioni.index(saved_allenamento)
+    if saved_allenamento in allenamento_opzioni
+    else 2
+)
+
+peso = st.sidebar.number_input("Peso (kg)", value=float(saved_peso), key="peso")
+altezza = st.sidebar.number_input(
+    "Altezza (cm)", value=float(saved_altezza), key="altezza"
+)
+eta = st.sidebar.number_input("Età (anni)", value=int(saved_eta), key="eta")
+genere = st.sidebar.selectbox(
+    "Genere", genere_opzioni, index=genere_index, key="genere"
+)
 
 livello_allenamento = st.sidebar.selectbox(
     "Intensità Allenamento / Attività Giornaliera",
-    [
-        "Riposo / Sedentario (PAL 1.2)",
-        "Attività Leggera (PAL 1.375)",
-        "Allenamento Moderato (PAL 1.55)",
-        "Allenamento Intenso / Rouleur-Climber (PAL 1.725)",
-        "Doppio Allenamento / Estremo (PAL 1.9)",
-    ],
-    index=2,
+    allenamento_opzioni,
+    index=allenamento_index,
+    key="livello_allenamento",
 )
+
+# Controllo e salvataggio automatico se i parametri Mifflin vengono modificati
+if (
+    dati_salvati is None
+    or dati_salvati.get("peso") != peso
+    or dati_salvati.get("altezza") != altezza
+    or dati_salvati.get("eta") != eta
+    or dati_salvati.get("genere") != genere
+    or dati_salvati.get("livello_allenamento") != livello_allenamento
+):
+    salva_dati_disco()
 
 pal_dict = {
     "Riposo / Sedentario (PAL 1.2)": 1.2,
@@ -471,7 +520,7 @@ tot_kcal = sum(
     ]
 )
 
-st.subheader(f"📊 Riepilogo Giornaliero - {data_str}")
+st.subheader(f"Riepilogo Giornaliero - {data_str}")
 
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 
@@ -509,14 +558,14 @@ with col_m4:
 
 st.markdown("---")
 
-with st.expander("📖 Gestione Avanzata Banca Dati Alimenti", expanded=False):
+with st.expander("Gestione Avanzata Banca Dati Alimenti", expanded=False):
     st.markdown("### Accesso e Visualizzazione")
     banca_dati = st.session_state.banca_dati_df
     st.dataframe(banca_dati, use_container_width=True)
 
     st.markdown("---")
 
-    st.markdown("### ➕ Inserimento Manuale Singolo Alimento")
+    st.markdown("### Inserimento Manuale Singolo Alimento")
     with st.form("form_inserimento_manuale"):
         col_man1, col_man2, col_man3 = st.columns(3)
         with col_man1:
@@ -591,7 +640,7 @@ with st.expander("📖 Gestione Avanzata Banca Dati Alimenti", expanded=False):
     col_bd1, col_bd2 = st.columns(2)
 
     with col_bd1:
-        st.markdown("### 🗑️ Cancellazione Parziale o Totale")
+        st.markdown("### Cancellazione Parziale o Totale")
         alimenti_disponibili = banca_dati["Alimento"].dropna().tolist()
         alimenti_da_eliminare = st.multiselect(
             "Seleziona alimenti da rimuovere dalla banca dati:",
@@ -628,7 +677,7 @@ with st.expander("📖 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                 st.rerun()
 
     with col_bd2:
-        st.markdown("### 📂 Integrazione File CSV")
+        st.markdown("### Integrazione File CSV")
         st.info(
             "Carica un file CSV. L'ordine atteso per colonna è: Alimento, gr/n, carbo, proteine, grassi, kcal."
         )
@@ -751,7 +800,7 @@ with st.expander("📖 Gestione Avanzata Banca Dati Alimenti", expanded=False):
 
 st.markdown("---")
 
-st.subheader("🍽️ Inserimento Alimenti nei Pasti")
+st.subheader("Inserimento Alimenti nei Pasti")
 pasto_selezionato = st.selectbox(
     "Seleziona il pasto a cui aggiungere l'alimento:", PASTI
 )
@@ -816,14 +865,14 @@ else:
 
 st.markdown("---")
 
-st.subheader("📋 Panoramica dei 6 Pasti Giornalieri")
+st.subheader("Panoramica dei 6 Pasti Giornalieri")
 
 cols_pasti = st.columns(3)
 for i, pasto in enumerate(PASTI):
     col_target = cols_pasti[i % 3]
     with col_target:
         with st.container(border=True):
-            st.markdown(f"### 🍽️ {pasto}")
+            st.markdown(f"### {pasto}")
             df_p = st.session_state.db_diario[data_str][pasto]
 
             if not df_p.empty:
@@ -879,7 +928,7 @@ for i, pasto in enumerate(PASTI):
 
 st.markdown("---")
 
-st.subheader("📄 Esportazione Report in PDF")
+st.subheader("Esportazione Report in PDF")
 
 col_pdf1, col_pdf2 = st.columns(2)
 
@@ -938,7 +987,7 @@ with col_pdf1:
             )
 
             st.download_button(
-                label="📥 Scarica PDF Giornaliero",
+                label="Scarica PDF Giornaliero",
                 data=pdf_bytes,
                 file_name=f"report_giornaliero_{data_str}.pdf",
                 mime="application/pdf",
@@ -1102,7 +1151,7 @@ with col_pdf2:
                 )
 
                 st.download_button(
-                    label="📥 Scarica PDF Periodo Personalizzato",
+                    label="Scarica PDF Periodo Personalizzato",
                     data=pdf_bytes,
                     file_name=f"report_periodo_{data_inizio}_al_{data_fine}.pdf",
                     mime="application/pdf",
