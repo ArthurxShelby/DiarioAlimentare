@@ -21,9 +21,157 @@ st.sidebar.markdown(
 st.sidebar.markdown("**Cadenza Soglia:** ~90 RPM")
 st.sidebar.markdown("**Cadenza SS:** ~85 RPM")
 
-# --- 2. DATABASE STRUTTURATO PER ANNO SOLARE ---
+# --- 2. DATABASE STRUTTURATO PER ANNO SOLARE (2026 COMPLETO) ---
 database_allenamenti = {
     2026: {
+        "Gennaio": {
+            "Settimana 1 (Base Invernale)": {
+                "Martedì": {
+                    "Esercizio": "Fondo Medio Z3: 3 x 15 min",
+                    "Watt": 230,
+                    "RPM": 90,
+                    "Ripetizioni": 3,
+                    "Lavoro_m": 15,
+                    "Recupero_m": 5,
+                },
+                "Giovedì": {
+                    "Esercizio": "Sweet Spot: 2 x 15 min",
+                    "Watt": 245,
+                    "RPM": 85,
+                    "Ripetizioni": 2,
+                    "Lavoro_m": 15,
+                    "Recupero_m": 5,
+                },
+                "Sabato": {
+                    "Esercizio": "Fondo Lungo Z2",
+                    "Watt": 210,
+                    "RPM": 85,
+                    "Ripetizioni": 1,
+                    "Lavoro_m": 120,
+                    "Recupero_m": 0,
+                },
+            }
+        },
+        "Febbraio": {
+            "Settimana 1 (Forza e Incremento)": {
+                "Martedì": {
+                    "Esercizio": "Forza Frullata RPM Bassa: 4 x 4 min",
+                    "Watt": 250,
+                    "RPM": 65,
+                    "Ripetizioni": 4,
+                    "Lavoro_m": 4,
+                    "Recupero_m": 3,
+                },
+                "Giovedì": {
+                    "Esercizio": "Soglia Z4: 2 x 10 min",
+                    "Watt": 260,
+                    "RPM": 90,
+                    "Ripetizioni": 2,
+                    "Lavoro_m": 10,
+                    "Recupero_m": 5,
+                },
+            }
+        },
+        "Marzo": {
+            "Settimana 1 (Sviluppo Potenza)": {
+                "Martedì": {
+                    "Esercizio": "VO2Max: 5 x 3 min",
+                    "Watt": 290,
+                    "RPM": 100,
+                    "Ripetizioni": 5,
+                    "Lavoro_m": 3,
+                    "Recupero_m": 3,
+                },
+                "Giovedì": {
+                    "Esercizio": "Soglia Z4: 4 x 6 min",
+                    "Watt": 265,
+                    "RPM": 90,
+                    "Ripetizioni": 4,
+                    "Lavoro_m": 6,
+                    "Recupero_m": 4,
+                },
+            }
+        },
+        "Aprile": {
+            "Settimana 1 (Fase Agonistica Base)": {
+                "Martedì": {
+                    "Esercizio": "Over-Under: 3 x (2m @ 280W + 2m @ 230W)",
+                    "Watt": 255,
+                    "RPM": 90,
+                    "Ripetizioni": 3,
+                    "Lavoro_m": 12,
+                    "Recupero_m": 4,
+                },
+                "Giovedì": {
+                    "Esercizio": "Sweet Spot: 2 x 20 min",
+                    "Watt": 245,
+                    "RPM": 88,
+                    "Ripetizioni": 2,
+                    "Lavoro_m": 20,
+                    "Recupero_m": 5,
+                },
+            }
+        },
+        "Maggio": {
+            "Settimana 1 (Intensità)": {
+                "Martedì": {
+                    "Esercizio": "VO2Max Breve: 6 x 2 min",
+                    "Watt": 300,
+                    "RPM": 105,
+                    "Ripetizioni": 6,
+                    "Lavoro_m": 2,
+                    "Recupero_m": 2,
+                },
+                "Giovedì": {
+                    "Esercizio": "Soglia Z4: 3 x 10 min",
+                    "Watt": 260,
+                    "RPM": 90,
+                    "Ripetizioni": 3,
+                    "Lavoro_m": 10,
+                    "Recupero_m": 4,
+                },
+            }
+        },
+        "Giugno": {
+            "Settimana 1 (Picco Estivo)": {
+                "Martedì": {
+                    "Esercizio": "Test FTP 20 min",
+                    "Watt": 275,
+                    "RPM": 95,
+                    "Ripetizioni": 1,
+                    "Lavoro_m": 20,
+                    "Recupero_m": 0,
+                },
+                "Giovedì": {
+                    "Esercizio": "Fartlek Collinare: 4 x 3 min",
+                    "Watt": 270,
+                    "RPM": 95,
+                    "Ripetizioni": 4,
+                    "Lavoro_m": 3,
+                    "Recupero_m": 3,
+                },
+            }
+        },
+        "Luglio": {
+            "Settimana 1 (Mantenimento)": {
+                "Martedì": {
+                    "Esercizio": "Sweet Spot: 1 x 30 min continui",
+                    "Watt": 245,
+                    "RPM": 85,
+                    "Ripetizioni": 1,
+                    "Lavoro_m": 30,
+                    "Recupero_m": 0,
+                },
+                "Giovedì": {
+                    "Esercizio": "Soglia Z4: 2 x 12 min",
+                    "Watt": 260,
+                    "RPM": 90,
+                    "Ripetizioni": 2,
+                    "Lavoro_m": 12,
+                    "Recupero_m": 5,
+                },
+            }
+        },
         "Agosto": {
             "Settimana 1 (Carico Base)": {
                 "Martedì": {
@@ -42,12 +190,117 @@ database_allenamenti = {
                     "Lavoro_m": 20,
                     "Recupero_m": 0,
                 },
+                "Sabato": {
+                    "Esercizio": "Fartlek Collinare: 4 x 3 min",
+                    "Watt": 270,
+                    "RPM": 95,
+                    "Ripetizioni": 4,
+                    "Lavoro_m": 3,
+                    "Recupero_m": 3,
+                },
             },
-        }
+            "Settimana 2 (Sviluppo)": {
+                "Martedì": {
+                    "Esercizio": "VO2Max: 4 x 3 min. Rec. 3 min",
+                    "Watt": 290,
+                    "RPM": 100,
+                    "Ripetizioni": 4,
+                    "Lavoro_m": 3,
+                    "Recupero_m": 3,
+                },
+                "Giovedì": {
+                    "Esercizio": "Soglia Z4: 3 x 8 min. Rec. 4 min",
+                    "Watt": 260,
+                    "RPM": 90,
+                    "Ripetizioni": 3,
+                    "Lavoro_m": 8,
+                    "Recupero_m": 4,
+                },
+            },
+        },
+        "Settembre": {
+            "Settimana 1 (Ripresa)": {
+                "Martedì": {
+                    "Esercizio": "Test FTP 20 min",
+                    "Watt": 275,
+                    "RPM": 95,
+                    "Ripetizioni": 1,
+                    "Lavoro_m": 20,
+                    "Recupero_m": 0,
+                },
+                "Giovedì": {
+                    "Esercizio": "Sweet Spot: 2 x 15 min",
+                    "Watt": 245,
+                    "RPM": 88,
+                    "Ripetizioni": 2,
+                    "Lavoro_m": 15,
+                    "Recupero_m": 5,
+                },
+            }
+        },
+        "Ottobre": {
+            "Settimana 1 (Transizione)": {
+                "Martedì": {
+                    "Esercizio": "Forza Frullata RPM Bassa: 5 x 3 min",
+                    "Watt": 250,
+                    "RPM": 65,
+                    "Ripetizioni": 5,
+                    "Lavoro_m": 3,
+                    "Recupero_m": 3,
+                },
+                "Giovedì": {
+                    "Esercizio": "Sweet Spot: 3 x 12 min",
+                    "Watt": 245,
+                    "RPM": 88,
+                    "Ripetizioni": 3,
+                    "Lavoro_m": 12,
+                    "Recupero_m": 4,
+                },
+            }
+        },
+        "Novembre": {
+            "Settimana 1 (Base Invernale)": {
+                "Martedì": {
+                    "Esercizio": "Cadenza Variazioni: 4 x 5 min",
+                    "Watt": 250,
+                    "RPM": 100,
+                    "Ripetizioni": 4,
+                    "Lavoro_m": 5,
+                    "Recupero_m": 3,
+                },
+                "Giovedì": {
+                    "Esercizio": "Soglia Z4: 2 x 12 min",
+                    "Watt": 260,
+                    "RPM": 90,
+                    "Ripetizioni": 2,
+                    "Lavoro_m": 12,
+                    "Recupero_m": 5,
+                },
+            }
+        },
+        "Dicembre": {
+            "Settimana 1 (Rifinitura Anno)": {
+                "Martedì": {
+                    "Esercizio": "Sweet Spot: 3 x 15 min",
+                    "Watt": 245,
+                    "RPM": 88,
+                    "Ripetizioni": 3,
+                    "Lavoro_m": 15,
+                    "Recupero_m": 5,
+                },
+                "Giovedì": {
+                    "Esercizio": "Soglia Z4: 3 x 10 min",
+                    "Watt": 260,
+                    "RPM": 90,
+                    "Ripetizioni": 3,
+                    "Lavoro_m": 10,
+                    "Recupero_m": 4,
+                },
+            }
+        },
     }
 }
 
-# Lista completa dei 12 mesi dell'anno per garantire la selezione universale
 elenco_mesi_completo = [
     "Gennaio",
     "Febbraio",
@@ -65,11 +318,10 @@ elenco_mesi_completo = [
 
 st.title("🏋️ Pianificazione Allenamento per Anno Solare")
 
-# --- 3. SELEZIONE ANNO (LIBERO FINO AL 2100) E MESE ---
+# --- 3. SELEZIONE ANNO E MESE ---
 col_anno, col_mese = st.columns(2)
 
 with col_anno:
-    # Selezione dinamica e libera dell'anno da tastiera o frecce (da 2020 a 2100)
     anno_selezionato = st.number_input(
         "Anno Solare:", min_value=2020, max_value=2100, value=2026, step=1
     )
@@ -82,7 +334,6 @@ st.markdown("---")
 # --- 4. GESTIONE STATO / CARICAMENTO CSV ---
 key_stato_db = f"db_{anno_selezionato}_{mese_selezionato}"
 
-# Assicura che l'anno e il mese selezionati esistano nel dizionario del database
 if anno_selezionato not in database_allenamenti:
     database_allenamenti[anno_selezionato] = {}
 
@@ -91,7 +342,6 @@ if mese_selezionato not in database_allenamenti[anno_selezionato]:
 
 righe_tabella = []
 
-# Controlla se ci sono allenamenti registrati per il periodo
 try:
     dati_periodo = database_allenamenti[anno_selezionato][mese_selezionato]
     if dati_periodo:
@@ -112,7 +362,6 @@ try:
     else:
         raise KeyError
 except (KeyError, TypeError):
-    # Se il mese è vuoto, genera una riga di default pronta per la compilazione o l'upload CSV
     righe_tabella = [
         {
             "Settimana": "Settimana 1 (Carico Base)",
@@ -133,7 +382,7 @@ with st.expander(
     "📂 Integra o carica piano di lavoro tramite file CSV", expanded=False
 ):
     st.write(
-        f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**. Carica il file CSV formattato con le colonne corrette."
+        f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**."
     )
     file_caricato = st.file_uploader(
         "Seleziona il file CSV", type=["csv"], key=f"uploader_{key_stato_db}"
@@ -158,11 +407,11 @@ with st.expander(
             if all(col in df_caricato.columns for col in colonne_attese):
                 df_base_mese = df_caricato[colonne_attese]
                 st.success(
-                    f"File CSV caricato e integrato con successo per {mese_selezionato} {anno_selezionato}!"
+                    f"File CSV caricato con successo per {mese_selezionato} {anno_selezionato}!"
                 )
             else:
                 st.error(
-                    f"Il file CSV non contiene le colonne corrette. Assicurati che siano presenti: {colonne_attese}"
+                    f"Il file CSV non contiene le colonne corrette: {colonne_attese}"
                 )
         except Exception as e:
             st.error(f"Errore nella lettura del file CSV: {e}")
@@ -170,9 +419,6 @@ with st.expander(
 # --- 6. TABELLA INTERATTIVA DI MODIFICA ---
 st.subheader(
     f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**"
-)
-st.write(
-    "Puoi modificare direttamente i valori in tabella o caricarli tramite il file CSV sopra."
 )
 
 df_modificato = st.data_editor(
@@ -202,25 +448,36 @@ st.markdown("<br>", unsafe_allow_html=True)
 # --- 7. STRUMENTO DI PULIZIA DI EMERGENZA ---
 with st.expander("🛠️ Pannello di Emergenza: Cancella file dal calendario"):
     st.write(
-        "Se qualche allenamento risulta bloccato o vuoi ripulire i test, seleziona il periodo e premi il pulsante."
+        "Seleziona il periodo corretto (Data Inizio precedente a Data Fine) per pulire gli eventi."
     )
 
     col_start, col_end = st.columns(2)
     with col_start:
         data_inizio_pulizia = st.date_input(
-            "Data Inizio:", datetime.date.today() - datetime.timedelta(days=7)
+            "Data Inizio:",
+            datetime.date(2026, 8, 1),
         )
     with col_end:
         data_fine_pulizia = st.date_input(
-            "Data Fine:", datetime.date.today() + datetime.timedelta(days=30)
+            "Data Fine:",
+            datetime.date(2026, 12, 31),
         )
 
-    if st.button(
-        "🗑️ Elimina tutti gli allenamenti (🏋️) nel periodo selezionato"
-    ):
-        if "intervals" not in st.secrets:
-            st.error("⚠️ Configura prima le credenziali!")
-        else:
+    # Verifica credenziali con guida chiara
+    if "intervals" not in st.secrets:
+        st.error("⚠️ Configura prima le credenziali nel file `.streamlit/secrets.toml`!")
+        st.code(
+            """
+[intervals]
+athlete_id = "IL_TUO_ATHLETE_ID"
+api_key = "LA_TUA_API_KEY"
+        """,
+            language="toml",
+        )
+    else:
+        if st.button(
+            "🗑️ Elimina tutti gli allenamenti (🏋️) nel periodo selezionato"
+        ):
             try:
                 atleta_id = st.secrets["intervals"]["athlete_id"]
                 api_key = st.secrets["intervals"]["api_key"]
@@ -239,7 +496,7 @@ with st.expander("🛠️ Pannello di Emergenza: Cancella file dal calendario"):
                             requests.delete(url_del, auth=auth)
                             count += 1
                     st.success(
-                        f"Pulizia completata! Eliminati {count} eventi di prova dal calendario."
+                        f"Pulizia completata! Eliminati {count} eventi dal calendario."
                     )
                     st.rerun()
                 else:
