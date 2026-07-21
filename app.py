@@ -54,6 +54,10 @@ DEFAULT_BANCA_DATI = [
 if "banca_dati_df" not in st.session_state:
     st.session_state.banca_dati_df = pd.DataFrame(DEFAULT_BANCA_DATI)
 
+# Pulizia preventiva della banca dati da eventuali valori NaN o stringhe vuote
+st.session_state.banca_dati_df = st.session_state.banca_dati_df.dropna(subset=["Alimento"])
+st.session_state.banca_dati_df = st.session_state.banca_dati_df[st.session_state.banca_dati_df["Alimento"].astype(str).str.strip() != ""]
+
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
 if "db_diario" not in st.session_state:
@@ -136,7 +140,7 @@ with col_m4:
 
 st.markdown("---")
 
-with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=True):
+with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
     st.markdown("### Accesso e Visualizzazione")
     banca_dati = st.session_state.banca_dati_df
     st.dataframe(banca_dati, use_container_width=True)
@@ -145,7 +149,7 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=True):
     
     with col_bd1:
         st.markdown("### 🗑️ Cancellazione Parziale o Totale")
-        alimenti_disponibili = banca_dati["Alimento"].tolist()
+        alimenti_disponibili = banca_dati["Alimento"].dropna().tolist()
         alimenti_da_eliminare = st.multiselect("Seleziona alimenti da rimuovere dalla banca dati:", alimenti_disponibili, key="multi_del_alimenti")
         
         col_del_a, col_del_b = st.columns(2)
@@ -202,7 +206,6 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=True):
                     if st.button("Conferma e Aggiungi alla Banca Dati"):
                         colonne_attese = ["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"]
                         
-                        # Tentativo di mappatura intelligente per nome colonna
                         df_nuovo.columns = [str(c).strip().lower() for c in df_nuovo.columns]
                         mapping_colonne = {}
                         for c in df_nuovo.columns:
@@ -215,10 +218,8 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=True):
                             
                         df_nuovo = df_nuovo.rename(columns=mapping_colonne)
                         
-                        # Se mancano colonne chiave ma il file ha almeno 4-6 colonne, le assegniamo per posizione
                         presenti = [col for col in colonne_attese if col in df_nuovo.columns]
                         if len(presenti) < 4 and len(df_nuovo.columns) >= 4:
-                            # Assegnazione posizionale sicura
                             col_mapping_pos = {}
                             for idx, col_name in enumerate(df_nuovo.columns):
                                 if idx < len(colonne_attese):
@@ -227,7 +228,6 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=True):
                             presenti = [col for col in colonne_attese if col in df_nuovo.columns]
 
                         if len(presenti) >= 4:
-                            # Riordina e riempie eventuali mancanti
                             df_finale = pd.DataFrame(columns=colonne_attese)
                             for col in colonne_attese:
                                 if col in df_nuovo.columns:
@@ -235,6 +235,10 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=True):
                                 else:
                                     df_finale[col] = 0 if col != "Alimento" else "Sconosciuto"
                             
+                            # Rimuove righe con Alimento nullo o vuoto
+                            df_finale = df_finale.dropna(subset=["Alimento"])
+                            df_finale = df_finale[df_finale["Alimento"].astype(str).str.strip() != ""]
+
                             st.session_state.banca_dati_df = pd.concat([st.session_state.banca_dati_df, df_finale], ignore_index=True).drop_duplicates(subset=["Alimento"]).reset_index(drop=True)
                             st.success("Banca dati aggiornata con successo dal file!")
                             st.rerun()
@@ -249,11 +253,15 @@ st.subheader("🍽️ Inserimento Alimenti nei Pasti")
 pasto_selezionato = st.selectbox("Seleziona il pasto a cui aggiungere l'alimento:", PASTI)
 
 banca_dati_corrente = st.session_state.banca_dati_df
-if not banca_dati_corrente.empty:
+# Filtro di sicurezza ulteriore prima di estrarre la lista
+alimenti_validi = banca_dati_corrente["Alimento"].dropna().tolist()
+alimenti_validati = [str(a) for a in alimenti_validi if str(a).strip() != "" and str(a).lower() != "nan"]
+
+if alimenti_validati:
     col_ins1, col_ins2 = st.columns(2)
     with col_ins1:
-        alimento_scelto = st.selectbox("Alimento", banca_dati_corrente["Alimento"].tolist(), key="sel_alimento_principale")
-        item_row = banca_dati_corrente[banca_dati_corrente["Alimento"] == alimento_scelto].iloc[0]
+        alimento_scelto = st.selectbox("Alimento", alimenti_validati, key="sel_alimento_principale")
+        item_row = banca_dati_corrente[banca_dati_corrente["Alimento"].astype(str) == str(alimento_scelto)].iloc[0]
         default_q = int(item_row["gr/n"]) if pd.notna(item_row["gr/n"]) else 100
 
     with col_ins2:
@@ -279,7 +287,7 @@ if not banca_dati_corrente.empty:
         )
         st.rerun()
 else:
-    st.warning("La banca dati è vuota.")
+    st.warning("La banca dati è vuota o contiene solo elementi non validi.")
 
 st.markdown("---")
 
