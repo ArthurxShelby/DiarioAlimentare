@@ -174,10 +174,13 @@ with st.expander("📚 Gestione Avanzata Banca Dati Alimenti", expanded=False):
                 df_nuovo = None
                 if estensione == "csv":
                     try:
-                        df_nuovo = pd.read_csv(file_caricato, encoding='utf-8')
+                        df_nuovo = pd.read_csv(file_caricato, encoding='utf-8', sep=None, engine='python')
                     except UnicodeDecodeError:
                         file_caricato.seek(0)
-                        df_nuovo = pd.read_csv(file_caricato, encoding='latin-1')
+                        df_nuovo = pd.read_csv(file_caricato, encoding='latin-1', sep=None, engine='python')
+                    except Exception:
+                        file_caricato.seek(0)
+                        df_nuovo = pd.read_csv(file_caricato, encoding='utf-8', sep=';', engine='python')
                 elif estensione in ["xlsx", "xls"]:
                     try:
                         df_nuovo = pd.read_excel(file_caricato, engine='openpyxl')
