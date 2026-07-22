@@ -1066,291 +1066,84 @@ st.subheader(
     f"Esportazione Report in PDF - {st.session_state.atleta_corrente}"
 )
 
-col_pdf1, col_pdf2 = st.columns(2)
+# Rimpiazzato il layout a colonne con menu a scomparsa (expander) per l'esportazione
+with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Intervallo)", expanded=False):
+    col_pdf1, col_pdf2 = st.columns(2)
 
-with col_pdf1:
-    st.markdown("### Report Giornaliero")
-    if st.button("Genera e Scarica PDF Giornaliero"):
-        try:
-            pdf_output = FPDF()
-            pdf_output.add_page()
-            pdf_output.set_font("Arial", "B", 16)
-            pdf_output.cell(
-                0,
-                10,
-                f"Report Nutrizionale - {st.session_state.atleta_corrente} ({data_str})",
-                ln=True,
-                align="C",
-            )
-            pdf_output.ln(10)
-
-            pdf_output.set_font("Arial", "B", 12)
-            pdf_output.cell(0, 10, "Riepilogo Totale:", ln=True)
-            pdf_output.set_font("Arial", "", 11)
-
-            # Stampa calorie con controllo eccedenza
-            pdf_output.set_text_color(0, 0, 0)
-            pdf_output.write(8, "Calorie: ")
-            if tot_kcal > obj_kcal:
-                pdf_output.set_text_color(220, 20, 60)
-            pdf_output.write(8, f"{tot_kcal:.1f}")
-            pdf_output.set_text_color(0, 0, 0)
-            pdf_output.write(
-                8, f" / {obj_kcal} kcal ({livello_allenamento})\n"
-            )
-            pdf_output.ln(2)
-
-            # Stampa carboidrati con controllo eccedenza
-            pdf_output.write(8, "Carboidrati: ")
-            if tot_carbo > obj_carbo:
-                pdf_output.set_text_color(220, 20, 60)
-            pdf_output.write(8, f"{tot_carbo:.1f}")
-            pdf_output.set_text_color(0, 0, 0)
-            pdf_output.write(8, f" / {obj_carbo} g\n")
-            pdf_output.ln(2)
-
-            # Stampa proteine con controllo eccedenza
-            pdf_output.write(8, "Proteine: ")
-            if tot_prot > obj_prot:
-                pdf_output.set_text_color(220, 20, 60)
-            pdf_output.write(8, f"{tot_prot:.1f}")
-            pdf_output.set_text_color(0, 0, 0)
-            pdf_output.write(8, f" / {obj_prot} g\n")
-            pdf_output.ln(2)
-
-            # Stampa grassi con controllo eccedenza
-            pdf_output.write(8, "Grassi: ")
-            if tot_grassi > obj_grassi:
-                pdf_output.set_text_color(220, 20, 60)
-            pdf_output.write(8, f"{tot_grassi:.1f}")
-            pdf_output.set_text_color(0, 0, 0)
-            pdf_output.write(8, f" / {obj_grassi} g\n")
-            pdf_output.ln(10)
-
-            for pasto in PASTI:
-                pdf_output.set_font("Arial", "B", 12)
-                pdf_output.set_text_color(0, 0, 0)
-                pdf_output.cell(0, 8, f"Pasto: {pasto}", ln=True)
-                pdf_output.set_font("Arial", "", 10)
-                df_p = db_diario_atleta[data_str][pasto]
-                if not df_p.empty:
-                    for _, row in df_p.iterrows():
-                        testo_riga = f" - {row['Alimento']}: {row['gr/n']}g | Carbo: {row['carbo']}g | Prot: {row['proteine']}g | Grassi: {row['grassi']}g | {row['kcal']} kcal"
-                        pdf_output.cell(0, 6, testo_riga, ln=True)
-                else:
-                    pdf_output.cell(
-                        0, 6, " - Nessun alimento registrato", ln=True
-                    )
-                pdf_output.ln(4)
-
-            raw_output = pdf_output.output()
-            pdf_bytes = (
-                bytes(raw_output)
-                if isinstance(raw_output, (bytearray, bytes))
-                else raw_output.encode("latin1")
-            )
-
-            st.download_button(
-                label="Scarica PDF Giornaliero",
-                data=pdf_bytes,
-                file_name=f"report_{st.session_state.atleta_corrente}_{data_str}.pdf",
-                mime="application/pdf",
-            )
-        except Exception as e:
-            st.error(f"Errore nella generazione del PDF giornaliero: {e}")
-
-with col_pdf2:
-    st.markdown("### Report Personalizzato per Intervallo di Date")
-    col_d1, col_d2 = st.columns(2)
-    with col_d1:
-        data_inizio = st.date_input(
-            "Data Inizio",
-            value=date.today() - timedelta(days=6),
-            key="pdf_data_inizio",
-        )
-    with col_d2:
-        data_fine = st.date_input(
-            "Data Fine", value=date.today(), key="pdf_data_fine"
-        )
-
-    if st.button("Genera e Scarica PDF Intervallo (Traccia Totale)"):
-        try:
-            if data_inizio > data_fine:
-                st.error(
-                    "La data di inizio non può essere successiva alla data di fine."
-                )
-            else:
-                delta_giorni = (data_fine - data_inizio).days + 1
-                (
-                    tot_p_kcal,
-                    tot_p_carbo,
-                    tot_p_prot,
-                    tot_p_grassi,
-                ) = 0.0, 0.0, 0.0, 0.0
-                dettaglio_periodo = []
-
-                for i in range(delta_giorni):
-                    d_corrente = data_inizio + timedelta(days=i)
-                    d_str = d_corrente.strftime("%Y-%m-%d")
-                    if d_str in db_diario_atleta:
-                        d_kcal = sum(
-                            [
-                                safe_float(
-                                    db_diario_atleta[d_str][p]["kcal"].sum()
-                                )
-                                for p in PASTI
-                                if not db_diario_atleta[d_str][p].empty
-                            ]
-                        )
-                        d_carbo = sum(
-                            [
-                                safe_float(
-                                    db_diario_atleta[d_str][p]["carbo"].sum()
-                                )
-                                for p in PASTI
-                                if not db_diario_atleta[d_str][p].empty
-                            ]
-                        )
-                        d_prot = sum(
-                            [
-                                safe_float(
-                                    db_diario_atleta[d_str][p][
-                                        "proteine"
-                                    ].sum()
-                                )
-                                for p in PASTI
-                                if not db_diario_atleta[d_str][p].empty
-                            ]
-                        )
-                        d_grassi = sum(
-                            [
-                                safe_float(
-                                    db_diario_atleta[d_str][p]["grassi"].sum()
-                                )
-                                for p in PASTI
-                                if not db_diario_atleta[d_str][p].empty
-                            ]
-                        )
-
-                        tot_p_kcal += d_kcal
-                        tot_p_carbo += d_carbo
-                        tot_p_prot += d_prot
-                        tot_p_grassi += d_grassi
-
-                        if d_kcal > 0 or d_carbo > 0:
-                            dettaglio_periodo.append(
-                                (d_str, d_kcal, d_carbo, d_prot, d_grassi)
-                            )
-
+    with col_pdf1:
+        st.markdown("### Report Giornaliero")
+        if st.button("Genera e Scarica PDF Giornaliero"):
+            try:
                 pdf_output = FPDF()
                 pdf_output.add_page()
                 pdf_output.set_font("Arial", "B", 16)
                 pdf_output.cell(
                     0,
                     10,
-                    f"Report Nutrizionale - {st.session_state.atleta_corrente} ({data_inizio.strftime('%d/%m/%Y')} - {data_fine.strftime('%d/%m/%Y')})",
+                    f"Report Nutrizionale - {st.session_state.atleta_corrente} ({data_str})",
                     ln=True,
                     align="C",
                 )
                 pdf_output.ln(10)
 
                 pdf_output.set_font("Arial", "B", 12)
-                pdf_output.cell(0, 10, "Riepilogo Totale del Periodo:", ln=True)
+                pdf_output.cell(0, 10, "Riepilogo Totale:", ln=True)
                 pdf_output.set_font("Arial", "", 11)
 
-                media_kcal = tot_p_kcal / delta_giorni
-                media_carbo = tot_p_carbo / delta_giorni
-                media_prot = tot_p_prot / delta_giorni
-                media_grassi = tot_p_grassi / delta_giorni
-
-                # Calorie totali periodo / media
+                # Stampa calorie con controllo eccedenza
                 pdf_output.set_text_color(0, 0, 0)
-                pdf_output.write(8, "Calorie Totali: ")
-                if media_kcal > obj_kcal:
+                pdf_output.write(8, "Calorie: ")
+                if tot_kcal > obj_kcal:
                     pdf_output.set_text_color(220, 20, 60)
-                pdf_output.write(8, f"{tot_p_kcal:.1f}")
+                pdf_output.write(8, f"{tot_kcal:.1f}")
                 pdf_output.set_text_color(0, 0, 0)
-                pdf_output.write(8, f" kcal (Media giornaliera: ")
-                if media_kcal > obj_kcal:
-                    pdf_output.set_text_color(220, 20, 60)
-                pdf_output.write(8, f"{media_kcal:.1f}")
-                pdf_output.set_text_color(0, 0, 0)
-                pdf_output.write(8, " kcal)\n")
+                pdf_output.write(
+                    8, f" / {obj_kcal} kcal ({livello_allenamento})\n"
+                )
                 pdf_output.ln(2)
 
-                # Carboidrati totali periodo / media
-                pdf_output.write(8, "Carboidrati Totali: ")
-                if media_carbo > obj_carbo:
+                # Stampa carboidrati con controllo eccedenza
+                pdf_output.write(8, "Carboidrati: ")
+                if tot_carbo > obj_carbo:
                     pdf_output.set_text_color(220, 20, 60)
-                pdf_output.write(8, f"{tot_p_carbo:.1f}")
+                pdf_output.write(8, f"{tot_carbo:.1f}")
                 pdf_output.set_text_color(0, 0, 0)
-                pdf_output.write(8, f" g (Media: ")
-                if media_carbo > obj_carbo:
-                    pdf_output.set_text_color(220, 20, 60)
-                pdf_output.write(8, f"{media_carbo:.1f}")
-                pdf_output.set_text_color(0, 0, 0)
-                pdf_output.write(8, " g)\n")
+                pdf_output.write(8, f" / {obj_carbo} g\n")
                 pdf_output.ln(2)
 
-                # Proteine totali periodo / media
-                pdf_output.write(8, "Proteine Totali: ")
-                if media_prot > obj_prot:
+                # Stampa proteine con controllo eccedenza
+                pdf_output.write(8, "Proteine: ")
+                if tot_prot > obj_prot:
                     pdf_output.set_text_color(220, 20, 60)
-                pdf_output.write(8, f"{tot_p_prot:.1f}")
+                pdf_output.write(8, f"{tot_prot:.1f}")
                 pdf_output.set_text_color(0, 0, 0)
-                pdf_output.write(8, f" g (Media: ")
-                if media_prot > obj_prot:
-                    pdf_output.set_text_color(220, 20, 60)
-                pdf_output.write(8, f"{media_prot:.1f}")
-                pdf_output.set_text_color(0, 0, 0)
-                pdf_output.write(8, " g)\n")
+                pdf_output.write(8, f" / {obj_prot} g\n")
                 pdf_output.ln(2)
 
-                # Grassi totali periodo / media
-                pdf_output.write(8, "Grassi Totali: ")
-                if media_grassi > obj_grassi:
+                # Stampa grassi con controllo eccedenza
+                pdf_output.write(8, "Grassi: ")
+                if tot_grassi > obj_grassi:
                     pdf_output.set_text_color(220, 20, 60)
-                pdf_output.write(8, f"{tot_p_grassi:.1f}")
+                pdf_output.write(8, f"{tot_grassi:.1f}")
                 pdf_output.set_text_color(0, 0, 0)
-                pdf_output.write(8, f" g (Media: ")
-                if media_grassi > obj_grassi:
-                    pdf_output.set_text_color(220, 20, 60)
-                pdf_output.write(8, f"{media_grassi:.1f}")
-                pdf_output.set_text_color(0, 0, 0)
-                pdf_output.write(8, " g)\n")
+                pdf_output.write(8, f" / {obj_grassi} g\n")
                 pdf_output.ln(10)
 
-                pdf_output.set_font("Arial", "B", 12)
-                pdf_output.set_text_color(0, 0, 0)
-                pdf_output.cell(
-                    0, 10, "Traccia Giornaliera dei Macronutrienti:", ln=True
-                )
-                pdf_output.set_font("Arial", "", 10)
-
-                if dettaglio_periodo:
-                    for d_str, dk, dc, dp, dg in dettaglio_periodo:
-                        # Controllo evidenziazione in rosso per le singole giornate che superano l'obiettivo calorico o carbo
-                        pdf_output.set_text_color(0, 0, 0)
-                        pdf_output.write(6, f" - {d_str}: ")
-                        if dk > obj_kcal:
-                            pdf_output.set_text_color(220, 20, 60)
-                        pdf_output.write(6, f"{dk:.1f} kcal")
-                        pdf_output.set_text_color(0, 0, 0)
-                        pdf_output.write(6, " | Carbo: ")
-                        if dc > obj_carbo:
-                            pdf_output.set_text_color(220, 20, 60)
-                        pdf_output.write(6, f"{dc:.1f}g")
-                        pdf_output.set_text_color(0, 0, 1)
-                        pdf_output.write(
-                            6, f" | Prot: {dp:.1f}g | Grassi: {dg:.1f}g\n"
+                for pasto in PASTI:
+                    pdf_output.set_font("Arial", "B", 12)
+                    pdf_output.set_text_color(0, 0, 0)
+                    pdf_output.cell(0, 8, f"Pasto: {pasto}", ln=True)
+                    pdf_output.set_font("Arial", "", 10)
+                    df_p = db_diario_atleta[data_str][pasto]
+                    if not df_p.empty:
+                        for _, row in df_p.iterrows():
+                            testo_riga = f" - {row['Alimento']}: {row['gr/n']}g | Carbo: {row['carbo']}g | Prot: {row['proteine']}g | Grassi: {row['grassi']}g | {row['kcal']} kcal"
+                            pdf_output.cell(0, 6, testo_riga, ln=True)
+                    else:
+                        pdf_output.cell(
+                            0, 6, " - Nessun alimento registrato", ln=True
                         )
-                else:
-                    pdf_output.cell(
-                        0,
-                        6,
-                        " - Nessun dato registrato nel periodo selezionato",
-                        ln=True,
-                    )
+                    pdf_output.ln(4)
 
                 raw_output = pdf_output.output()
                 pdf_bytes = (
@@ -1360,10 +1153,218 @@ with col_pdf2:
                 )
 
                 st.download_button(
-                    label="Scarica PDF Periodo Personalizzato",
+                    label="Scarica PDF Giornaliero",
                     data=pdf_bytes,
-                    file_name=f"report_periodo_{st.session_state.atleta_corrente}_{data_inizio}_al_{data_fine}.pdf",
+                    file_name=f"report_{st.session_state.atleta_corrente}_{data_str}.pdf",
                     mime="application/pdf",
                 )
-        except Exception as e:
-            st.error(f"Errore nella generazione del PDF personalizzato: {e}")
+            except Exception as e:
+                st.error(f"Errore nella generazione del PDF giornaliero: {e}")
+
+    with col_pdf2:
+        st.markdown("### Report Personalizzato per Intervallo di Date")
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            data_inizio = st.date_input(
+                "Data Inizio",
+                value=date.today() - timedelta(days=6),
+                key="pdf_data_inizio",
+            )
+        with col_d2:
+            data_fine = st.date_input(
+                "Data Fine", value=date.today(), key="pdf_data_fine"
+            )
+
+        if st.button("Genera e Scarica PDF Intervallo (Traccia Totale)"):
+            try:
+                if data_inizio > data_fine:
+                    st.error(
+                        "La data di inizio non può essere successiva alla data di fine."
+                    )
+                else:
+                    delta_giorni = (data_fine - data_inizio).days + 1
+                    (
+                        tot_p_kcal,
+                        tot_p_carbo,
+                        tot_p_prot,
+                        tot_p_grassi,
+                    ) = 0.0, 0.0, 0.0, 0.0
+                    dettaglio_periodo = []
+
+                    for i in range(delta_giorni):
+                        d_corrente = data_inizio + timedelta(days=i)
+                        d_str = d_corrente.strftime("%Y-%m-%d")
+                        if d_str in db_diario_atleta:
+                            d_kcal = sum(
+                                [
+                                    safe_float(
+                                        db_diario_atleta[d_str][p]["kcal"].sum()
+                                    )
+                                    for p in PASTI
+                                    if not db_diario_atleta[d_str][p].empty
+                                ]
+                            )
+                            d_carbo = sum(
+                                [
+                                    safe_float(
+                                        db_diario_atleta[d_str][p]["carbo"].sum()
+                                    )
+                                    for p in PASTI
+                                    if not db_diario_atleta[d_str][p].empty
+                                ]
+                            )
+                            d_prot = sum(
+                                [
+                                    safe_float(
+                                        db_diario_atleta[d_str][p][
+                                            "proteine"
+                                        ].sum()
+                                    )
+                                    for p in PASTI
+                                    if not db_diario_atleta[d_str][p].empty
+                                ]
+                            )
+                            d_grassi = sum(
+                                [
+                                    safe_float(
+                                        db_diario_atleta[d_str][p]["grassi"].sum()
+                                    )
+                                    for p in PASTI
+                                    if not db_diario_atleta[d_str][p].empty
+                                ]
+                            )
+
+                            tot_p_kcal += d_kcal
+                            tot_p_carbo += d_carbo
+                            tot_p_prot += d_prot
+                            tot_p_grassi += d_grassi
+
+                            if d_kcal > 0 or d_carbo > 0:
+                                dettaglio_periodo.append(
+                                    (d_str, d_kcal, d_carbo, d_prot, d_grassi)
+                                )
+
+                    pdf_output = FPDF()
+                    pdf_output.add_page()
+                    pdf_output.set_font("Arial", "B", 16)
+                    pdf_output.cell(
+                        0,
+                        10,
+                        f"Report Nutrizionale - {st.session_state.atleta_corrente} ({data_inizio.strftime('%d/%m/%Y')} - {data_fine.strftime('%d/%m/%Y')})",
+                        ln=True,
+                        align="C",
+                    )
+                    pdf_output.ln(10)
+
+                    pdf_output.set_font("Arial", "B", 12)
+                    pdf_output.cell(0, 10, "Riepilogo Totale del Periodo:", ln=True)
+                    pdf_output.set_font("Arial", "", 11)
+
+                    media_kcal = tot_p_kcal / delta_giorni
+                    media_carbo = tot_p_carbo / delta_giorni
+                    media_prot = tot_p_prot / delta_giorni
+                    media_grassi = tot_p_grassi / delta_giorni
+
+                    # Calorie totali periodo / media
+                    pdf_output.set_text_color(0, 0, 0)
+                    pdf_output.write(8, "Calorie Totali: ")
+                    if media_kcal > obj_kcal:
+                        pdf_output.set_text_color(220, 20, 60)
+                    pdf_output.write(8, f"{tot_p_kcal:.1f}")
+                    pdf_output.set_text_color(0, 0, 0)
+                    pdf_output.write(8, f" kcal (Media giornaliera: ")
+                    if media_kcal > obj_kcal:
+                        pdf_output.set_text_color(220, 20, 60)
+                    pdf_output.write(8, f"{media_kcal:.1f}")
+                    pdf_output.set_text_color(0, 0, 0)
+                    pdf_output.write(8, " kcal)\n")
+                    pdf_output.ln(2)
+
+                    # Carboidrati totali periodo / media
+                    pdf_output.write(8, "Carboidrati Totali: ")
+                    if media_carbo > obj_carbo:
+                        pdf_output.set_text_color(220, 20, 60)
+                    pdf_output.write(8, f"{tot_p_carbo:.1f}")
+                    pdf_output.set_text_color(0, 0, 0)
+                    pdf_output.write(8, f" g (Media: ")
+                    if media_carbo > obj_carbo:
+                        pdf_output.set_text_color(220, 20, 60)
+                    pdf_output.write(8, f"{media_carbo:.1f}")
+                    pdf_output.set_text_color(0, 0, 0)
+                    pdf_output.write(8, " g)\n")
+                    pdf_output.ln(2)
+
+                    # Proteine totali periodo / media
+                    pdf_output.write(8, "Proteine Totali: ")
+                    if media_prot > obj_prot:
+                        pdf_output.set_text_color(220, 20, 60)
+                    pdf_output.write(8, f"{tot_p_prot:.1f}")
+                    pdf_output.set_text_color(0, 0, 0)
+                    pdf_output.write(8, f" g (Media: ")
+                    if media_prot > obj_prot:
+                        pdf_output.set_text_color(220, 20, 60)
+                    pdf_output.write(8, f"{media_prot:.1f}")
+                    pdf_output.set_text_color(0, 0, 0)
+                    pdf_output.write(8, " g)\n")
+                    pdf_output.ln(2)
+
+                    # Grassi totali periodo / media
+                    pdf_output.write(8, "Grassi Totali: ")
+                    if media_grassi > obj_grassi:
+                        pdf_output.set_text_color(220, 20, 60)
+                    pdf_output.write(8, f"{tot_p_grassi:.1f}")
+                    pdf_output.set_text_color(0, 0, 0)
+                    pdf_output.write(8, f" g (Media: ")
+                    if media_grassi > obj_grassi:
+                        pdf_output.set_text_color(220, 20, 60)
+                    pdf_output.write(8, f"{media_grassi:.1f}")
+                    pdf_output.set_text_color(0, 0, 0)
+                    pdf_output.write(8, " g)\n")
+                    pdf_output.ln(10)
+
+                    pdf_output.set_font("Arial", "B", 12)
+                    pdf_output.set_text_color(0, 0, 0)
+                    pdf_output.cell(
+                        0, 10, "Traccia Giornaliera dei Macronutrienti:", ln=True
+                    )
+                    pdf_output.set_font("Arial", "", 10)
+
+                    if dettaglio_periodo:
+                        for d_str, dk, dc, dp, dg in dettaglio_periodo:
+                            pdf_output.set_text_color(0, 0, 0)
+                            pdf_output.write(6, f" - {d_str}: ")
+                            if dk > obj_kcal:
+                                pdf_output.set_text_color(220, 20, 60)
+                            pdf_output.write(6, f"{dk:.1f} kcal")
+                            pdf_output.set_text_color(0, 0, 0)
+                            pdf_output.write(6, " | Carbo: ")
+                            if dc > obj_carbo:
+                                pdf_output.set_text_color(220, 20, 60)
+                            pdf_output.write(6, f"{dc:.1f}g")
+                            pdf_output.set_text_color(0, 0, 1)
+                            pdf_output.write(
+                                6, f" | Prot: {dp:.1f}g | Grassi: {dg:.1f}g\n"
+                            )
+                    else:
+                        pdf_output.cell(
+                            0,
+                            6,
+                            " - Nessun dato registrato nel periodo selezionato",
+                            ln=True,
+                        )
+
+                    raw_output = pdf_output.output()
+                    pdf_bytes = (
+                        bytes(raw_output)
+                        if isinstance(raw_output, (bytearray, bytes))
+                        else raw_output.encode("latin1")
+                    )
+
+                    st.download_button(
+                        label="Scarica PDF Periodo Personalizzato",
+                        data=pdf_bytes,
+                        file_name=f"report_periodo_{st.session_state.atleta_corrente}_{data_inizio}_al_{data_fine}.pdf",
+                        mime="application/pdf",
+                    )
+            except Exception as e:
+                st.error(f"Errore nella generazione del PDF personalizzato: {e}")
