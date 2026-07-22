@@ -433,17 +433,15 @@ if "password_atleti" not in st.session_state:
     st.session_state.password_atleti = {}
 
 if "utente_loggato" not in st.session_state:
-  st.session_state.utente_loggato = (
-      None  # None = Admin / Libero, oppure Nome Atleta
-  )
+  st.session_state.utente_loggato = None
 
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
 # --- GESTIONE LOGIN / BLOCCO OSPITI ---
-ADMIN_PASSWORD = "adminpassword123"  # Password amministratore opzionale o configurabile
+ADMIN_PASSWORD = "adminpassword123"
 
 if st.session_state.utente_loggato is not None:
-  # Utente ospite loggato: forziamo rigidamente l'atleta corrente sul suo profilo
+  # Utente ospite loggato: blocco rigoroso vincolato unicamente al proprio profilo
   atleta_corrente = st.session_state.utente_loggato
   st.session_state.atleta_corrente = atleta_corrente
 
@@ -452,7 +450,6 @@ if st.session_state.utente_loggato is not None:
     st.session_state.utente_loggato = None
     st.rerun()
 else:
-  # Schermata di controllo nella sidebar per login o visualizzazione Admin
   st.sidebar.header("Accesso Applicazione")
   modalita_accesso = st.sidebar.radio(
       "Seleziona modalità", ["Proprietario (Admin)", "Ospite / Utente"]
@@ -550,9 +547,7 @@ if st.session_state.utente_loggato is None:
 
     st.markdown("---")
     st.markdown("#### Modifica Password o Elimina Utente Esistente")
-    atleti_modificabili = [
-        a for a in lista_atleti if a != "Atleta Principale"
-    ]  # Opzionalmente gestibile
+    atleti_modificabili = [a for a in lista_atleti if a != "Atleta Principale"]
 
     if not atleti_modificabili:
       st.info("Nessun utente secondario configurato da modificare o eliminare.")
@@ -561,7 +556,6 @@ if st.session_state.utente_loggato is None:
           "Seleziona Utente da Gestire", atleti_modificabili, key="sel_gestione_utente"
       )
 
-      # Modifica Password
       nuova_password_mod = st.text_input(
           "Nuova Password (lascia vuoto per rimuoverla)",
           type="password",
@@ -587,7 +581,6 @@ if st.session_state.utente_loggato is None:
         st.rerun()
 
       st.markdown("")
-      # Cancellazione Utente
       if st.button(
           f"Conferma ed Elimina Utente '{atleta_gestione}'",
           type="primary",
@@ -601,9 +594,7 @@ if st.session_state.utente_loggato is None:
               st.session_state.atleti.keys()
           )[0]
           salva_dati_disco()
-          st.success(
-              f"Utente '{atleta_gestione}' eliminato permanentemente."
-          )
+          st.success(f"Utente '{atleta_gestione}' eliminato permanentemente.")
           st.rerun()
 
 st.sidebar.markdown("---")
@@ -857,7 +848,6 @@ with st.form(f"form_allenamento_{st.session_state.atleta_corrente}"):
     st.success("Allenamento registrato con successo per questo atleta!")
     st.rerun()
 
-# Visualizzazione e gestione degli allenamenti registrati nella data corrente per questo specifico utente
 df_all_oggi = db_allenamenti_atleta[data_str]
 if not df_all_oggi.empty:
   st.markdown("### Allenamenti registrati in data odierna:")
