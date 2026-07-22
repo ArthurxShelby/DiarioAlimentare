@@ -1,3 +1,4 @@
+import hashlib
 import os
 import pickle
 import re
@@ -13,9 +14,16 @@ st.set_page_config(
     layout="wide",
 )
 
-# --- 0. GESTIONE PERSISTENZA DATI E PULIZIA ---
+# --- 0. GESTIONE PERSISTENZA DATI E HASH PASSWORD ---
 FILE_PERSISTENZA = "diario_alimentare_multi_db.pkl"
 OLD_FILE_PERSISTENZA = "diario_alimentare_db.pkl"
+
+
+def hash_password(password):
+    """Restituisce l'hash SHA-256 della password."""
+    return (
+        hashlib.sha256(password.encode("utf-8")).hexdigest() if password else ""
+    )
 
 
 def safe_float(val):
@@ -56,7 +64,7 @@ def salva_dati_disco():
 
 
 def carica_dati_disco():
-    """Carica i dati salvati dal file locale (con supporto alla migrazione dal vecchio formato singolo)."""
+    """Carica i dati salvati dal file locale (con supporto alla migrazione)."""
     if os.path.exists(FILE_PERSISTENZA):
         try:
             with open(FILE_PERSISTENZA, "rb") as f:
@@ -67,10 +75,11 @@ def carica_dati_disco():
         try:
             with open(OLD_FILE_PERSISTENZA, "rb") as f:
                 old_dati = pickle.load(f)
-            # Migrazione automatica al formato multi-atleta
+            # Migrazione automatica al formato multi-atleta con password di default vuota/hashata
             migrated = {
                 "atleti": {
                     "Atleta Principale": {
+                        "password": hash_password(""),
                         "peso": old_dati.get("peso", 70.0),
                         "altezza": old_dati.get("altezza", 175.0),
                         "eta": old_dati.get("eta", 56),
@@ -410,9 +419,14 @@ st.session_state.banca_dati_df = st.session_state.banca_dati_df[
 if "atleti" not in st.session_state:
     if dati_salvati and "atleti" in dati_salvati:
         st.session_state.atleti = dati_salvati["atleti"]
+        # Assicuriamoci che ogni atleta abbia la chiave password
+        for a_nome in st.session_state.atleti:
+            if "password" not in st.session_state.atleti[a_nome]:
+                st.session_state.atleti[a_nome]["password"] = hash_password("")
     else:
         st.session_state.atleti = {
             "Atleta Principale": {
+                "password": hash_password(""),
                 "peso": 70.0,
                 "altezza": 175.0,
                 "eta": 56,
@@ -434,6 +448,14 @@ if "atleta_corrente" not in st.session_state:
             0
         ]
 
+# Gestione dello stato di autenticazione per l'atleta corrente
+if "autenticato" not in st.session_state:
+    st.session_state.autenticato = False
+
+# Se cambiamo atleta, resettiamo lo stato di autenticazione finché non viene inserita la password corretta
+if "ultimo_atleta_selezionato" not in st.session_state:
+    st.session_state.ultimo_atleta_selezionato = st.session_state.atleta_corrente
+
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
 st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta (Mifflin)")
@@ -450,13 +472,39 @@ atleta_selezionato = st.sidebar.selectbox(
     key="selectbox_atleta",
 )
 
-if atleta_selezionato != st.session_state.atleta_corrente:
+if atleta_selezionato != st.session_state.ultimo_atleta_selezionato:
     st.session_state.atleta_corrente = atleta_selezionato
+    st.session_state.ultimo_atleta_selezionato = atleta_selezionato
+    st.session_state.autenticato = (
+        False  # Richiede nuovamente la password per il nuovo utente
+    )
     salva_dati_disco()
     st.rerun()
 
+# --- VERIFICA PASSWORD / LOGIN UTENTE ---
+atleta_data = st.session_state.atleti[st.session_state.atleta_corrente]
+password_salvata = atleta_data.get("password", hash_password(""))
+
+# Se l'account ha una password configurata e non è ancora autenticato
+if password_salvata != hash_password("") and not st.session_state.autenticato:
+    st.warning(
+        f"L'account di **{st.session_state.atleta_corrente}** è protetto da password."
+    )
+    with st.form("form_login_atleta"):
+        pwd_inserita = st.text_input("Inserisci la Password", type="password")
+        btn_login = st.form_submit_button("Accedi")
+        if btn_login:
+            if hash_password(pwd_inserita) == password_salvata:
+                st.session_state.autenticato = True
+                st.success("Accesso effettuato con successo!")
+                st.rerun()
+            else:
+                st.error("Password errata. Riprova.")
+    st.stop()  # Interrompe il rendering del resto dell'app finché non si effettua il login
+
 with st.sidebar.expander("Aggiungi o Gestisci Atleti"):
     nuovo_atleta_nome = st.text_input("Nome Nuovo Atleta")
+    nuova_atleta_pwd = st.text_input("Password (opzionale)", type="password")
     if st.button("Crea Nuovo Atleta"):
         nome_pulito = nuovo_atleta_nome.strip()
         if nome_pulito == "":
@@ -465,6 +513,7 @@ with st.sidebar.expander("Aggiungi o Gestisci Atleti"):
             st.warning("Esiste già un atleta con questo nome.")
         else:
             st.session_state.atleti[nome_pulito] = {
+                "password": hash_password(nuova_atleta_pwd),
                 "peso": 70.0,
                 "altezza": 175.0,
                 "eta": 30,
@@ -473,6 +522,10 @@ with st.sidebar.expander("Aggiungi o Gestisci Atleti"):
                 "db_diario": {},
             }
             st.session_state.atleta_corrente = nome_pulito
+            st.session_state.ultimo_atleta_selezionato = nome_pulito
+            st.session_state.autenticato = (
+                True  # Il creatore entra subito loggato
+            )
             salva_dati_disco()
             st.success(f"Atleta '{nome_pulito}' aggiunto con successo!")
             st.rerun()
@@ -488,6 +541,10 @@ with st.sidebar.expander("Aggiungi o Gestisci Atleti"):
                 st.session_state.atleta_corrente = list(
                     st.session_state.atleti.keys()
                 )[0]
+                st.session_state.ultimo_atleta_selezionato = (
+                    st.session_state.atleta_corrente
+                )
+                st.session_state.autenticato = True
                 salva_dati_disco()
                 st.success(f"Atleta '{atleta_da_eliminare}' eliminato.")
                 st.rerun()
@@ -496,8 +553,6 @@ st.sidebar.markdown("---")
 st.sidebar.header(
     f"Parametri Mifflin & Allenamento: {st.session_state.atleta_corrente}"
 )
-
-atleta_data = st.session_state.atleti[st.session_state.atleta_corrente]
 
 saved_peso = atleta_data.get("peso", 70.0)
 saved_altezza = atleta_data.get("altezza", 175.0)
@@ -1014,7 +1069,6 @@ for i, pasto in enumerate(PASTI):
 
                 st.dataframe(df_p, use_container_width=True)
 
-                # Pulsante per nascondere/mostrare l'accesso alla selezione e cancellazione delle singole voci
                 mostra_gestione_voci = st.toggle(
                     "Modifica voci pasto", key=f"toggle_mod_{pasto}"
                 )
@@ -1088,7 +1142,6 @@ with col_pdf1:
             pdf_output.cell(0, 10, "Riepilogo Totale:", ln=True)
             pdf_output.set_font("Arial", "", 11)
 
-            # Stampa calorie con controllo eccedenza
             pdf_output.set_text_color(0, 0, 0)
             pdf_output.write(8, "Calorie: ")
             if tot_kcal > obj_kcal:
@@ -1100,7 +1153,6 @@ with col_pdf1:
             )
             pdf_output.ln(2)
 
-            # Stampa carboidrati con controllo eccedenza
             pdf_output.write(8, "Carboidrati: ")
             if tot_carbo > obj_carbo:
                 pdf_output.set_text_color(220, 20, 60)
@@ -1109,7 +1161,6 @@ with col_pdf1:
             pdf_output.write(8, f" / {obj_carbo} g\n")
             pdf_output.ln(2)
 
-            # Stampa proteine con controllo eccedenza
             pdf_output.write(8, "Proteine: ")
             if tot_prot > obj_prot:
                 pdf_output.set_text_color(220, 20, 60)
@@ -1118,7 +1169,6 @@ with col_pdf1:
             pdf_output.write(8, f" / {obj_prot} g\n")
             pdf_output.ln(2)
 
-            # Stampa grassi con controllo eccedenza
             pdf_output.write(8, "Grassi: ")
             if tot_grassi > obj_grassi:
                 pdf_output.set_text_color(220, 20, 60)
@@ -1263,7 +1313,6 @@ with col_pdf2:
                 media_prot = tot_p_prot / delta_giorni
                 media_grassi = tot_p_grassi / delta_giorni
 
-                # Calorie totali periodo / media
                 pdf_output.set_text_color(0, 0, 0)
                 pdf_output.write(8, "Calorie Totali: ")
                 if media_kcal > obj_kcal:
@@ -1278,7 +1327,6 @@ with col_pdf2:
                 pdf_output.write(8, " kcal)\n")
                 pdf_output.ln(2)
 
-                # Carboidrati totali periodo / media
                 pdf_output.write(8, "Carboidrati Totali: ")
                 if media_carbo > obj_carbo:
                     pdf_output.set_text_color(220, 20, 60)
@@ -1292,7 +1340,6 @@ with col_pdf2:
                 pdf_output.write(8, " g)\n")
                 pdf_output.ln(2)
 
-                # Proteine totali periodo / media
                 pdf_output.write(8, "Proteine Totali: ")
                 if media_prot > obj_prot:
                     pdf_output.set_text_color(220, 20, 60)
@@ -1306,7 +1353,6 @@ with col_pdf2:
                 pdf_output.write(8, " g)\n")
                 pdf_output.ln(2)
 
-                # Grassi totali periodo / media
                 pdf_output.write(8, "Grassi Totali: ")
                 if media_grassi > obj_grassi:
                     pdf_output.set_text_color(220, 20, 60)
@@ -1329,7 +1375,6 @@ with col_pdf2:
 
                 if dettaglio_periodo:
                     for d_str, dk, dc, dp, dg in dettaglio_periodo:
-                        # Controllo evidenziazione in rosso per le singole giornate che superano l'obiettivo calorico o carbo
                         pdf_output.set_text_color(0, 0, 0)
                         pdf_output.write(6, f" - {d_str}: ")
                         if dk > obj_kcal:
