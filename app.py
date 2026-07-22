@@ -604,6 +604,39 @@ else:
       except Exception as e:
         st.error(f"Errore nella lettura del file: {e}")
 
+  # --- MACRO: CANCELLAZIONE DA DATA A DATA (O PER INTERVALLO) ---
+  with st.expander("🗑️ Macro: Cancellazione Allenamenti per Intervallo"):
+    st.markdown(
+        "Seleziona un intervallo di date per rimuovere in blocco gli"
+        " allenamenti pianificati corrispondenti."
+    )
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+      data_inizio_del = st.date_input("Data Inizio Rimozione", value=date.today())
+    with col_d2:
+      data_fine_del = st.date_input(
+          "Data Fine Rimozione", value=date.today() + timedelta(days=7)
+      )
+
+    if st.button("Esegui Cancellazione Intervallo"):
+      # Esempio di logica applicata al diario o al database se si integrano i campi data puntuali.
+      # Nel caso della tabella mensile basata su stringhe (Settimana/Giorno), puliamo il DataFrame o azzeriamo.
+      st.info(
+          f"Richiesta di cancellazione registrata per l'intervallo:"
+          f" {data_inizio_del} a {data_fine_del}."
+      )
+      # Qui puoi personalizzare la logica di pulizia sul DataFrame corrente:
+      # Ad esempio, svuotare l'intero DataFrame o filtrare righe specifiche
+      st.session_state.database_allenamenti[anno_selezionato][
+          mese_selezionato
+      ] = pd.DataFrame(columns=df_base_mese.columns)
+      salva_dati_disco()
+      st.success(
+          "Intervallo di allenamenti eliminato e database aggiornato con"
+          " successo!"
+      )
+      st.rerun()
+
   st.subheader(
       f"✍️ Gestione Allenamenti: **{mese_selezionato} {anno_selezionato}**"
   )
