@@ -683,7 +683,6 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
     banca_dati = st.session_state.banca_dati_df
     st.dataframe(banca_dati, use_container_width=True)
 
-    # Pulsante per il backup / estrazione della banca dati in CSV
     csv_backup_data = banca_dati.to_csv(index=False).encode("utf-8")
     st.download_button(
         label="📥 Scarica Backup Banca Dati (CSV)",
@@ -1015,43 +1014,49 @@ for i, pasto in enumerate(PASTI):
 
                 st.dataframe(df_p, use_container_width=True)
 
-                indices_disponibili = df_p.index.tolist()
-                opzioni_rimozione = {
-                    f"Riga {idx}: {df_p.loc[idx, 'Alimento']} ({df_p.loc[idx, 'gr/n']}g)": idx
-                    for idx in indices_disponibili
-                }
-
-                voce_da_rimuovere = st.selectbox(
-                    "Elimina voce:",
-                    list(opzioni_rimozione.keys()),
-                    key=f"del_box_{pasto}",
+                # Pulsante per nascondere/mostrare l'accesso alla selezione e cancellazione delle singole voci
+                mostra_gestione_voci = st.toggle(
+                    "Modifica voci pasto", key=f"toggle_mod_{pasto}"
                 )
 
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1:
-                    if st.button("Elimina", key=f"btn_del_{pasto}"):
-                        idx_to_drop = opzioni_rimozione[voce_da_rimuovere]
-                        db_diario_atleta[data_str][pasto] = df_p.drop(
-                            idx_to_drop
-                        ).reset_index(drop=True)
-                        salva_dati_disco()
-                        st.rerun()
-                with col_btn2:
-                    if st.button("Svuota", key=f"clear_{pasto}"):
-                        db_diario_atleta[data_str][
-                            pasto
-                        ] = pd.DataFrame(
-                            columns=[
-                                "Alimento",
-                                "gr/n",
-                                "carbo",
-                                "proteine",
-                                "grassi",
-                                "kcal",
-                            ]
-                        )
-                        salva_dati_disco()
-                        st.rerun()
+                if mostra_gestione_voci:
+                    indices_disponibili = df_p.index.tolist()
+                    opzioni_rimozione = {
+                        f"Riga {idx}: {df_p.loc[idx, 'Alimento']} ({df_p.loc[idx, 'gr/n']}g)": idx
+                        for idx in indices_disponibili
+                    }
+
+                    voce_da_rimuovere = st.selectbox(
+                        "Elimina voce:",
+                        list(opzioni_rimozione.keys()),
+                        key=f"del_box_{pasto}",
+                    )
+
+                    col_btn1, col_btn2 = st.columns(2)
+                    with col_btn1:
+                        if st.button("Elimina", key=f"btn_del_{pasto}"):
+                            idx_to_drop = opzioni_rimozione[voce_da_rimuovere]
+                            db_diario_atleta[data_str][pasto] = df_p.drop(
+                                idx_to_drop
+                            ).reset_index(drop=True)
+                            salva_dati_disco()
+                            st.rerun()
+                    with col_btn2:
+                        if st.button("Svuota", key=f"clear_{pasto}"):
+                            db_diario_atleta[data_str][
+                                pasto
+                            ] = pd.DataFrame(
+                                columns=[
+                                    "Alimento",
+                                    "gr/n",
+                                    "carbo",
+                                    "proteine",
+                                    "grassi",
+                                    "kcal",
+                                ]
+                            )
+                            salva_dati_disco()
+                            st.rerun()
             else:
                 st.info("Nessun alimento registrato.")
 
@@ -1082,25 +1087,63 @@ with col_pdf1:
             pdf_output.set_font("Arial", "B", 12)
             pdf_output.cell(0, 10, "Riepilogo Totale:", ln=True)
             pdf_output.set_font("Arial", "", 11)
-            pdf_output.cell(
-                0,
-                8,
-                f"Calorie: {tot_kcal:.1f} / {obj_kcal} kcal ({livello_allenamento})",
-                ln=True,
+
+            # Funzione di supporto per stampare in rosso se c'è eccedenza (valore superato rispetto all'obiettivo)
+            def cella_con_colore_eccedenza(
+                pdf, label, valore, obiettivo, unita
+            ):
+                pdf.set_text_color(0, 0, 0)
+                pdf.write(8, f"{label}: ")
+                if valore > obiettivo:
+                    pdf.set_text_color(220, 20, 60)  # Rosso cremisi
+                pdf.write(8, f"{valore:.1f}")
+                pdf.set_text_color(0, 0, 0)
+                pdf.write(
+                    8, f" / {obiettivo} {unita} ({livello_allenamento})\n"
+                )
+
+            # Stampa calorie con controllo eccedenza
+            pdf.set_text_color(0, 0, 0)
+            pdf.write(8, "Calorie: ")
+            if tot_kcal > obj_kcal:
+                pdf.set_text_color(220, 20, 60)
+            pdf.write(8, f"{tot_kcal:.1f}")
+            pdf.set_text_color(0, 0, 0)
+            pdf.write(
+                8, f" / {obj_kcal} kcal ({livello_allenamento})\n"
             )
-            pdf_output.cell(
-                0, 8, f"Carboidrati: {tot_carbo:.1f} / {obj_carbo} g", ln=True
-            )
-            pdf_output.cell(
-                0, 8, f"Proteine: {tot_prot:.1f} / {obj_prot} g", ln=True
-            )
-            pdf_output.cell(
-                0, 8, f"Grassi: {tot_grassi:.1f} / {obj_grassi} g", ln=True
-            )
-            pdf_output.ln(10)
+            pdf.ln(2)
+
+            # Stampa carboidrati con controllo eccedenza
+            pdf.write(8, "Carboidrati: ")
+            if tot_carbo > obj_carbo:
+                pdf.set_text_color(220, 20, 60)
+            pdf.write(8, f"{tot_carbo:.1f}")
+            pdf.set_text_color(0, 0, 0)
+            pdf.write(8, f" / {obj_carbo} g\n")
+            pdf.ln(2)
+
+            # Stampa proteine con controllo eccedenza
+            pdf.write(8, "Proteine: ")
+            if tot_prot > obj_prot:
+                pdf.set_text_color(220, 20, 60)
+            pdf.write(8, f"{tot_prot:.1f}")
+            pdf.set_text_color(0, 0, 0)
+            pdf.write(8, f" / {obj_prot} g\n")
+            pdf.ln(2)
+
+            # Stampa grassi con controllo eccedenza
+            pdf.write(8, "Grassi: ")
+            if tot_grassi > obj_grassi:
+                pdf.set_text_color(220, 20, 60)
+            pdf.write(8, f"{tot_grassi:.1f}")
+            pdf.set_text_color(0, 0, 0)
+            pdf.write(8, f" / {obj_grassi} g\n")
+            pdf.ln(10)
 
             for pasto in PASTI:
                 pdf_output.set_font("Arial", "B", 12)
+                pdf_output.set_text_color(0, 0, 0)
                 pdf_output.cell(0, 8, f"Pasto: {pasto}", ln=True)
                 pdf_output.set_font("Arial", "", 10)
                 df_p = db_diario_atleta[data_str][pasto]
@@ -1228,33 +1271,71 @@ with col_pdf2:
                 pdf_output.set_font("Arial", "B", 12)
                 pdf_output.cell(0, 10, "Riepilogo Totale del Periodo:", ln=True)
                 pdf_output.set_font("Arial", "", 11)
-                pdf_output.cell(
-                    0,
-                    8,
-                    f"Calorie Totali: {tot_p_kcal:.1f} kcal (Media giornaliera: {tot_p_kcal / delta_giorni:.1f} kcal)",
-                    ln=True,
-                )
-                pdf_output.cell(
-                    0,
-                    8,
-                    f"Carboidrati Totali: {tot_p_carbo:.1f} g (Media: {tot_p_carbo / delta_giorni:.1f} g)",
-                    ln=True,
-                )
-                pdf_output.cell(
-                    0,
-                    8,
-                    f"Proteine Totali: {tot_p_prot:.1f} g (Media: {tot_p_prot / delta_giorni:.1f} g)",
-                    ln=True,
-                )
-                pdf_output.cell(
-                    0,
-                    8,
-                    f"Grassi Totali: {tot_p_grassi:.1f} g (Media: {tot_p_grassi / delta_giorni:.1f} g)",
-                    ln=True,
-                )
+
+                media_kcal = tot_p_kcal / delta_giorni
+                media_carbo = tot_p_carbo / delta_giorni
+                media_prot = tot_p_prot / delta_giorni
+                media_grassi = tot_p_grassi / delta_giorni
+
+                # Calorie totali periodo / media
+                pdf_output.set_text_color(0, 0, 0)
+                pdf_output.write(8, "Calorie Totali: ")
+                if media_kcal > obj_kcal:
+                    pdf_output.set_text_color(220, 20, 60)
+                pdf_output.write(8, f"{tot_p_kcal:.1f}")
+                pdf_output.set_text_color(0, 0, 0)
+                pdf_output.write(8, f" kcal (Media giornaliera: ")
+                if media_kcal > obj_kcal:
+                    pdf_output.set_text_color(220, 20, 60)
+                pdf_output.write(8, f"{media_kcal:.1f}")
+                pdf_output.set_text_color(0, 0, 0)
+                pdf_output.write(8, " kcal)\n")
+                pdf_output.ln(2)
+
+                # Carboidrati totali periodo / media
+                pdf_output.write(8, "Carboidrati Totali: ")
+                if media_carbo > obj_carbo:
+                    pdf_output.set_text_color(220, 20, 60)
+                pdf_output.write(8, f"{tot_p_carbo:.1f}")
+                pdf_output.set_text_color(0, 0, 0)
+                pdf_output.write(8, f" g (Media: ")
+                if media_carbo > obj_carbo:
+                    pdf_output.set_text_color(220, 20, 60)
+                pdf_output.write(8, f"{media_carbo:.1f}")
+                pdf_output.set_text_color(0, 0, 0)
+                pdf_output.write(8, " g)\n")
+                pdf_output.ln(2)
+
+                # Proteine totali periodo / media
+                pdf_output.write(8, "Proteine Totali: ")
+                if media_prot > obj_prot:
+                    pdf_output.set_text_color(220, 20, 60)
+                pdf_output.write(8, f"{tot_p_prot:.1f}")
+                pdf_output.set_text_color(0, 0, 0)
+                pdf_output.write(8, f" g (Media: ")
+                if media_prot > obj_prot:
+                    pdf_output.set_text_color(220, 20, 60)
+                pdf_output.write(8, f"{media_prot:.1f}")
+                pdf_output.set_text_color(0, 0, 0)
+                pdf_output.write(8, " g)\n")
+                pdf_output.ln(2)
+
+                # Grassi totali periodo / media
+                pdf_output.write(8, "Grassi Totali: ")
+                if media_grassi > obj_grassi:
+                    pdf_output.set_text_color(220, 20, 60)
+                pdf_output.write(8, f"{tot_p_grassi:.1f}")
+                pdf_output.set_text_color(0, 0, 0)
+                pdf_output.write(8, f" g (Media: ")
+                if media_grassi > obj_grassi:
+                    pdf_output.set_text_color(220, 20, 60)
+                pdf_output.write(8, f"{media_grassi:.1f}")
+                pdf_output.set_text_color(0, 0, 0)
+                pdf_output.write(8, " g)\n")
                 pdf_output.ln(10)
 
                 pdf_output.set_font("Arial", "B", 12)
+                pdf_output.set_text_color(0, 0, 0)
                 pdf_output.cell(
                     0, 10, "Traccia Giornaliera dei Macronutrienti:", ln=True
                 )
@@ -1262,8 +1343,21 @@ with col_pdf2:
 
                 if dettaglio_periodo:
                     for d_str, dk, dc, dp, dg in dettaglio_periodo:
-                        riga_traccia = f" - {d_str}: {dk:.1f} kcal | Carbo: {dc:.1f}g | Prot: {dp:.1f}g | Grassi: {dg:.1f}g"
-                        pdf_output.cell(0, 6, riga_traccia, ln=True)
+                        # Controllo evidenziazione in rosso per le singole giornate che superano l'obiettivo calorico o carbo
+                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.write(6, f" - {d_str}: ")
+                        if dk > obj_kcal:
+                            pdf_output.set_text_color(220, 20, 60)
+                        pdf_output.write(6, f"{dk:.1f} kcal")
+                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.write(6, " | Carbo: ")
+                        if dc > obj_carbo:
+                            pdf_output.set_text_color(220, 20, 60)
+                        pdf_output.write(6, f"{dc:.1f}g")
+                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.write(
+                            6, f" | Prot: {dp:.1f}g | Grassi: {dg:.1f}g\n"
+                        )
                 else:
                     pdf_output.cell(
                         0,
