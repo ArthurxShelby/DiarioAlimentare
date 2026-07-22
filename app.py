@@ -135,6 +135,9 @@ if "atleti" not in st.session_state:
                 "altezza": 173.0,
                 "eta": 56,
                 "genere": "Uomo",
+                "livello_allenamento": (
+                    "Allenamento Intenso / Rouleur-Climber (PAL 1.725)"
+                ),
             },
             "db_diario": {},
         }
@@ -477,6 +480,7 @@ if st.session_state["utente_autenticato"] == "Admin":
                 "altezza": 175.0,
                 "eta": 40,
                 "genere": "Uomo",
+                "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
             },
             "db_diario": {},
         }
@@ -509,26 +513,52 @@ eta = st.sidebar.number_input("Età (anni)", value=int(profilo.get("eta", 56)))
 genere = st.sidebar.selectbox(
     "Genere", ["Uomo", "Donna"], index=0 if profilo.get("genere") == "Uomo" else 1
 )
+livello_allenamento = st.sidebar.selectbox(
+    "Intensità Allenamento / Attività",
+    [
+        "Riposo / Sedentario (PAL 1.2)",
+        "Attività Leggera (PAL 1.375)",
+        "Allenamento Moderato (PAL 1.55)",
+        "Allenamento Intenso / Rouleur-Climber (PAL 1.725)",
+        "Doppio Allenamento / Estremo (PAL 1.9)",
+    ],
+    index=3,
+)
 
 if (
     profilo.get("peso") != peso
     or profilo.get("altezza") != altezza
     or profilo.get("eta") != eta
     or profilo.get("genere") != genere
+    or profilo.get("livello_allenamento") != livello_allenamento
 ):
   profilo.update({
       "peso": peso,
       "altezza": altezza,
       "eta": eta,
       "genere": genere,
+      "livello_allenamento": livello_allenamento,
   })
   salva_dati_disco()
+
+pal_dict = {
+    "Riposo / Sedentario (PAL 1.2)": 1.2,
+    "Attività Leggera (PAL 1.375)": 1.375,
+    "Allenamento Moderato (PAL 1.55)": 1.55,
+    "Allenamento Intenso / Rouleur-Climber (PAL 1.725)": 1.725,
+    "Doppio Allenamento / Estremo (PAL 1.9)": 1.9,
+}
+pal_selezionato = pal_dict[livello_allenamento]
 
 bmr = (
     (10 * peso) + (6.25 * altezza) - (5 * eta) + 5
     if genere == "Uomo"
     else (10 * peso) + (6.25 * altezza) - (5 * eta) - 161
 )
+tdee = bmr * pal_selezionato
+obj_kcal = round(tdee, 0)
+
+st.sidebar.info(f"**TDEE Stimato:** {obj_kcal:.0f} kcal")
 
 # Navigazione Sezioni
 sezione_scelta = st.radio(
