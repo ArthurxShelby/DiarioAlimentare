@@ -80,6 +80,7 @@ def carica_dati_disco():
                             "Allenamento Moderato (PAL 1.55)",
                         ),
                         "db_diario": old_dati.get("db_diario", {}),
+                        "db_allenamenti": old_dati.get("db_allenamenti", {}),
                     }
                 },
                 "banca_dati_df": old_dati.get("banca_dati_df", None),
@@ -420,6 +421,7 @@ if "atleti" not in st.session_state:
                 "genere": "Uomo",
                 "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
                 "db_diario": {},
+                "db_allenamenti": {},
             }
         }
 
@@ -458,7 +460,6 @@ else:
             a for a in st.session_state.atleti.keys() if a != "Atleta Principale"
         ]
         if not atleti_disponibili:
-            # Se esiste solo l'atleta principale, creiamo un profilo figlio di esempio se necessario o avvisiamo
             st.sidebar.info(
                 "Nessun profilo ospite configurato. Crea prima un profilo dalla modalità Admin."
             )
@@ -471,7 +472,7 @@ else:
             "Password Profilo", type="password"
         )
 
-        if st.sidebar.button("Accedi al Diario"):
+        if st.sidebar.button("Accedi al Diario & Allenamenti"):
             pwd_salvata = st.session_state.password_atleti.get(
                 atleta_scelto_login, ""
             )
@@ -487,7 +488,6 @@ else:
                 st.sidebar.error("Password errata o non impostata.")
         st.stop()
     else:
-        # Controllo password Admin opzionale o accesso libero se proprietario dal link principale
         password_admin = st.sidebar.text_input(
             "Password Admin (opzionale)", type="password"
         )
@@ -535,6 +535,7 @@ if st.session_state.utente_loggato is None:
                     "genere": "Uomo",
                     "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
                     "db_diario": {},
+                    "db_allenamenti": {},
                 }
                 if nuova_pwd_atleta.strip() != "":
                     st.session_state.password_atleti[
@@ -749,6 +750,94 @@ with col_m4:
         float(min(tot_grassi / obj_grassi, 1.0)) if obj_grassi > 0 else 0.0
     )
     st.progress(progresso_grassi)
+
+st.markdown("---")
+
+# --- NUOVA SEZIONE: GESTIONE INDIPENDENTE ALLENAMENTO PER ATLETA ---
+st.subheader(f"Sezione Allenamento - {st.session_state.atleta_corrente}")
+
+db_allenamenti_atleta = atleta_data.setdefault("db_allenamenti", {})
+if data_str not in db_allenamenti_atleta:
+    db_allenamenti_atleta[data_str] = pd.DataFrame(
+        columns=[
+            "Tipologia",
+            "Durata (min)",
+            "Km",
+            "Dislivello (m)",
+            "TSS",
+            "Note",
+        ]
+    )
+    salva_dati_disco()
+
+with st.form(f"form_allenamento_{st.session_state.atleta_corrente}"):
+    col_all1, col_all2, col_all3 = st.columns(3)
+    with col_all1:
+        tipo_allenamento = st.selectbox(
+            "Tipologia",
+            [
+                "Bici Strada (Rouleur/Climber)",
+                "Rulli / Indoor",
+                "Palestra / Pesi",
+                "Riposo / Scarico",
+                "Altro",
+            ],
+        )
+    with col_all2:
+        durata_min = st.number_input(
+            "Durata (min)", min_value=0, value=60, step=5
+        )
+    with col_all3:
+        km_percorsi = st.number_input(
+            "Distanza (km)", min_value=0.0, value=0.0, step=0.5
+        )
+
+    col_all4, col_all5 = st.columns(2)
+    with col_all4:
+        dislivello = st.number_input(
+            "Dislivello (m)", min_value=0, value=0, step=50
+        )
+    with col_all5:
+        tss = st.number_input("TSS Stimato", min_value=0.0, value=0.0, step=1.0)
+
+    note_allenamento = st.text_area("Note / Sensazioni di guida")
+
+    btn_aggiungi_all = st.form_submit_button("Registra Allenamento del Giorno")
+    if btn_aggiungi_all:
+        nuova_riga_all = pd.DataFrame(
+            [
+                {
+                    "Tipologia": tipo_allenamento,
+                    "Durata (min)": durata_min,
+                    "Km": km_percorsi,
+                    "Dislivello (m)": dislivello,
+                    "TSS": tss,
+                    "Note": note_allenamento,
+                }
+            ]
+        )
+        db_allenamenti_atleta[data_str] = pd.concat(
+            [db_allenamenti_atleta[data_str], nuova_riga_all], ignore_index=True
+        )
+        salva_dati_disco()
+        st.success("Allenamento registrato con successo per questo atleta!")
+        st.rerun()
+
+# Visualizzazione e gestione degli allenamenti registrati nella data corrente
+df_all_oggi = db_allenamenti_atleta[data_str]
+if not df_all_oggi.empty:
+    st.markdown("### Allenamenti registrati in data odierna:")
+    st.dataframe(df_all_oggi, use_container_width=True)
+
+    if st.button("Elimina ultimo allenamento inserito", key="btn_del_all"):
+        db_allenamenti_atleta[data_str] = df_all_oggi.iloc[:-1].reset_index(
+            drop=True
+        )
+        salva_dati_disco()
+        st.success("Ultimo allenamento rimosso.")
+        st.rerun()
+else:
+    st.info("Nessun allenamento registrato per questa data.")
 
 st.markdown("---")
 
