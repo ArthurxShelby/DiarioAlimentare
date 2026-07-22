@@ -36,21 +36,33 @@ dt.markdown(
     unsafe_allow_html=True,
 )
 
-# --- INTESTAZIONE PRINCIPALE ---
-dt.markdown(
-    "<h1 style='font-size: 28px;'>Diario Sportivo / Alimentare</h1>",
-    unsafe_allow_html=True,
-)
+# --- INTESTAZIONE PRINCIPALE E MENU A SCOMPARSA IN ALTO A DESTRA ---
+col_title, col_menu = dt.columns([7, 5])
+
+with col_title:
+    dt.markdown(
+        "<h1 style='font-size: 28px; margin-top: 10px;'>Diario Sportivo / Alimentare</h1>",
+        unsafe_allow_html=True,
+    )
+
+with col_menu:
+    with dt.expander("⚙️ Parametri & Profilo Mifflin-St Jeor"):
+        dt.markdown(
+            "**Dati Antropometrici di Riferimento:**\n\n"
+            "- **Età:** 56 anni\n"
+            "- **Altezza:** 173 cm\n"
+            "- **Peso:** 75 kg\n"
+            "- **Profilo:** Passista-Scalatore"
+        )
 
 # --- PARAMETRI DI CALCOLO (Mifflin-St Jeor) ---
-# Dati utente: 56 anni, 173 cm, 75 kg
 peso = 75.0
 altezza = 173.0
 eta = 56
 
 # Formula BMR Mifflin-St Jeor per uomini: (10 * peso) + (6.25 * altezza) - (5 * eta) + 5
 bmr = (10 * peso) + (6.25 * altezza) - (5 * eta) + 5
-tdee = bmr * 1.55  # Stima con allenamento regolare (passista-scalatore)
+tdee = bmr * 1.55  # Stima con allenamento regolare
 
 target_calorie = int(tdee)
 target_proteine = 140  # g
@@ -58,7 +70,6 @@ target_carboidrati = 300  # g
 target_grassi = 70  # g
 
 # --- GESTIONE DEI 6 PASTI ---
-# Definizione dei pasti: Colazione, Merenda Mattutina, Pranzo, Merenda Pomeridiana, Cena, Extra
 pasti = {
     "Colazione": {"calorie": 450, "proteine": 25, "carboidrati": 60, "grassi": 12},
     "Merenda Mattutina": {
@@ -78,13 +89,11 @@ pasti = {
     "Extra": {"calorie": 150, "proteine": 5, "carboidrati": 20, "grassi": 6},
 }
 
-# Calcolo totali assunti dai 6 pasti
 tot_calorie = sum(p["calorie"] for p in pasti.values())
 tot_proteine = sum(p["proteine"] for p in pasti.values())
 tot_carboidrati = sum(p["carboidrati"] for p in pasti.values())
 tot_grassi = sum(p["grassi"] for p in pasti.values())
 
-# Calcolo rimanenze al raggiungimento del target giornaliero
 rimanenza_calorie = target_calorie - tot_calorie
 rimanenza_proteine = target_proteine - tot_proteine
 rimanenza_carboidrati = target_carboidrati - tot_carboidrati
@@ -96,7 +105,7 @@ dt.markdown(
     unsafe_allow_html=True,
 )
 dt.markdown(
-    "<p style='color: #8fa98c; font-size: 14px;'>Monitoraggio basato sul dispendio energetico calcolato con l'equazione di Mifflin-St Jeor.</p>",
+    f"<p style='color: #8fa98c; font-size: 14px;'>Dispendio energetico calcolato con Mifflin-St Jeor (BMR: {bmr:.0f} kcal | TDEE: {tdee:.0f} kcal).</p>",
     unsafe_allow_html=True,
 )
 
@@ -171,20 +180,3 @@ for i, (nome_pasto, valori) in enumerate(pasti_lista):
             """,
             unsafe_allow_html=True,
         )
-
-# --- SEZIONE 3: PARAMETRI DI RIFERIMENTO ATLETA ---
-dt.markdown("<br>", unsafe_allow_html=True)
-dt.markdown(
-    f"""
-    <div class="metric-card">
-        <h3>⚙️ Parametri Metaboliche e Profilo</h3>
-        <p style="color: #8fa98c; font-size: 14px;">Dati antropometrici impiegati per il calcolo del fabbisogno energetico:</p>
-        <ul style="color: #e8efe9; font-size: 14px; line-height: 1.6;">
-            <li><b>Età / Altezza / Peso:</b> {eta} anni, {altezza} cm, {peso} kg</li>
-            <li><b>BMR (Mifflin-St Jeor):</b> {bmr:.0f} kcal</li>
-            <li><b>TDEE Stimato (Passista-Scalatore):</b> {tdee:.0f} kcal</li>
-        </ul>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
