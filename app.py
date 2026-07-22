@@ -238,91 +238,132 @@ class PDFDiario(FPDF):
     )
 
 
-def genera_pdf_diario(atleta_nome, db_diario_atleta, date_selezionate):
+def genera_pdf_diario(
+    atleta_nome, db_diario_atleta, date_selezionate, solo_totali=False
+):
   pdf = PDFDiario(orientation="P", unit="mm", format="A4")
   pdf.set_auto_page_break(auto=True, margin=15)
 
-  for d_str in date_selezionate:
+  if solo_totali:
     pdf.add_page()
     pdf.set_font("helvetica", "B", 12)
     pdf.cell(
         0,
         8,
-        f"Atleta: {atleta_nome} | Data: {d_str}",
+        f"Atleta: {atleta_nome} | Report Totali Giornalieri (Da Data a Data)",
         border=0,
         new_x="LMARGIN",
         new_y="NEXT",
     )
-    pdf.ln(3)
+    pdf.ln(5)
 
-    giornata_dati = db_diario_atleta.get(d_str, {})
-    tot_c, tot_p, tot_g, tot_k = 0.0, 0.0, 0.0, 0.0
+    # Intestazione Tabella Riepilogo
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(40, 7, "Data", border=1)
+    pdf.cell(30, 7, "Carbo (g)", border=1)
+    pdf.cell(30, 7, "Prot (g)", border=1)
+    pdf.cell(30, 7, "Grassi (g)", border=1)
+    pdf.cell(30, 7, "Kcal", border=1, new_x="LMARGIN", new_y="NEXT")
 
-    for pasto in PASTI:
-      pdf.set_font("helvetica", "B", 10)
+    pdf.set_font("helvetica", "", 10)
+    for d_str in date_selezionate:
+      giornata_dati = db_diario_atleta.get(d_str, {})
+      tot_c, tot_p, tot_g, tot_k = 0.0, 0.0, 0.0, 0.0
+
+      for pasto in PASTI:
+        df_pasto = giornata_dati.get(pasto, pd.DataFrame())
+        if not df_pasto.empty:
+          tot_c += df_pasto["carbo"].apply(safe_float).sum()
+          tot_p += df_pasto["proteine"].apply(safe_float).sum()
+          tot_g += df_pasto["grassi"].apply(safe_float).sum()
+          tot_k += df_pasto["kcal"].apply(safe_float).sum()
+
+      pdf.cell(40, 6, d_str, border=1)
+      pdf.cell(30, 6, f"{tot_c:.1f}", border=1)
+      pdf.cell(30, 6, f"{tot_p:.1f}", border=1)
+      pdf.cell(30, 6, f"{tot_g:.1f}", border=1)
+      pdf.cell(30, 6, f"{tot_k:.1f}", border=1, new_x="LMARGIN", new_y="NEXT")
+  else:
+    for d_str in date_selezionate:
+      pdf.add_page()
+      pdf.set_font("helvetica", "B", 12)
       pdf.cell(
           0,
-        6,
-          f"Pasto: {pasto}",
+          8,
+          f"Atleta: {atleta_nome} | Data: {d_str}",
           border=0,
           new_x="LMARGIN",
           new_y="NEXT",
       )
-      df_pasto = giornata_dati.get(pasto, pd.DataFrame())
+      pdf.ln(3)
 
-      if not df_pasto.empty:
-        # Intestazione tabella
-        pdf.set_font("helvetica", "B", 9)
-        pdf.cell(70, 6, "Alimento", border=1)
-        pdf.cell(20, 6, "Quantità", border=1)
-        pdf.cell(20, 6, "Carbo", border=1)
-        pdf.cell(20, 6, "Prot", border=1)
-        pdf.cell(20, 6, "Grassi", border=1)
-        pdf.cell(20, 6, "Kcal", border=1, new_x="LMARGIN", new_y="NEXT")
+      giornata_dati = db_diario_atleta.get(d_str, {})
+      tot_c, tot_p, tot_g, tot_k = 0.0, 0.0, 0.0, 0.0
 
-        pdf.set_font("helvetica", "", 9)
-        for _, row in df_pasto.iterrows():
-          pdf.cell(70, 6, str(row["Alimento"])[:35], border=1)
-          pdf.cell(20, 6, f"{safe_float(row['gr/n']):.1f}", border=1)
-          pdf.cell(20, 6, f"{safe_float(row['carbo']):.1f}", border=1)
-          pdf.cell(20, 6, f"{safe_float(row['proteine']):.1f}", border=1)
-          pdf.cell(20, 6, f"{safe_float(row['grassi']):.1f}", border=1)
-          pdf.cell(
-              20,
-              6,
-              f"{safe_float(row['kcal']):.1f}",
-              border=1,
-              new_x="LMARGIN",
-              new_y="NEXT",
-          )
-
-          tot_c += safe_float(row["carbo"])
-          tot_p += safe_float(row["proteine"])
-          tot_g += safe_float(row["grassi"])
-          tot_k += safe_float(row["kcal"])
-      else:
-        pdf.set_font("helvetica", "I", 9)
+      for pasto in PASTI:
+        pdf.set_font("helvetica", "B", 10)
         pdf.cell(
             0,
             6,
-            "Nessun alimento registrato.",
+            f"Pasto: {pasto}",
             border=0,
             new_x="LMARGIN",
             new_y="NEXT",
         )
-      pdf.ln(2)
+        df_pasto = giornata_dati.get(pasto, pd.DataFrame())
 
-    pdf.ln(3)
-    pdf.set_font("helvetica", "B", 10)
-    pdf.cell(
-        0,
-        8,
-        f"Totali Giornalieri -> Carbo: {tot_c:.1f}g | Prot: {tot_p:.1f}g |"
-        f" Grassi: {tot_g:.1f}g | Kcal: {tot_k:.1f}",
-        border=1,
-        new_x="LMARGIN",
-        new_y="NEXT",
-    )
+        if not df_pasto.empty:
+          pdf.set_font("helvetica", "B", 9)
+          pdf.cell(70, 6, "Alimento", border=1)
+          pdf.cell(20, 6, "Quantità", border=1)
+          pdf.cell(20, 6, "Carbo", border=1)
+          pdf.cell(20, 6, "Prot", border=1)
+          pdf.cell(20, 6, "Grassi", border=1)
+          pdf.cell(20, 6, "Kcal", border=1, new_x="LMARGIN", new_y="NEXT")
+
+          pdf.set_font("helvetica", "", 9)
+          for _, row in df_pasto.iterrows():
+            pdf.cell(70, 6, str(row["Alimento"])[:35], border=1)
+            pdf.cell(20, 6, f"{safe_float(row['gr/n']):.1f}", border=1)
+            pdf.cell(20, 6, f"{safe_float(row['carbo']):.1f}", border=1)
+            pdf.cell(20, 6, f"{safe_float(row['proteine']):.1f}", border=1)
+            pdf.cell(20, 6, f"{safe_float(row['grassi']):.1f}", border=1)
+            pdf.cell(
+                20,
+                6,
+                f"{safe_float(row['kcal']):.1f}",
+                border=1,
+                new_x="LMARGIN",
+                new_y="NEXT",
+            )
+
+            tot_c += safe_float(row["carbo"])
+            tot_p += safe_float(row["proteine"])
+            tot_g += safe_float(row["grassi"])
+            tot_k += safe_float(row["kcal"])
+        else:
+          pdf.set_font("helvetica", "I", 9)
+          pdf.cell(
+              0,
+              6,
+              "Nessun alimento registrato.",
+              border=0,
+              new_x="LMARGIN",
+              new_y="NEXT",
+          )
+        pdf.ln(2)
+
+      pdf.ln(3)
+      pdf.set_font("helvetica", "B", 10)
+      pdf.cell(
+          0,
+          8,
+          f"Totali Giornalieri -> Carbo: {tot_c:.1f}g | Prot: {tot_p:.1f}g |"
+          f" Grassi: {tot_g:.1f}g | Kcal: {tot_k:.1f}",
+          border=1,
+          new_x="LMARGIN",
+          new_y="NEXT",
+      )
 
   return bytes(pdf.output())
 
@@ -625,6 +666,7 @@ if sezione_scelta == "Diario Alimentare":
           "Seleziona Data per PDF", value=date.today(), key="pdf_singola_data"
       )
       date_da_esportare = [data_pdf_singola.strftime("%Y-%m-%d")]
+      solo_totali_flag = False
     else:
       col_p1, col_p2 = st.columns(2)
       with col_p1:
@@ -643,10 +685,11 @@ if sezione_scelta == "Diario Alimentare":
       while curr <= d_fine:
         date_da_esportare.append(curr.strftime("%Y-%m-%d"))
         curr += timedelta(days=1)
+      solo_totali_flag = True
 
     if st.button("Genera PDF Diario Alimentare"):
       pdf_bytes = genera_pdf_diario(
-          atleta_corrente, db_diario, date_da_esportare
+          atleta_corrente, db_diario, date_da_esportare, solo_totali=solo_totali_flag
       )
       st.download_button(
           label="⬇️ Scarica File PDF Generato",
