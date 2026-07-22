@@ -138,6 +138,9 @@ if "atleti" not in st.session_state:
                 "livello_allenamento": (
                     "Allenamento Intenso / Rouleur-Climber (PAL 1.725)"
                 ),
+                "target_carbo": 230.0,
+                "target_proteine": 165.0,
+                "target_grassi": 70.0,
             },
             "db_diario": {},
         }
@@ -213,160 +216,6 @@ if "utente_autenticato" not in st.session_state:
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
 st.title("🏋️ Pianificatore Alimentare & Allenamento - Piattaforma Unificata")
-
-# --- CLASSE SUPPORTO GENERAZIONE PDF DIARIO ---
-class PDFDiario(FPDF):
-
-  def header(self):
-    self.set_font("helvetica", "B", 14)
-    self.cell(
-        0,
-        10,
-        "Diario Alimentare - Report Nutrizionale",
-        border=0,
-        align="C",
-        new_x="LMARGIN",
-        new_y="NEXT",
-    )
-    self.ln(5)
-
-  def footer(self):
-    self.set_y(-15)
-    self.set_font("helvetica", "I", 8)
-    self.cell(
-        0, 10, f"Pagina {self.page_no()}", border=0, align="C"
-    )
-
-
-def genera_pdf_diario(
-    atleta_nome, db_diario_atleta, date_selezionate, solo_totali=False
-):
-  pdf = PDFDiario(orientation="P", unit="mm", format="A4")
-  pdf.set_auto_page_break(auto=True, margin=15)
-
-  if solo_totali:
-    pdf.add_page()
-    pdf.set_font("helvetica", "B", 12)
-    pdf.cell(
-        0,
-        8,
-        f"Atleta: {atleta_nome} | Report Totali Giornalieri (Da Data a Data)",
-        border=0,
-        new_x="LMARGIN",
-        new_y="NEXT",
-    )
-    pdf.ln(5)
-
-    # Intestazione Tabella Riepilogo
-    pdf.set_font("helvetica", "B", 10)
-    pdf.cell(40, 7, "Data", border=1)
-    pdf.cell(30, 7, "Carbo (g)", border=1)
-    pdf.cell(30, 7, "Prot (g)", border=1)
-    pdf.cell(30, 7, "Grassi (g)", border=1)
-    pdf.cell(30, 7, "Kcal", border=1, new_x="LMARGIN", new_y="NEXT")
-
-    pdf.set_font("helvetica", "", 10)
-    for d_str in date_selezionate:
-      giornata_dati = db_diario_atleta.get(d_str, {})
-      tot_c, tot_p, tot_g, tot_k = 0.0, 0.0, 0.0, 0.0
-
-      for pasto in PASTI:
-        df_pasto = giornata_dati.get(pasto, pd.DataFrame())
-        if not df_pasto.empty:
-          tot_c += df_pasto["carbo"].apply(safe_float).sum()
-          tot_p += df_pasto["proteine"].apply(safe_float).sum()
-          tot_g += df_pasto["grassi"].apply(safe_float).sum()
-          tot_k += df_pasto["kcal"].apply(safe_float).sum()
-
-      pdf.cell(40, 6, d_str, border=1)
-      pdf.cell(30, 6, f"{tot_c:.1f}", border=1)
-      pdf.cell(30, 6, f"{tot_p:.1f}", border=1)
-      pdf.cell(30, 6, f"{tot_g:.1f}", border=1)
-      pdf.cell(30, 6, f"{tot_k:.1f}", border=1, new_x="LMARGIN", new_y="NEXT")
-  else:
-    for d_str in date_selezionate:
-      pdf.add_page()
-      pdf.set_font("helvetica", "B", 12)
-      pdf.cell(
-          0,
-          8,
-          f"Atleta: {atleta_nome} | Data: {d_str}",
-          border=0,
-          new_x="LMARGIN",
-          new_y="NEXT",
-      )
-      pdf.ln(3)
-
-      giornata_dati = db_diario_atleta.get(d_str, {})
-      tot_c, tot_p, tot_g, tot_k = 0.0, 0.0, 0.0, 0.0
-
-      for pasto in PASTI:
-        pdf.set_font("helvetica", "B", 10)
-        pdf.cell(
-            0,
-            6,
-            f"Pasto: {pasto}",
-            border=0,
-            new_x="LMARGIN",
-            new_y="NEXT",
-        )
-        df_pasto = giornata_dati.get(pasto, pd.DataFrame())
-
-        if not df_pasto.empty:
-          pdf.set_font("helvetica", "B", 9)
-          pdf.cell(70, 6, "Alimento", border=1)
-          pdf.cell(20, 6, "Quantità", border=1)
-          pdf.cell(20, 6, "Carbo", border=1)
-          pdf.cell(20, 6, "Prot", border=1)
-          pdf.cell(20, 6, "Grassi", border=1)
-          pdf.cell(20, 6, "Kcal", border=1, new_x="LMARGIN", new_y="NEXT")
-
-          pdf.set_font("helvetica", "", 9)
-          for _, row in df_pasto.iterrows():
-            pdf.cell(70, 6, str(row["Alimento"])[:35], border=1)
-            pdf.cell(20, 6, f"{safe_float(row['gr/n']):.1f}", border=1)
-            pdf.cell(20, 6, f"{safe_float(row['carbo']):.1f}", border=1)
-            pdf.cell(20, 6, f"{safe_float(row['proteine']):.1f}", border=1)
-            pdf.cell(20, 6, f"{safe_float(row['grassi']):.1f}", border=1)
-            pdf.cell(
-                20,
-                6,
-                f"{safe_float(row['kcal']):.1f}",
-                border=1,
-                new_x="LMARGIN",
-                new_y="NEXT",
-            )
-
-            tot_c += safe_float(row["carbo"])
-            tot_p += safe_float(row["proteine"])
-            tot_g += safe_float(row["grassi"])
-            tot_k += safe_float(row["kcal"])
-        else:
-          pdf.set_font("helvetica", "I", 9)
-          pdf.cell(
-              0,
-              6,
-              "Nessun alimento registrato.",
-              border=0,
-              new_x="LMARGIN",
-              new_y="NEXT",
-          )
-        pdf.ln(2)
-
-      pdf.ln(3)
-      pdf.set_font("helvetica", "B", 10)
-      pdf.cell(
-          0,
-          8,
-          f"Totali Giornalieri -> Carbo: {tot_c:.1f}g | Prot: {tot_p:.1f}g |"
-          f" Grassi: {tot_g:.1f}g | Kcal: {tot_k:.1f}",
-          border=1,
-          new_x="LMARGIN",
-          new_y="NEXT",
-      )
-
-  return bytes(pdf.output())
-
 
 # --- BARRA LATERALE: LOGIN E GESTIONE ACCESSO ---
 st.sidebar.header("🔐 Accesso al Sistema")
@@ -481,6 +330,9 @@ if st.session_state["utente_autenticato"] == "Admin":
                 "eta": 40,
                 "genere": "Uomo",
                 "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
+                "target_carbo": 230.0,
+                "target_proteine": 165.0,
+                "target_grassi": 70.0,
             },
             "db_diario": {},
         }
@@ -500,7 +352,7 @@ atleta_corrente = st.session_state["utente_autenticato"]
 dati_atleta = st.session_state.atleti[atleta_corrente]
 
 st.sidebar.markdown("---")
-st.sidebar.header(f"⚙️ Parametri Atleta: {atleta_corrente}")
+st.sidebar.header(f"⚙️ Parametri Atleta: {atleta_corrente} (Mifflin-St Jeor)")
 
 profilo = dati_atleta.setdefault("profilo", {})
 peso = st.sidebar.number_input(
@@ -525,12 +377,26 @@ livello_allenamento = st.sidebar.selectbox(
     index=3,
 )
 
+st.sidebar.markdown("### Target Macronutrienti (Mifflin)")
+target_carbo = st.sidebar.number_input(
+    "Target Carboidrati (g)", value=float(profilo.get("target_carbo", 230.0))
+)
+target_proteine = st.sidebar.number_input(
+    "Target Proteine (g)", value=float(profilo.get("target_proteine", 165.0))
+)
+target_grassi = st.sidebar.number_input(
+    "Target Grassi (g)", value=float(profilo.get("target_grassi", 70.0))
+)
+
 if (
     profilo.get("peso") != peso
     or profilo.get("altezza") != altezza
     or profilo.get("eta") != eta
     or profilo.get("genere") != genere
     or profilo.get("livello_allenamento") != livello_allenamento
+    or profilo.get("target_carbo") != target_carbo
+    or profilo.get("target_proteine") != target_proteine
+    or profilo.get("target_grassi") != target_grassi
 ):
   profilo.update({
       "peso": peso,
@@ -538,6 +404,9 @@ if (
       "eta": eta,
       "genere": genere,
       "livello_allenamento": livello_allenamento,
+      "target_carbo": target_carbo,
+      "target_proteine": target_proteine,
+      "target_grassi": target_grassi,
   })
   salva_dati_disco()
 
@@ -558,11 +427,13 @@ bmr = (
 tdee = bmr * pal_selezionato
 obj_kcal = round(tdee, 0)
 
-st.sidebar.info(f"**TDEE Stimato:** {obj_kcal:.0f} kcal")
+st.sidebar.info(f"**BMR Mifflin:** {bmr:.0f} kcal | **TDEE:** {obj_kcal:.0f} kcal")
 
 # Navigazione Sezioni
 sezione_scelta = st.radio(
-    "Seleziona Sezione:", ["Diario Alimentare", "Pianificazione Allenamenti"], horizontal=True
+    "Seleziona Sezione:",
+    ["Diario Alimentare", "Pianificazione Allenamenti"],
+    horizontal=True,
 )
 
 st.markdown("---")
@@ -629,6 +500,71 @@ if sezione_scelta == "Diario Alimentare":
       salva_dati_disco()
       st.rerun()
 
+  # Calcolo totali giornalieri consumati
+  tot_carbo = 0.0
+  tot_proteine = 0.0
+  tot_grassi = 0.0
+  tot_kcal = 0.0
+
+  for pasto in PASTI:
+    df_p = db_diario[data_str][pasto]
+    if not df_p.empty:
+      tot_carbo += safe_float(df_p["carbo"].sum())
+      tot_proteine += safe_float(df_p["proteine"].sum())
+      tot_grassi += safe_float(df_p["grassi"].sum())
+      tot_kcal += safe_float(df_p["kcal"].sum())
+
+  st.markdown("### 📊 Bilancio Giornaliero & Mancanze (Profilo Mifflin)")
+  col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+
+  def delta_str(consumato, target):
+    diff = target - consumato
+    if diff > 0:
+      return f"Mancano: {diff:.1f}g", "normal"
+    else:
+      return f"In eccesso: {abs(diff):.1f}g", "inverse"
+
+  with col_m1:
+    mancanza_c, _ = delta_str(tot_carbo, target_carbo)
+    st.metric(
+        "Carboidrati",
+        f"{tot_carbo:.1f}g",
+        delta=mancanza_c,
+        delta_color="off" if "Mancano" in mancanza_c else "inverse",
+    )
+    st.caption(f"Target Mifflin: {target_carbo}g")
+
+  with col_m2:
+    mancanza_p, _ = delta_str(tot_proteine, target_proteine)
+    st.metric(
+        "Proteine",
+        f"{tot_proteine:.1f}g",
+        delta=mancanza_p,
+        delta_color="off" if "Mancano" in mancanza_p else "inverse",
+    )
+    st.caption(f"Target Mifflin: {target_proteine}g")
+
+  with col_m3:
+    mancanza_g, _ = delta_str(tot_grassi, target_grassi)
+    st.metric(
+        "Grassi",
+        f"{tot_grassi:.1f}g",
+        delta=mancanza_g,
+        delta_color="off" if "Mancano" in mancanza_g else "inverse",
+    )
+    st.caption(f"Target Mifflin: {target_grassi}g")
+
+  with col_m4:
+    mancanza_k, _ = delta_str(tot_kcal, obj_kcal)
+    st.metric(
+        "Calorie Totali",
+        f"{tot_kcal:.0f} kcal",
+        delta=mancanza_k,
+        delta_color="off" if "Mancano" in mancanza_k else "inverse",
+    )
+    st.caption(f"Target TDEE: {obj_kcal:.0f} kcal")
+
+  st.markdown("---")
   st.markdown("### Riepilogo Pasti Giornalieri")
   cols_pasti = st.columns(3)
   for i, pasto in enumerate(PASTI):
@@ -653,50 +589,6 @@ if sezione_scelta == "Diario Alimentare":
             st.rerun()
         else:
           st.info("Nessun alimento.")
-
-  # --- MACRO ESPORTAZIONE PDF (GIORNALIERA E DA DATA A DATA) ---
-  st.markdown("---")
-  with st.expander("📄 Esportazione Report in PDF (Diario Alimentare)"):
-    tipo_esportazione = st.radio(
-        "Seleziona modalità di esportazione:", ["Giornaliera", "Da Data a Data"]
-    )
-
-    if tipo_esportazione == "Giornaliera":
-      data_pdf_singola = st.date_input(
-          "Seleziona Data per PDF", value=date.today(), key="pdf_singola_data"
-      )
-      date_da_esportare = [data_pdf_singola.strftime("%Y-%m-%d")]
-      solo_totali_flag = False
-    else:
-      col_p1, col_p2 = st.columns(2)
-      with col_p1:
-        d_inizio = st.date_input(
-            "Data Inizio", value=date.today(), key="pdf_d_inizio"
-        )
-      with col_p2:
-        d_fine = st.date_input(
-            "Data Fine",
-            value=date.today() + timedelta(days=7),
-            key="pdf_d_fine",
-        )
-
-      date_da_esportare = []
-      curr = d_inizio
-      while curr <= d_fine:
-        date_da_esportare.append(curr.strftime("%Y-%m-%d"))
-        curr += timedelta(days=1)
-      solo_totali_flag = True
-
-    if st.button("Genera PDF Diario Alimentare"):
-      pdf_bytes = genera_pdf_diario(
-          atleta_corrente, db_diario, date_da_esportare, solo_totali=solo_totali_flag
-      )
-      st.download_button(
-          label="⬇️ Scarica File PDF Generato",
-          data=pdf_bytes,
-          file_name=f"diario_alimentare_{atleta_corrente}.pdf",
-          mime="application/pdf",
-      )
 
 else:
   st.subheader("🚴 Pianificazione Allenamento per Anno Solare")
@@ -799,37 +691,8 @@ else:
           st.error(
               f"Il file CSV deve contenere le colonne: {colonne_attese}"
           )
-      except Exception as e:
+      exceptException as e:
         st.error(f"Errore nella lettura del file: {e}")
-
-  # --- MACRO: CANCELLAZIONE DA DATA A DATA (O PER INTERVALLO) ---
-  with st.expander("🗑️ Macro: Cancellazione Allenamenti per Intervallo"):
-    st.markdown(
-        "Seleziona un intervallo di date per rimuovere in blocco gli"
-        " allenamenti pianificati corrispondenti."
-    )
-    col_d1, col_d2 = st.columns(2)
-    with col_d1:
-      data_inizio_del = st.date_input("Data Inizio Rimozione", value=date.today())
-    with col_d2:
-      data_fine_del = st.date_input(
-          "Data Fine Rimozione", value=date.today() + timedelta(days=7)
-      )
-
-    if st.button("Esegui Cancellazione Intervallo"):
-      st.info(
-          f"Richiesta di cancellazione registrata per l'intervallo:"
-          f" {data_inizio_del} a {data_fine_del}."
-      )
-      st.session_state.database_allenamenti[anno_selezionato][
-          mese_selezionato
-      ] = pd.DataFrame(columns=df_base_mese.columns)
-      salva_dati_disco()
-      st.success(
-          "Intervallo di allenamenti eliminato e database aggiornato con"
-          " successo!"
-      )
-      st.rerun()
 
   st.subheader(
       f"✍️ Gestione Allenamenti: **{mese_selezionato} {anno_selezionato}**"
