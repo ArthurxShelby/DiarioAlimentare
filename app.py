@@ -1,98 +1,61 @@
 import streamlit as st
-import pandas as pd
-from datetime import datetime
 
-# Page configuration
+# Configure page settings
 st.set_page_config(
-    page_title="React Artifact Viewer",
-    page_icon="⚛️",
+    page_title="React Artifact Conversion",
+    page_icon="⚡",
     layout="wide"
 )
 
-# Custom CSS matching the Tailwind design and dark theme vibes of the artifact
+# Custom styling matching the Tailwind design tokens from the web app
 st.markdown("""
-    <style>
-    .main {
+<style>
+    .stApp {
         background-color: #0e1110;
         color: #e8efe9;
         font-family: 'Inter', sans-serif;
     }
-    .stApp {
-        background-color: #0e1110;
+    .main-container {
+        padding: 2rem;
     }
-    .artifact-card {
-        background-color: #121412;
+    .card {
+        background-color: #171d1a;
         border: 1px solid #1a211c;
-        border-radius: 20px;
-        padding: 24px;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        border-radius: 18px;
+        padding: 1.5rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
     }
-    .accent-button {
-        background-color: #f97316;
-        color: white;
-        border-radius: 9999px;
-        padding: 10px 20px;
-        font-weight: 600;
-        border: none;
-        cursor: pointer;
-        transition: background-color 0.2s;
-    }
-    .accent-button:hover {
-        background-color: #ea6a0f;
-    }
-    </style>
+</style>
 """, unsafe_allow_html=True)
 
-# Main Application Layout
-st.markdown("<h1 style='text-align: center; color: #e8efe9; font-weight: 700;'>React Artifact Simulator</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #8fa98c;'>Python & Streamlit Implementation of the Web App Component</p>", unsafe_allow_html=True)
-
-st.markdown("---")
-
-# Layout columns for dashboard representation
-col1, col2 = st.columns([7, 5], gap="large")
-
-with col1:
-    st.markdown("### 📊 Interactive Dashboard Panel")
-    st.markdown("This section mirrors the interactive grid and container layout from the provided React artifact source code.")
+def main():
+    st.markdown('<div class="main-container">', unsafe_allow_html=True)
     
-    # Interactive components mimicking state updates
-    user_input = st.text_input("Artifact Input Field", placeholder="Type something to update state...")
+    # Header Section
+    st.title("⚡ Python Streamlit Artifact")
+    st.markdown("Converted from the provided web application bundle.")
     
-    if st.button("Trigger Action", key="action_btn"):
-        st.success(f"Action executed successfully with input: **{user_input}**" if user_input else "Action executed successfully!")
+    # Interactive Demo Components
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.subheader("Control Panel")
+        user_input = st.text_input("Enter parameter:", value="Default Value")
+        slider_val = st.slider("Select weight/intensity:", 0, 100, 50)
+        action_btn = st.button("Run Process", type="primary")
+        st.markdown('</div>', unsafe_allow_html=True)
         
-    # Sample metrics/data display
-    chart_data = pd.DataFrame(
-        {
-            "Metric Value": [12, 23, 34, 45, 56, 78],
-        }
-    )
-    st.line_chart(chart_data)
+    with col2:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.subheader("Output Status")
+        if action_btn:
+            st.success(f"Successfully processed: **{user_input}** at level **{slider_val}**")
+        else:
+            st.info("Awaiting user action from the control panel...")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    st.markdown('</div>', unsafe_allow_html=True)
 
-with col2:
-    st.markdown("### ⚙️ Component Settings & Details")
-    st.markdown(
-        """
-        <div class="artifact-card">
-            <h4>Artifact Specifications</h4>
-            <ul>
-                <li><b>Framework:</b> Streamlit / Python</li>
-                <li><b>Original Artifact:</b> React / Tailwind CSS</li>
-                <li><b>Status:</b> Active & Rendered</li>
-            </ul>
-            <hr style="border-color: #1a211c;">
-            <p style="font-size: 13px; color: #8fa98c;">
-                All styles, Tailwind utility classes, and layout structures from the DOM template have been successfully adapted into a native Python web app experience.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-# Footer info
-st.markdown("---")
-st.markdown(
-    "<p style='text-align: center; font-size: 11px; color: #8fa98c;'>React Artifact Viewer — Built with Streamlit</p>", 
-    unsafe_allow_html=True
-)
+if __name__ == "__main__":
+    main()
