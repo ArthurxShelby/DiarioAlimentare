@@ -440,6 +440,17 @@ if st.session_state.utente_loggato is not None:
     atleta_corrente = st.session_state.utente_loggato
     st.session_state.atleta_corrente = atleta_corrente
 
+    # Assicura che l'atleta ospite abbia il suo spazio dati isolato
+    if atleta_corrente not in st.session_state.atleti:
+        st.session_state.atleti[atleta_corrente] = {
+            "peso": 70.0,
+            "altezza": 175.0,
+            "eta": 30,
+            "genere": "Uomo",
+            "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
+            "db_diario": {},
+        }
+
     st.sidebar.warning(f"🔒 Accesso limitato a: **{atleta_corrente}**")
     if st.sidebar.button("🚪 Esci (Logout)"):
         st.session_state.utente_loggato = None
