@@ -675,7 +675,6 @@ else:
             "Giorno",
             "Esercizio / Nome",
             "Watt",
-            "Watt",
             "RPM",
             "Ripetizioni",
             "Lavoro (min)",
@@ -685,14 +684,14 @@ else:
           st.session_state.database_allenamenti[anno_selezionato][
               mese_selezionato
           ] = df_caricato[colonne_attese]
-          salva_dates = salva_dati_disco()
+          salva_dati_disco()
           st.success("File CSV caricato e salvato correttamente!")
           st.rerun()
         else:
           st.error(
               f"Il file CSV deve contenere le colonne: {colonne_attese}"
           )
-      except Exception as e:
+      exceptException as e:
         st.error(f"Errore nella lettura del file: {e}")
 
   st.subheader(
