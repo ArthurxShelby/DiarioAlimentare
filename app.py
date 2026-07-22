@@ -509,6 +509,114 @@ else:
 
 st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta (Mifflin)")
 
+# --- SEZIONE GESTIONE ATLETI NELLA SIDEBAR (ESCLUSIVA PER ADMIN) ---
+if st.session_state.utente_loggato is None:
+  st.sidebar.header("Gestione Atleti")
+  lista_atleti = list(st.session_state.atleti.keys())
+  atleta_selezionato = st.sidebar.selectbox(
+      "Seleziona Atleta",
+      lista_atleti,
+      index=lista_atleti.index(st.session_state.atleta_corrente)
+      if st.session_state.atleta_corrente in lista_atleti
+      else 0,
+      key="selectbox_atleta",
+  )
+
+  if atleta_selezionato != st.session_state.atleta_corrente:
+    st.session_state.atleta_corrente = atleta_selezionato
+    salva_dati_disco()
+    st.rerun()
+
+  with st.sidebar.expander("Aggiungi o Gestisci Atleti"):
+    nuovo_atleta_nome = st.text_input("Nome Nuovo Atleta")
+    nuova_pwd_atleta = st.text_input(
+        "Password per il nuovo atleta", type="password"
+    )
+    if st.button("Crea Nuovo Atleta"):
+      nome_pulito = nuovo_atleta_nome.strip()
+      if nome_pulito == "":
+        st.error("Inserisci un nome valido.")
+      elif nome_pulito in st.session_state.atleti:
+        st.warning("Esiste già un atleta con questo nome.")
+      else:
+        st.session_state.atleti[nome_pulito] = {
+            "peso": 70.0,
+            "altezza": 175.0,
+            "eta": 30,
+            "genere": "Uomo",
+            "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
+            "db_diario": {},
+            "db_allenamenti": {},
+            "banca_dati_df": pd.DataFrame(DEFAULT_BANCA_DATI),
+        }
+        if nuova_pwd_atleta.strip() != "":
+          st.session_state.password_atleti[nome_pulito] = (
+              nuova_pwd_atleta.strip()
+          )
+        st.session_state.atleta_corrente = nome_pulito
+        salva_dati_disco()
+        st.success(
+            f"Atleta '{nome_pulito}' aggiunto con banca dati isolata con"
+            " successo!"
+        )
+        st.rerun()
+
+    st.markdown("---")
+    st.markdown("#### Modifica Password o Elimina Utente Esistente")
+    atleti_modificabili = [a for a in lista_atleti if a != "Atleta Principale"]
+
+    if not atleti_modificabili:
+      st.info("Nessun utente secondario configurato da modificare o eliminare.")
+    else:
+      atleta_gestione = st.selectbox(
+          "Seleziona Utente da Gestire", atleti_modificabili, key="sel_gestione_utente"
+      )
+
+      nuova_password_mod = st.text_input(
+          "Nuova Password (lascia vuoto per rimuoverla)",
+          type="password",
+          key="input_mod_pwd_atleta",
+      )
+      if st.button("Aggiorna Password Utente"):
+        if nuova_password_mod.strip() == "":
+          if atleta_gestione in st.session_state.password_atleti:
+            del st.session_state.password_atleti[atleta_gestione]
+          salva_dati_disco()
+          st.success(
+              f"Password rimossa per l'utente '{atleta_gestione}' (accesso libero"
+              " con password vuota)."
+          )
+        else:
+          st.session_state.password_atleti[atleta_gestione] = (
+              nuova_password_mod.strip()
+          )
+          salva_dati_disco()
+          st.success(
+              f"Password aggiornata con successo per l'utente '{atleta_gestione}'!"
+          )
+        st.rerun()
+
+      st.markdown("")
+      if st.button(
+          f"Conferma ed Elimina Utente '{atleta_gestione}'",
+          type="primary",
+          key="btn_del_user_specific",
+      ):
+        if atleta_gestione in st.session_state.atleti:
+          del st.session_state.atleti[atleta_gestione]
+          if atleta_gestione in st.session_state.password_atleti:
+            del st.session_state.password_atleti[atleta_gestione]
+          st.session_state.atleta_corrente = list(
+              st.session_state.atleti.keys()
+          )[0]
+          salva_dati_disco()
+          st.success(f"Utente '{atleta_gestione}' eliminato permanentemente.")
+          st.rerun()
+
+  st.sidebar.markdown("---")
+
+# Proseguimento dei parametri dell'atleta corrente...
+
 # --- SEZIONE GESTIONE ATLETI NELLA SIDEBAR (SOLO PER ADMIN) ---
 if st.session_state.utente_loggato is None:
   st.sidebar.header("Gestione Atleti")
