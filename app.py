@@ -8,7 +8,7 @@ import streamlit as st
 
 # Configurazione della pagina
 st.set_page_config(
-    page_title="Diario Alimentare & Allenamento - Multi-Atleta",
+    page_title="Pianificatore Alimentare & Allenamento",
     page_icon="",
     layout="wide",
 )
@@ -42,12 +42,13 @@ def pulisci_dataframe_banca_dati(df):
 
 
 def salva_dati_disco():
-    """Salva lo stato della banca dati, degli atleti e delle credenziali nel file locale."""
+    """Salva lo stato della banca dati, degli atleti, delle credenziali e dei piani di allenamento sul file locale."""
     try:
         dati = {
             "atleti": st.session_state.get("atleti", {}),
             "banca_dati_df": st.session_state.get("banca_dati_df"),
             "credenziali": st.session_state.get("credenziali", {}),
+            "piani_allenamento": st.session_state.get("piani_allenamento", {}),
         }
         with open(FILE_PERSISTENZA, "wb") as f:
             pickle.dump(dati, f)
@@ -70,19 +71,20 @@ def carica_dati_disco():
             migrated = {
                 "atleti": {
                     "Atleta Principale": {
-                        "peso": old_dati.get("peso", 70.0),
-                        "altezza": old_dati.get("altezza", 175.0),
+                        "peso": old_dati.get("peso", 75.0),
+                        "altezza": old_dati.get("altezza", 173.0),
                         "eta": old_dati.get("eta", 56),
                         "genere": old_dati.get("genere", "Uomo"),
                         "livello_allenamento": old_dati.get(
                             "livello_allenamento",
-                            "Allenamento Moderato (PAL 1.55)",
+                            "Allenamento Intenso / Rouleur-Climber (PAL 1.725)",
                         ),
                         "db_diario": old_dati.get("db_diario", {}),
                     }
                 },
                 "banca_dati_df": old_dati.get("banca_dati_df", None),
                 "credenziali": {"Admin": "admin123", "Atleta Principale": "atleta123"},
+                "piani_allenamento": {},
             }
             return migrated
         except Exception as e:
@@ -412,14 +414,21 @@ if "atleti" not in st.session_state:
     else:
         st.session_state.atleti = {
             "Atleta Principale": {
-                "peso": 70.0,
-                "altezza": 175.0,
+                "peso": 75.0,
+                "altezza": 173.0,
                 "eta": 56,
                 "genere": "Uomo",
-                "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
+                "livello_allenamento": "Allenamento Intenso / Rouleur-Climber (PAL 1.725)",
                 "db_diario": {},
             }
         }
+
+# Inizializzazione Piani di Allenamento
+if "piani_allenamento" not in st.session_state:
+    if dati_salvati and "piani_allenamento" in dati_salvati:
+        st.session_state.piani_allenamento = dati_salvati["piani_allenamento"]
+    else:
+        st.session_state.piani_allenamento = {}
 
 # Inizializzazione Credenziali (Admin user = "Admin", default pass = "admin123")
 if "credenziali" not in st.session_state:
@@ -469,7 +478,7 @@ is_admin = st.session_state.utente_loggato == "Admin"
 
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
-st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta (Mifflin)")
+st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta")
 
 # Pulsante di Logout nella sidebar
 if st.sidebar.button("Disconnetti (Logout)", type="secondary"):
@@ -509,11 +518,11 @@ if is_admin:
                 st.warning("Esiste già un atleta con questo nome.")
             else:
                 st.session_state.atleti[nome_pulito] = {
-                    "peso": 70.0,
-                    "altezza": 175.0,
-                    "eta": 30,
+                    "peso": 75.0,
+                    "altezza": 173.0,
+                    "eta": 56,
                     "genere": "Uomo",
-                    "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
+                    "livello_allenamento": "Allenamento Intenso / Rouleur-Climber (PAL 1.725)",
                     "db_diario": {},
                 }
                 st.session_state.credenziali[nome_pulito] = pass_pulita
@@ -555,7 +564,7 @@ if is_admin:
                     st.success(f"Atleta '{atleta_da_eliminare}' eliminato.")
                     st.rerun()
 else:
-    # Utente standard vede solo se stesso
+    # Utente standard vede solo se stesso ed è blindato sul suo profilo
     st.sidebar.header(f"Profilo Utente: {st.session_state.utente_loggato}")
     st.session_state.atleta_corrente = st.session_state.utente_loggato
 
@@ -566,12 +575,12 @@ st.sidebar.header(
 
 atleta_data = st.session_state.atleti[st.session_state.atleta_corrente]
 
-saved_peso = atleta_data.get("peso", 70.0)
-saved_altezza = atleta_data.get("altezza", 175.0)
+saved_peso = atleta_data.get("peso", 75.0)
+saved_altezza = atleta_data.get("altezza", 173.0)
 saved_eta = atleta_data.get("eta", 56)
 saved_genere = atleta_data.get("genere", "Uomo")
 saved_allenamento = atleta_data.get(
-    "livello_allenamento", "Allenamento Moderato (PAL 1.55)"
+    "livello_allenamento", "Allenamento Intenso / Rouleur-Climber (PAL 1.725)"
 )
 
 genere_opzioni = ["Uomo", "Donna"]
@@ -589,7 +598,7 @@ allenamento_opzioni = [
 allenamento_index = (
     allenamento_opzioni.index(saved_allenamento)
     if saved_allenamento in allenamento_opzioni
-    else 2
+    else 3
 )
 
 peso = st.sidebar.number_input(
@@ -742,6 +751,89 @@ with col_m4:
         float(min(tot_grassi / obj_grassi, 1.0)) if obj_grassi > 0 else 0.0
     )
     st.progress(progresso_grassi)
+
+st.markdown("---")
+
+# --- SEZIONE PLAN DI ALLENAMENTO (MULTi-ATLETA) ---
+st.subheader(
+    f"Pianificazione Allenamento per Anno Solare - {st.session_state.atleta_corrente}"
+)
+
+col_anno, col_mese = st.columns(2)
+with col_anno:
+    anno_corrente = st.number_input(
+        "Anno Solare Corrente",
+        min_value=2024,
+        max_value=2035,
+        value=2026,
+        key=f"anno_all_{st.session_state.atleta_corrente}",
+    )
+with col_mese:
+    mesi_italiani = [
+        "Gennaio",
+        "Febbraio",
+        "Marzo",
+        "Aprile",
+        "Maggio",
+        "Giugno",
+        "Luglio",
+        "Agosto",
+        "Settembre",
+        "Ottobre",
+        "Novembre",
+        "Dicembre",
+    ]
+    mese_corrente = st.selectbox(
+        "Mese Corrente",
+        mesi_italiani,
+        key=f"mese_all_{st.session_state.atleta_corrente}",
+    )
+
+# Chiave per il dizionario dei piani di allenamento legata all'atleta corrente
+key_atleta_piani = st.session_state.piani_allenamento.setdefault(
+    st.session_state.atleta_corrente, {}
+)
+key_anno_piani = key_atleta_piani.setdefault(anno_corrente, {})
+
+if mese_corrente not in key_anno_piani:
+    key_anno_piani[mese_corrente] = pd.DataFrame(
+        columns=["Settimana", "Giorno", "Esercizio / Nome", "Watt", "RPM", "Ripetizioni", "Lavoro (min)"]
+    )
+    salva_dati_disco()
+
+df_allenamento_mese = key_anno_piani[mese_corrente]
+
+with st.expander("Integra o carica piano di lavoro tramite file CSV", expanded=False):
+    st.info(
+        "Carica un file CSV per il piano di allenamento. Colonne attese: Settimana, Giorno, Esercizio / Nome, Watt, RPM, Ripetizioni, Lavoro (min)."
+    )
+    file_caricato_all = st.file_uploader(
+        "Carica file CSV Allenamento", type=["csv"], key=f"uploader_all_{st.session_state.atleta_corrente}"
+    )
+    if file_caricato_all is not None:
+        try:
+            df_all_nuovo = pd.read_csv(file_caricato_all, encoding="utf-8", sep=None, engine="python")
+            if not df_all_nuovo.empty:
+                st.write("Anteprima dati allenamento:", df_all_nuovo.head())
+                if st.button("Conferma e Sostituisci Piano Mensile"):
+                    key_anno_piani[mese_corrente] = df_all_nuovo
+                    salva_dati_disco()
+                    st.success("Piano di allenamento aggiornato con successo!")
+                    st.rerun()
+        except Exception as e:
+            st.error(f"Errore nella lettura del file CSV: {e}")
+
+st.markdown(f"### Gestione e Modifica Allenamenti: {mese_corrente} {anno_corrente}")
+edited_df_allenamento = st.data_editor(
+    df_allenamento_mese,
+    num_rows="dynamic",
+    use_container_width=True,
+    key=f"editor_allenamento_{st.session_state.atleta_corrente}_{anno_corrente}_{mese_corrente}",
+)
+
+if not edited_df_allenamento.equals(df_allenamento_mese):
+    key_anno_piani[mese_corrente] = edited_df_allenamento
+    salva_dati_disco()
 
 st.markdown("---")
 
