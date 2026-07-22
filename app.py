@@ -15,7 +15,6 @@ st.set_page_config(
 
 # --- 0. GESTIONE PERSISTENZA DATI E PULIZIA ---
 FILE_PERSISTENZA = "diario_alimentare_multi_db.pkl"
-OLD_FILE_PERSISTENZA = "diario_alimentare_db.pkl"
 
 
 def safe_float(val):
@@ -136,7 +135,6 @@ DEFAULT_BANCA_DATI = [
     },
 ]
 
-# Database allenamenti iniziale predefinito per ogni nuovo profilo
 DATABASE_ALLENAMENTI_INIZIALE = {
     2026: {
         "Gennaio": {
@@ -177,7 +175,6 @@ ELENCO_MESI_COMPLETO = [
     "Dicembre",
 ]
 
-# Inizializzazione Banca Dati globale
 if "banca_dati_df" not in st.session_state:
   if (
       dati_salvati
@@ -192,7 +189,6 @@ st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(
     st.session_state.banca_dati_df
 )
 
-# Inizializzazione Atleti
 if "atleti" not in st.session_state:
   if dati_salvati and "atleti" in dati_salvati:
     st.session_state.atleti = dati_salvati["atleti"]
@@ -210,7 +206,6 @@ if "atleti" not in st.session_state:
         }
     }
 
-# Assicuriamoci che ogni atleta abbia il proprio db_allenamenti_anni isolato
 for a_nome, a_dati in st.session_state.atleti.items():
   if "db_allenamenti_anni" not in a_dati:
     a_dati["db_allenamenti_anni"] = DATABASE_ALLENAMENTI_INIZIALE.copy()
@@ -226,7 +221,6 @@ if "utente_loggato" not in st.session_state:
 
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
-# --- GESTIONE LOGIN / BLOCCO OSPITI ---
 ADMIN_PASSWORD = "adminpassword123"
 
 if st.session_state.utente_loggato is not None:
@@ -282,10 +276,10 @@ else:
     st.session_state.atleta_corrente = "Atleta Principale"
 
 st.title(
-    f"Pianificatore & Allenamento - {st.session_state.get('atleta_corrente', 'Atleta')}"
+    f"Pianificatore & Allenamento -"
+    f" {st.session_state.get('atleta_corrente', 'Atleta')}"
 )
 
-# --- SEZIONE GESTIONE ATLETI NELLA SIDEBAR (SOLO PER ADMIN) ---
 if st.session_state.utente_loggato is None:
   st.sidebar.header("Gestione Atleti")
   lista_atleti = list(st.session_state.atleti.keys())
@@ -309,8 +303,6 @@ if st.session_state.utente_loggato is None:
         "Password per il nuovo atleta", type="password"
     )
     if st.button("Crea Nuovo Atleta"):
-      nome_pulito = nuevo_atleta_nome.strip() if 'nuevo_atleta_nome' not in locals() else nuovo_atleta_nome.strip()
-      # Corretto in nome_pulito = nuovo_atleta_nome.strip()
       nome_pulito = nuovo_atleta_nome.strip()
       if nome_pulito == "":
         st.error("Inserisci un nome valido.")
@@ -341,7 +333,6 @@ if st.session_state.utente_loggato is None:
 st.sidebar.markdown("---")
 atleta_data = st.session_state.atleti[st.session_state.atleta_corrente]
 
-# Recupero dati antropometrici
 peso = st.sidebar.number_input(
     "Peso (kg)",
     value=float(atleta_data.get("peso", 70.0)),
@@ -378,7 +369,6 @@ if data_str not in db_diario_atleta:
   }
   salva_dati_disco()
 
-# --- SEZIONE TABELLA ALLENAMENTI ISOLATA PER ATLETA ---
 st.markdown("---")
 st.header(
     f"🏋️ Pianificazione Allenamento per Anno Solare -"
@@ -447,7 +437,6 @@ if isinstance(dati_correnti_all, dict):
 else:
   df_base_mese = dati_correnti_all
 
-# Editor interattivo isolato per l'utente corrente
 df_modificato_all = st.data_editor(
     df_base_mese,
     num_rows="dynamic",
@@ -473,9 +462,12 @@ if not df_modificato_all.equals(df_base_mese):
   salva_dati_disco()
 
 st.success(
-    f"Dati di allenamento sincronizzati e protetti per: **{st.session_state.atleta_corrente}**"
+    f"Dati di allenamento sincronizzati e protetti per:"
+    f" **{st.session_state.atleta_corrente}**"
 )
 
-[Tutorial on Multi-User Streamlit Apps](https://www.youtube.com/watch?v=eCbH2nPL9sU)
-
-Questo video illustra le tecniche di gestione dei dati e degli stati utente in applicazioni Streamlit multi-utente.
+# Eventuale riferimento esterno in formato markdown corretto all'interno di st.markdown
+st.markdown(
+    "[Tutorial on Multi-User Streamlit"
+    " Apps](https://www.youtube.com/watch?v=eCbH2nPL9sU)"
+)
