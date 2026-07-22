@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from fpdf import FPDF
 import os
+import pandas as pd
 import pickle
 import re
 import streamlit as st
@@ -462,10 +463,7 @@ st.sidebar.markdown("---")
 st.sidebar.header("Gestione Atleti")
 lista_atleti = list(st.session_state.atleti.keys())
 
-# Se siamo in modalità ospite, forziamo un profilo ospite o blocchiamo l'atleta principale se vuoi,
-# oppure consentiamo agli ospiti di usare solo un profilo temporaneo "Ospite" per non toccare i tuoi dati.
 if not is_admin:
-  # Crea o seleziona automaticamente un profilo 'Ospite' protetto per i visitatori
   if "Ospite" not in st.session_state.atleti:
     st.session_state.atleti["Ospite"] = {
         "peso": 70.0,
@@ -475,7 +473,6 @@ if not is_admin:
         "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
         "db_diario": {},
     }
-  # Forziamo l'atleta corrente a essere "Ospite" per chi non ha la password admin (così non tocca l'Atleta Principale)
   st.session_state.atleta_corrente = "Ospite"
   st.sidebar.warning(
       "Stai navigando come **Ospite**. Non puoi modificare il profilo"
@@ -567,26 +564,20 @@ allenamento_index = (
     else 2
 )
 
-# Se non sei admin, i parametri biometrici sono disabilitati o modificabili solo nella sessione ospite isolata
-disabilita_campi = not is_admin and st.session_state.atleta_corrente == "Ospite"
-
 peso = st.sidebar.number_input(
     "Peso (kg)",
     value=float(saved_peso),
     key=f"peso_{st.session_state.atleta_corrente}",
-    disabled=False,
 )
 altezza = st.sidebar.number_input(
     "Altezza (cm)",
     value=float(saved_altezza),
     key=f"altezza_{st.session_state.atleta_corrente}",
-    disabled=False,
 )
 eta = st.sidebar.number_input(
     "Età (anni)",
     value=int(saved_eta),
     key=f"eta_{st.session_state.atleta_corrente}",
-    disabled=False,
 )
 genere = st.sidebar.selectbox(
     "Genere",
@@ -613,7 +604,6 @@ if (
   atleta_data["eta"] = eta
   atleta_data["genere"] = genere
   atleta_data["livello_allenamento"] = livello_allenamento
-  # Salva su disco solo se admin o se è il profilo ospite temporaneo
   if is_admin or st.session_state.atleta_corrente == "Ospite":
     salva_dati_disco()
 
