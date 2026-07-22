@@ -42,12 +42,12 @@ def pulisci_dataframe_banca_dati(df):
 
 
 def salva_dati_disco():
-    """Salva lo stato della banca dati, degli atleti e delle credenziali nel file locale."""
+    """Salva lo stato della banca dati, degli atleti e dell'atleta corrente nel file locale."""
     try:
         dati = {
             "atleti": st.session_state.get("atleti", {}),
             "banca_dati_df": st.session_state.get("banca_dati_df"),
-            "credenziali": st.session_state.get("credenziali", {}),
+            "atleta_corrente": st.session_state.get("atleta_corrente"),
         }
         with open(FILE_PERSISTENZA, "wb") as f:
             pickle.dump(dati, f)
@@ -56,7 +56,7 @@ def salva_dati_disco():
 
 
 def carica_dati_disco():
-    """Carica i dati salvati dal file locale."""
+    """Carica i dati salvati dal file locale (con supporto alla migrazione dal vecchio formato singolo)."""
     if os.path.exists(FILE_PERSISTENZA):
         try:
             with open(FILE_PERSISTENZA, "rb") as f:
@@ -67,6 +67,7 @@ def carica_dati_disco():
         try:
             with open(OLD_FILE_PERSISTENZA, "rb") as f:
                 old_dati = pickle.load(f)
+            # Migrazione automatica al formato multi-atleta
             migrated = {
                 "atleti": {
                     "Atleta Principale": {
@@ -82,7 +83,7 @@ def carica_dati_disco():
                     }
                 },
                 "banca_dati_df": old_dati.get("banca_dati_df", None),
-                "credenziali": {"Admin": "admin123", "Atleta Principale": "atleta123"},
+                "atleta_corrente": "Atleta Principale",
             }
             return migrated
         except Exception as e:
@@ -92,7 +93,7 @@ def carica_dati_disco():
 
 dati_salvati = carica_dati_disco()
 
-# Banca dati precompilata iniziale (condivisa)
+# Banca dati precompilata iniziale (condivisa tra gli atleti)
 DEFAULT_BANCA_DATI = [
     {
         "Alimento": "anguria",
@@ -384,7 +385,7 @@ DEFAULT_BANCA_DATI = [
     },
 ]
 
-# Inizializzazione Banca Dati
+# Inizializzazione della Banca Dati
 if "banca_dati_df" not in st.session_state:
     if (
         dati_salvati
@@ -421,143 +422,75 @@ if "atleti" not in st.session_state:
             }
         }
 
-# Inizializzazione Credenziali (Admin user = "Admin", default pass = "admin123")
-if "credenziali" not in st.session_state:
-    if dati_salvati and "credenziali" in dati_salvati:
-        st.session_state.credenziali = dati_salvati["credenziali"]
+if "atleta_corrente" not in st.session_state:
+    if (
+        dati_salvati
+        and "atleta_corrente" in dati_salvati
+        and dati_salvati["atleta_corrente"] in st.session_state.atleti
+    ):
+        st.session_state.atleta_corrente = dati_salvati["atleta_corrente"]
     else:
-        st.session_state.credenziali = {
-            "Admin": "admin123",
-            "Atleta Principale": "atleta123",
-        }
-
-# --- SISTEMA DI AUTENTICAZIONE ---
-if "autenticato" not in st.session_state:
-    st.session_state.autenticato = False
-if "utente_loggato" not in st.session_state:
-    st.session_state.utente_loggato = None
-
-if not st.session_state.autenticato:
-    st.title("Accesso - Pianificatore Alimentare & Allenamento")
-    with st.form("form_login"):
-        username_input = st.text_input("Nome Utente / Atleta")
-        password_input = st.text_input("Password", type="password")
-        btn_login = st.form_submit_button("Accedi")
-
-        if btn_login:
-            user_clean = username_input.strip()
-            if (
-                user_clean in st.session_state.credenziali
-                and st.session_state.credenziali[user_clean] == password_input
-            ):
-                st.session_state.autenticato = True
-                st.session_state.utente_loggato = user_clean
-                if user_clean != "Admin":
-                    st.session_state.atleta_corrente = user_clean
-                else:
-                    st.session_state.atleta_corrente = list(
-                        st.session_state.atleti.keys()
-                    )[0]
-                st.success("Accesso eseguito con successo!")
-                st.rerun()
-            else:
-                st.error("Nome utente o password errati.")
-    st.stop()
-
-# --- GESTIONE SESSIONE UTENTE LOGGATO ---
-is_admin = st.session_state.utente_loggato == "Admin"
+        st.session_state.atleta_corrente = list(st.session_state.atleti.keys())[
+            0
+        ]
 
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
 st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta (Mifflin)")
 
-# Pulsante di Logout nella sidebar
-if st.sidebar.button("Disconnetti (Logout)", type="secondary"):
-    st.session_state.autenticato = False
-    st.session_state.utente_loggato = None
+# --- SEZIONE GESTIONE ATLETI NELLA SIDEBAR ---
+st.sidebar.header("Gestione Atleti")
+lista_atleti = list(st.session_state.atleti.keys())
+atleta_selezionato = st.sidebar.selectbox(
+    "Seleziona Atleta",
+    lista_atleti,
+    index=lista_atleti.index(st.session_state.atleta_corrente)
+    if st.session_state.atleta_corrente in lista_atleti
+    else 0,
+    key="selectbox_atleta",
+)
+
+if atleta_selezionato != st.session_state.atleta_corrente:
+    st.session_state.atleta_corrente = atleta_selezionato
+    salva_dati_disco()
     st.rerun()
 
-st.sidebar.markdown("---")
+with st.sidebar.expander("Aggiungi o Gestisci Atleti"):
+    nuovo_atleta_nome = st.text_input("Nome Nuovo Atleta")
+    if st.button("Crea Nuovo Atleta"):
+        nome_pulito = nuovo_atleta_nome.strip()
+        if nome_pulito == "":
+            st.error("Inserisci un nome valido.")
+        elif nome_pulito in st.session_state.atleti:
+            st.warning("Esiste già un atleta con questo nome.")
+        else:
+            st.session_state.atleti[nome_pulito] = {
+                "peso": 70.0,
+                "altezza": 175.0,
+                "eta": 30,
+                "genere": "Uomo",
+                "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
+                "db_diario": {},
+            }
+            st.session_state.atleta_corrente = nome_pulito
+            salva_dati_disco()
+            st.success(f"Atleta '{nome_pulito}' aggiunto con successo!")
+            st.rerun()
 
-# --- SEZIONE GESTIONE ATLETI / UTENTI NELLA SIDEBAR ---
-if is_admin:
-    st.sidebar.header("Gestione Amministratore (Atleti & Password)")
-    lista_atleti = list(st.session_state.atleti.keys())
-    atleta_selezionato = st.sidebar.selectbox(
-        "Seleziona Atleta da Visualizzare",
-        lista_atleti,
-        index=lista_atleti.index(st.session_state.atleta_corrente)
-        if st.session_state.atleta_corrente in lista_atleti
-        else 0,
-        key="selectbox_atleta_admin",
-    )
-
-    if atleta_selezionato != st.session_state.atleta_corrente:
-        st.session_state.atleta_corrente = atleta_selezionato
-        salva_dati_disco()
-        st.rerun()
-
-    with st.sidebar.expander("Crea o Gestisci Utenti/Atleti"):
-        nuovo_atleta_nome = st.text_input("Nome Nuovo Atleta")
-        nuova_password = st.text_input("Password Iniziale", type="password")
-        if st.button("Crea Nuovo Utente/Atleta"):
-            nome_pulito = nuovo_atleta_nome.strip()
-            pass_pulita = nuova_password.strip()
-            if nome_pulito == "" or pass_pulita == "":
-                st.error("Inserisci un nome e una password validi.")
-            elif nome_pulito in st.session_state.atleti:
-                st.warning("Esiste già un atleta con questo nome.")
-            else:
-                st.session_state.atleti[nome_pulito] = {
-                    "peso": 70.0,
-                    "altezza": 175.0,
-                    "eta": 30,
-                    "genere": "Uomo",
-                    "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
-                    "db_diario": {},
-                }
-                st.session_state.credenziali[nome_pulito] = pass_pulita
-                st.session_state.atleta_corrente = nome_pulito
-                salva_dati_disco()
-                st.success(f"Utente '{nome_pulito}' creato con successo!")
-                st.rerun()
-
-        st.markdown("---")
-        utente_sel_pw = st.selectbox(
-            "Modifica Password Utente", list(st.session_state.credenziali.keys())
+    if len(st.session_state.atleti) > 1:
+        atleta_da_eliminare = st.selectbox(
+            "Elimina Atleta",
+            [a for a in lista_atleti if a != st.session_state.atleta_corrente],
         )
-        nuova_pw_mod = st.text_input("Nuova Password", type="password")
-        if st.button("Aggiorna Password"):
-            if nuova_pw_mod.strip():
-                st.session_state.credenziali[utente_sel_pw] = nuova_pw_mod.strip()
+        if st.button("Conferma ed Elimina Atleta", type="primary"):
+            if atleta_da_eliminare in st.session_state.atleti:
+                del st.session_state.atleti[atleta_da_eliminare]
+                st.session_state.atleta_corrente = list(
+                    st.session_state.atleti.keys()
+                )[0]
                 salva_dati_disco()
-                st.success(
-                    f"Password per '{utente_sel_pw}' aggiornata con successo!"
-                )
+                st.success(f"Atleta '{atleta_da_eliminare}' eliminato.")
                 st.rerun()
-            else:
-                st.error("Inserisci una password non vuota.")
-
-        if len(st.session_state.atleti) > 1:
-            atleta_da_eliminare = st.selectbox(
-                "Elimina Atleta",
-                [a for a in lista_atleti if a != st.session_state.atleta_corrente],
-            )
-            if st.button("Conferma ed Elimina Atleta", type="primary"):
-                if atleta_da_eliminare in st.session_state.atleti:
-                    del st.session_state.atleti[atleta_da_eliminare]
-                    if atleta_da_eliminare in st.session_state.credenziali:
-                        del st.session_state.credenziali[atleta_da_eliminare]
-                    st.session_state.atleta_corrente = list(
-                        st.session_state.atleti.keys()
-                    )[0]
-                    salva_dati_disco()
-                    st.success(f"Atleta '{atleta_da_eliminare}' eliminato.")
-                    st.rerun()
-else:
-    # Utente standard vede solo se stesso
-    st.sidebar.header(f"Profilo Utente: {st.session_state.utente_loggato}")
-    st.session_state.atleta_corrente = st.session_state.utente_loggato
 
 st.sidebar.markdown("---")
 st.sidebar.header(
@@ -1081,6 +1014,7 @@ for i, pasto in enumerate(PASTI):
 
                 st.dataframe(df_p, use_container_width=True)
 
+                # Pulsante per nascondere/mostrare l'accesso alla selezione e cancellazione delle singole voci
                 mostra_gestione_voci = st.toggle(
                     "Modifica voci pasto", key=f"toggle_mod_{pasto}"
                 )
@@ -1154,6 +1088,7 @@ with col_pdf1:
             pdf_output.cell(0, 10, "Riepilogo Totale:", ln=True)
             pdf_output.set_font("Arial", "", 11)
 
+            # Stampa calorie con controllo eccedenza
             pdf_output.set_text_color(0, 0, 0)
             pdf_output.write(8, "Calorie: ")
             if tot_kcal > obj_kcal:
@@ -1165,6 +1100,7 @@ with col_pdf1:
             )
             pdf_output.ln(2)
 
+            # Stampa carboidrati con controllo eccedenza
             pdf_output.write(8, "Carboidrati: ")
             if tot_carbo > obj_carbo:
                 pdf_output.set_text_color(220, 20, 60)
@@ -1173,6 +1109,7 @@ with col_pdf1:
             pdf_output.write(8, f" / {obj_carbo} g\n")
             pdf_output.ln(2)
 
+            # Stampa proteine con controllo eccedenza
             pdf_output.write(8, "Proteine: ")
             if tot_prot > obj_prot:
                 pdf_output.set_text_color(220, 20, 60)
@@ -1181,6 +1118,7 @@ with col_pdf1:
             pdf_output.write(8, f" / {obj_prot} g\n")
             pdf_output.ln(2)
 
+            # Stampa grassi con controllo eccedenza
             pdf_output.write(8, "Grassi: ")
             if tot_grassi > obj_grassi:
                 pdf_output.set_text_color(220, 20, 60)
@@ -1325,6 +1263,7 @@ with col_pdf2:
                 media_prot = tot_p_prot / delta_giorni
                 media_grassi = tot_p_grassi / delta_giorni
 
+                # Calorie totali periodo / media
                 pdf_output.set_text_color(0, 0, 0)
                 pdf_output.write(8, "Calorie Totali: ")
                 if media_kcal > obj_kcal:
@@ -1339,6 +1278,7 @@ with col_pdf2:
                 pdf_output.write(8, " kcal)\n")
                 pdf_output.ln(2)
 
+                # Carboidrati totali periodo / media
                 pdf_output.write(8, "Carboidrati Totali: ")
                 if media_carbo > obj_carbo:
                     pdf_output.set_text_color(220, 20, 60)
@@ -1352,6 +1292,7 @@ with col_pdf2:
                 pdf_output.write(8, " g)\n")
                 pdf_output.ln(2)
 
+                # Proteine totali periodo / media
                 pdf_output.write(8, "Proteine Totali: ")
                 if media_prot > obj_prot:
                     pdf_output.set_text_color(220, 20, 60)
@@ -1365,6 +1306,7 @@ with col_pdf2:
                 pdf_output.write(8, " g)\n")
                 pdf_output.ln(2)
 
+                # Grassi totali periodo / media
                 pdf_output.write(8, "Grassi Totali: ")
                 if media_grassi > obj_grassi:
                     pdf_output.set_text_color(220, 20, 60)
@@ -1387,6 +1329,7 @@ with col_pdf2:
 
                 if dettaglio_periodo:
                     for d_str, dk, dc, dp, dg in dettaglio_periodo:
+                        # Controllo evidenziazione in rosso per le singole giornate che superano l'obiettivo calorico o carbo
                         pdf_output.set_text_color(0, 0, 0)
                         pdf_output.write(6, f" - {d_str}: ")
                         if dk > obj_kcal:
@@ -1424,4 +1367,5 @@ with col_pdf2:
                 )
         except Exception as e:
             st.error(f"Errore nella generazione del PDF personalizzato: {e}")
+
 
