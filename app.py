@@ -448,28 +448,53 @@ PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
 st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta (Mifflin)")
 
-# --- SISTEMA DI AUTENTICAZIONE PROPRIETARIO NELLA SIDEBAR (TYPE="PASSWORD") ---
+# --- SISTEMA DI AUTENTICAZIONE PROPRIETARIO NELLA SIDEBAR CON PULIZIA CAMPO ---
 st.sidebar.header("🔑 Accesso Proprietario / Amministratore")
+
+# Utilizzo di un form o gestione della chiave per resettare il campo password dopo l'invio
+if "pwd_admin_input" not in st.session_state:
+  st.session_state["pwd_admin_input"] = ""
+
+
+def gestisci_login_admin():
+  inserita = st.session_state.get("temp_pwd_admin", "")
+  if inserita == PASSWORD_ADMIN:
+    st.session_state["is_admin_logged"] = True
+    st.sidebar.success("Modalità Amministratore Attiva (Pieno Controllo)")
+  else:
+    st.session_state["is_admin_logged"] = False
+    if inserita:
+      st.sidebar.error("Password amministratore errata. Riprova.")
+
+
+if "is_admin_logged" not in st.session_state:
+  st.session_state["is_admin_logged"] = False
+
+# Casella di input password con azzeramento immediato ad ogni tentativo
 password_inserita = st.sidebar.text_input(
-    "Inserisci password admin", type="password", key="pwd_admin_input"
+    "Inserisci password admin", type="password", key="temp_pwd_admin"
 )
 
-is_admin = password_inserita == PASSWORD_ADMIN
+if password_inserita:
+  if password_inserita == PASSWORD_ADMIN:
+    st.session_state["is_admin_logged"] = True
+  else:
+    st.session_state["is_admin_logged"] = False
+    st.sidebar.error(
+        "Password errata. Riprova a inserire la password corretta."
+    )
+
+is_admin = st.session_state["is_admin_logged"]
 
 if is_admin:
-  st.sidebar.success("Modalità Amministratore Attiva (Pieno Controllo)")
+  st.sidebar.success("Accesso Admin Effettuato con Successo.")
 else:
-  if password_inserita:
-    st.sidebar.error("Password amministratore errata.")
-  else:
-    st.sidebar.info(
-        "Modalità Ospite / Atleta. Inserisci la password admin per sbloccare"
-        " la gestione totale."
-    )
+  if not password_inserita:
+    st.sidebar.info("Inserisci la password admin per sbloccare la gestione.")
 
 st.sidebar.markdown("---")
 
-# --- SEZIONE GESTIONE ATLETI E ACCOUNT PROTETTI NELLA SIDEBAR ---
+# --- SEZIONE GESTIONE ATLETI E ACCOUNT (SOLO CREAZIONE) NELLA SIDEBAR ---
 st.sidebar.header("Gestione Atleti e Account")
 lista_atleti = list(st.session_state.atleti.keys())
 
@@ -511,11 +536,13 @@ if profilo_sbloccato:
     salva_dati_disco()
     st.rerun()
 
-# Sezione di creazione e gestione account riservata all'Admin
+# Sezione di creazione account riservata all'Admin (Limitata alla sola creazione, senza cancellazione o modifica password)
 if is_admin:
-  with st.sidebar.expander("🛠️ Crea o Gestisci Account Atleti"):
+  with st.sidebar.expander("🛠️ Crea Nuovo Account Atleta"):
     st.markdown("### Nuovo Account")
-    nuovo_atleta_nome = st.text_input("Nome Nuovo Atleta", key="input_new_ath_name")
+    nuovo_atleta_nome = st.text_input(
+        "Nome Nuovo Atleta", key="input_new_ath_name"
+    )
     nuova_password_atleta = st.text_input(
         "Password Account (opzionale)",
         type="password",
@@ -542,25 +569,6 @@ if is_admin:
         salva_dati_disco()
         st.success(f"Atleta '{nome_pulito}' creato con successo!")
         st.rerun()
-
-    if len(st.session_state.atleti) > 1:
-      st.markdown("### Elimina Account")
-      atleta_da_eliminare = st.selectbox(
-          "Seleziona da eliminare",
-          [a for a in lista_atleti if a != st.session_state.atleta_corrente],
-          key="sel_del_atleta",
-      )
-      if st.button("Conferma ed Elimina Atleta", type="primary"):
-        if atleta_da_eliminare in st.session_state.atleti:
-          del st.session_state.atleti[atleta_da_eliminare]
-          if atleta_da_eliminare in st.session_state.password_utenti:
-            del st.session_state.password_utenti[atleta_da_eliminare]
-          st.session_state.atleta_corrente = list(
-              st.session_state.atleti.keys()
-          )[0]
-          salva_dati_disco()
-          st.success(f"Atleta '{atleta_da_eliminare}' eliminato.")
-          st.rerun()
 
 st.sidebar.markdown("---")
 
