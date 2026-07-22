@@ -13,30 +13,6 @@ st.set_page_config(
     layout="wide",
 )
 
-# --- 0. GESTIONE AUTENTICAZIONE E RUOLI (BLINDATURA) ---
-st.sidebar.markdown("### 🔐 Accesso e Sicurezza")
-ruolo_utente = st.sidebar.radio(
-    "Modalità Utente",
-    ["Ospite (Sola Lettura)", "Proprietario / Autorizzato"],
-    key="auth_diario",
-)
-
-is_proprietario = False
-if ruolo_utente == "Proprietario / Autorizzato":
-    password_inserita = st.sidebar.text_input(
-        "Inserisci Password di Controllo", type="password", key="pass_diario"
-    )
-    password_corretta = st.secrets.get("auth", {}).get(
-        "proprietario_password", "admin123"
-    )
-    if password_inserita == password_corretta:
-        is_proprietario = True
-        st.sidebar.success(
-            "Accesso Proprietario Autorizzato (Controllo Completo)"
-        )
-    else:
-        st.sidebar.error("Password errata. Modalità limitata a Ospite.")
-
 # --- 0. GESTIONE PERSISTENZA DATI E PULIZIA ---
 FILE_PERSISTENZA = "diario_alimentare_multi_db.pkl"
 OLD_FILE_PERSISTENZA = "diario_alimentare_db.pkl"
@@ -66,14 +42,13 @@ def pulisci_dataframe_banca_dati(df):
 
 
 def salva_dati_disco():
-    """Salva lo stato della banca dati, degli atleti e dell'atleta corrente nel file locale (solo se proprietario)."""
-    if not is_proprietario:
-        return
+    """Salva lo stato della banca dati, degli atleti, degli utenti autorizzati e dell'atleta corrente."""
     try:
         dati = {
             "atleti": st.session_state.get("atleti", {}),
             "banca_dati_df": st.session_state.get("banca_dati_df"),
             "atleta_corrente": st.session_state.get("atleta_corrente"),
+            "utenti_autorizzati": st.session_state.get("utenti_autorizzati", {}),
         }
         with open(FILE_PERSISTENZA, "wb") as f:
             pickle.dump(dati, f)
@@ -82,7 +57,7 @@ def salva_dati_disco():
 
 
 def carica_dati_disco():
-    """Carica i dati salvati dal file locale (con supporto alla migrazione dal vecchio formato singolo)."""
+    """Carica i dati salvati dal file locale."""
     if os.path.exists(FILE_PERSISTENZA):
         try:
             with open(FILE_PERSISTENZA, "rb") as f:
@@ -109,6 +84,7 @@ def carica_dati_disco():
                 },
                 "banca_dati_df": old_dati.get("banca_dati_df", None),
                 "atleta_corrente": "Atleta Principale",
+                "utenti_autorizzati": {},
             }
             return migrated
         except Exception as e:
@@ -117,6 +93,43 @@ def carica_dati_disco():
 
 
 dati_salvati = carica_dati_disco()
+
+# Inizializzazione Utenti Autorizzati (Password master di default + utenti creati)
+if "utenti_autorizzati" not in st.session_state:
+    if (
+        dati_salvati
+        and "utenti_autorizzati" in dati_salvati
+        and isinstance(dati_salvati["utenti_autorizzati"], dict)
+    ):
+        st.session_state.utenti_autorizzati = dati_salvati["utenti_autorizzati"]
+    else:
+        # Utente proprietario predefinito
+        st.session_state.utenti_autorizzati = {"admin": "admin123"}
+
+# --- 0. GESTIONE AUTENTICAZIONE E RUOLI (BLINDATURA) ---
+st.sidebar.markdown("### 🔐 Accesso e Sicurezza")
+ruolo_utente = st.sidebar.radio(
+    "Modalità Utente",
+    ["Ospite (Sola Lettura)", "Proprietario / Utente Autorizzato"],
+    key="auth_diario",
+)
+
+is_proprietario = False
+if ruolo_utente == "Proprietario / Utente Autorizzato":
+    col_u, col_p = st.sidebar.columns(2)
+    with col_u:
+        user_inserito = st.text_input("Nome Utente", key="input_user_auth")
+    with col_p:
+        password_inserita = st.text_input(
+            "Password", type="password", key="input_pass_auth"
+        )
+
+    # Verifica se l'utente inserito esiste nel dizionario e la password corrisponde
+    if user_inserito in st.session_state.utenti_autorizzati and st.session_state.utenti_autorizzati[user_inserito] == password_inserita:
+        is_proprietario = True
+        st.sidebar.success(f"Accesso Autorizzato ({user_inserito}) - Controllo Completo")
+    elif user_inserito != "":
+        st.sidebar.error("Credenziali errate o utente non autorizzato.")
 
 # Banca dati precompilata iniziale (condivisa tra gli atleti)
 DEFAULT_BANCA_DATI = [
@@ -462,6 +475,35 @@ if "atleta_corrente" not in st.session_state:
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
 st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta (Mifflin)")
+
+# --- SEZIONE GESTIONE UTENTI AUTORIZZATI (SOLO PROPRIETARIO) ---
+if is_proprietario:
+    with st.sidebar.expander("👥 Gestione Utenti Autorizzati"):
+        st.write("Crea un nuovo utente con password per consentirgli l'accesso completo.")
+        nuovo_utente_nome = st.text_input("Nome Nuovo Utente", key="new_user_input")
+        nuova_utente_pwd = st.text_input("Password Nuovo Utente", type="password", key="new_user_pwd")
+        
+        if st.button("Registra Nuovo Utente"):
+            u_clean = nuovo_utente_nome.strip()
+            if u_clean == "":
+                st.error("Inserisci un nome utente valido.")
+            elif u_clean in st.session_state.utenti_autorizzati:
+                st.warning("Questo utente esiste già.")
+            else:
+                st.session_state.utenti_autorizzati[u_clean] = nuova_utente_pwd
+                salva_dati_disco()
+                st.success(f"Utente '{u_clean}' creato con successo!")
+                st.rerun()
+
+        # Opzione per rimuovere utenti autorizzati (escludendo l'admin principale)
+        utenti_rimuovibili = [u for u in st.session_state.utenti_autorizzati.keys() if u != "admin"]
+        if utenti_rimuovibili:
+            utente_da_revocare = st.selectbox("Revoca Accesso Utente", utenti_rimuovibili)
+            if st.button("Rimuovi Utente Selezionato"):
+                del st.session_state.utenti_autorizzati[utente_da_revocare]
+                salva_dati_disco()
+                st.success(f"Accesso revocato per l'utente '{utente_da_revocare}'.")
+                st.rerun()
 
 # --- SEZIONE GESTIONE ATLETI NELLA SIDEBAR ---
 st.sidebar.header("Gestione Atleti")
