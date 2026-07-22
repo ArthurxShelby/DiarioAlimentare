@@ -6,18 +6,15 @@ import pickle
 import re
 import streamlit as st
 
-# --- CONFIGURAZIONE PASSWORD AMMINISTRATORE ---
-PASSWORD_ADMIN = "admin123"
-
-# Configurazione della pagina
+# --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(
-    page_title="Diario Alimentare & Allenamento - Isolamento Atleti",
-    page_icon="",
+    page_title="Diario Alimentare & Pianificazione Allenamento",
+    page_icon="🏋️",
     layout="wide",
 )
 
-# --- 0. GESTIONE PERSISTENZA DATI ISOLATA ---
-FILE_PERSISTENZA = "diario_alimentare_isolato_db.pkl"
+# --- 0. GESTIONE PERSISTENZA DATI E PASSWORD ADMIN ---
+FILE_PERSISTENZA = "diario_allenamento_completo_db.pkl"
 
 
 def safe_float(val):
@@ -42,12 +39,14 @@ def pulisci_dataframe_banca_dati(df):
 
 
 def salva_dati_disco():
-  """Salva lo stato isolato di ogni atleta e della banca dati globale."""
+  """Salva lo stato globale su file pickle."""
   try:
     dati = {
         "atleti": st.session_state.get("atleti", {}),
         "credenziali": st.session_state.get("credenziali", {}),
         "banca_dati_df": st.session_state.get("banca_dati_df"),
+        "database_allenamenti": st.session_state.get("database_allenamenti", {}),
+        "password_admin": st.session_state.get("password_admin", "admin123"),
     }
     with open(FILE_PERSISTENZA, "wb") as f:
       pickle.dump(dati, f)
@@ -67,6 +66,14 @@ def carica_dati_disco():
 
 dati_salvati = carica_dati_disco()
 
+# Inizializzazione Password Admin
+if "password_admin" not in st.session_state:
+  if dati_salvati and "password_admin" in dati_salvati:
+    st.session_state.password_admin = dati_salvati["password_admin"]
+  else:
+    st.session_state.password_admin = "admin123"
+
+# Inizializzazione Banca Dati Alimenti
 DEFAULT_BANCA_DATI = [
     {
         "Alimento": "avena",
@@ -102,7 +109,6 @@ DEFAULT_BANCA_DATI = [
     },
 ]
 
-# Inizializzazione Banca Dati
 if "banca_dati_df" not in st.session_state:
   if (
       dati_salvati
@@ -117,7 +123,7 @@ st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(
     st.session_state.banca_dati_df
 )
 
-# Inizializzazione Atleti e Credenziali con isolamento rigoroso
+# Inizializzazione Atleti
 if "atleti" not in st.session_state:
   if dati_salvati and "atleti" in dati_salvati:
     st.session_state.atleti = dati_salvati["atleti"]
@@ -134,7 +140,6 @@ if "atleti" not in st.session_state:
                 ),
             },
             "db_diario": {},
-            "dati_allenamento": {},
         }
     }
 
@@ -144,19 +149,75 @@ if "credenziali" not in st.session_state:
   else:
     st.session_state.credenziali = {"Atleta Principale": ""}
 
+# Inizializzazione Database Allenamenti
+database_iniziale = {
+    2026: {
+        "Gennaio": {
+            "Settimana 1 (Base Invernale)": {
+                "Martedì": {
+                    "Esercizio": "Fondo Medio Z3: 3 x 15 min",
+                    "Watt": 230,
+                    "RPM": 90,
+                    "Ripetizioni": 3,
+                    "Lavoro_m": 15,
+                    "Recupero_m": 5,
+                },
+                "Giovedì": {
+                    "Esercizio": "Sweet Spot: 2 x 15 min",
+                    "Watt": 245,
+                    "RPM": 85,
+                    "Ripetizioni": 2,
+                    "Lavoro_m": 15,
+                    "Recupero_m": 5,
+                },
+                "Sabato": {
+                    "Esercizio": "Fondo Lungo Z2",
+                    "Watt": 210,
+                    "RPM": 85,
+                    "Ripetizioni": 1,
+                    "Lavoro_m": 120,
+                    "Recupero_m": 0,
+                },
+            }
+        },
+    }
+}
+
+if "database_allenamenti" not in st.session_state:
+  if dati_salvati and "database_allenamenti" in dati_salvati:
+    st.session_state.database_allenamenti = dati_salvati[
+        "database_allenamenti"
+    ]
+  else:
+    st.session_state.database_allenamenti = database_iniziale
+
+elenco_mesi_completo = [
+    "Gennaio",
+    "Febbraio",
+    "Marzo",
+    "Aprile",
+    "Maggio",
+    "Giugno",
+    "Luglio",
+    "Agosto",
+    "Settembre",
+    "Ottobre",
+    "Novembre",
+    "Dicembre",
+]
+
 # Stato di autenticazione corrente
 if "utente_autenticato" not in st.session_state:
   st.session_state["utente_autenticato"] = None
 
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
-st.title("Pianificatore Alimentare & Allenamento - Accesso Isolato")
+st.title("🏋️ Pianificatore Alimentare & Allenamento - Piattaforma Unificata")
 
-# --- SISTEMA DI LOGIN / SELEZIONE PROFILO PROTETTO ---
+# --- BARRA LATERALE: LOGIN E GESTIONE ACCESSO ---
 st.sidebar.header("🔐 Accesso al Sistema")
 
 lista_atleti = list(st.session_state.atleti.keys())
-
 modalita_accesso = st.sidebar.radio(
     "Accedi come:", ["Atleta", "Amministratore Master"]
 )
@@ -164,7 +225,7 @@ modalita_accesso = st.sidebar.radio(
 if modalita_accesso == "Amministratore Master":
   pwd_admin_input = st.sidebar.text_input("Password Admin", type="password")
   if st.sidebar.button("Login Admin"):
-    if pwd_admin_input == PASSWORD_ADMIN:
+    if pwd_admin_input == st.session_state.password_admin:
       st.session_state["utente_autenticato"] = "Admin"
       st.sidebar.success("Accesso Admin effettuato!")
       st.rerun()
@@ -173,10 +234,7 @@ if modalita_accesso == "Amministratore Master":
 
   if st.session_state["utente_autenticato"] == "Admin":
     st.sidebar.markdown("---")
-    st.sidebar.info(
-        "Sei loggato come **Admin Master**. Puoi creare nuovi atleti o"
-        " visionare/gestire la banca dati."
-    )
+    st.sidebar.info("Sei loggato come **Admin Master**.")
     if st.sidebar.button("Logout Admin"):
       st.session_state["utente_autenticato"] = None
       st.rerun()
@@ -210,24 +268,50 @@ else:
       st.session_state["utente_autenticato"] = None
       st.rerun()
 
-# --- BLOCCO DI SICUREZZA PRINCIPALE ---
+# --- CONTROLLO ACCESSO BLOCCANTE ---
 if st.session_state["utente_autenticato"] is None:
   st.warning(
-      "⚠️ Effettua il login dalla barra laterale (selezionando il tuo profilo"
-      " con relativa password o accedendo come Admin) per visualizzare i tuoi"
-      " dati personali e la tua sottopagina di allenamento."
+      "⚠️ Effettua il login dalla barra laterale per visualizzare i contenuti e"
+      " le sezioni dedicate."
   )
   st.stop()
 
-# --- GESTIONE ADMIN: CREAZIONE NUOVI UTENTI ISOLATI ---
+# --- PANNELLO ADMIN MASTER ---
 if st.session_state["utente_autenticato"] == "Admin":
   st.markdown("---")
   with st.expander(
-      "🛠️ Pannello Admin: Gestione Atleti e Banca Dati", expanded=True
+      "🛠️ Pannello Admin: Gestione Credenziali, Atleti e Banca Dati",
+      expanded=True,
   ):
-    st.subheader("Crea Nuovo Account Atleta Isolato")
+    st.subheader("Modifica Password Amministratore")
+    vecchia_pwd = st.text_input(
+        "Password Amministratore Attuale", type="password", key="old_pwd_admin"
+    )
+    nuova_pwd_1 = st.text_input(
+        "Nuova Password Amministratore", type="password", key="new_pwd_1"
+    )
+    nuova_pwd_2 = st.text_input(
+        "Conferma Nuova Password", type="password", key="new_pwd_2"
+    )
+
+    if st.button("Aggiorna Password Admin"):
+      if vecchia_pwd != st.session_state.password_admin:
+        st.error("La password attuale inserita non è corretta.")
+      elif not nuova_pwd_1:
+        st.error("La nuova password non può essere vuota.")
+      elif nuova_pwd_1 != nuova_pwd_2:
+        st.error("Le nuove password inserite non coincidono.")
+      else:
+        st.session_state.password_admin = nuova_pwd_1
+        salva_dati_disco()
+        st.success("Password dell'amministratore aggiornata con successo!")
+
+    st.markdown("---")
+    st.subheader("Crea Nuovo Account Atleta")
     nuovo_nome = st.text_input("Nome Nuovo Atleta")
-    nuova_pwd = st.text_input("Password di Accesso Atleta", type="password")
+    nuova_pwd_atleta = st.text_input(
+        "Password di Accesso Atleta", type="password"
+    )
 
     if st.button("Crea Atleta"):
       nome_pulito = nuovo_nome.strip()
@@ -245,28 +329,24 @@ if st.session_state["utente_autenticato"] == "Admin":
                 "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
             },
             "db_diario": {},
-            "dati_allenamento": {},
         }
-        st.session_state.credenziali[nome_pulito] = nuova_pwd
+        st.session_state.credenziali[nome_pulito] = nuova_pwd_atleta
         salva_dati_disco()
-        st.success(
-            f"Atleta '{nome_pulito}' creato con spazio dati e allenamento"
-            " completamente isolato!"
-        )
+        st.success(f"Atleta '{nome_pulito}' creato correttamente!")
         st.rerun()
 
     st.markdown("---")
-    st.subheader("Gestione Banca Dati Alimenti (Globale)")
+    st.subheader("Banca Dati Alimenti (Globale)")
     st.dataframe(st.session_state.banca_dati_df, use_container_width=True)
 
   st.stop()
 
-# --- ACCESSO UTENTE STANDARD (ISOLATO AL 100%) ---
+# --- AREA UTENTE STANDARD ---
 atleta_corrente = st.session_state["utente_autenticato"]
 dati_atleta = st.session_state.atleti[atleta_corrente]
 
 st.sidebar.markdown("---")
-st.sidebar.header(f"⚙️ Parametri & Allenamento: {atleta_corrente}")
+st.sidebar.header(f"⚙️ Parametri Atleta: {atleta_corrente}")
 
 profilo = dati_atleta.setdefault("profilo", {})
 peso = st.sidebar.number_input(
@@ -277,7 +357,7 @@ altezza = st.sidebar.number_input(
 )
 eta = st.sidebar.number_input("Età (anni)", value=int(profilo.get("eta", 56)))
 genere = st.sidebar.selectbox(
-    "Genere", ["Uomo", "Donna"], index=0 if profilo.get("genere", "Uomo") == "Uomo" else 1
+    "Genere", ["Uomo", "Donna"], index=0 if profilo.get("genere") == "Uomo" else 1
 )
 livello_allenamento = st.sidebar.selectbox(
     "Intensità Allenamento / Attività",
@@ -323,21 +403,19 @@ bmr = (
 )
 tdee = bmr * pal_selezionato
 obj_kcal = round(tdee, 0)
-obj_carbo, obj_prot, obj_grassi = 230.0, 165.0, 70.0
 
-st.sidebar.info(
-    f"**Profilo Personale:** {atleta_corrente}\n\n**TDEE:** {obj_kcal:.0f} kcal"
-)
+st.sidebar.info(f"**TDEE Stimato:** {obj_kcal:.0f} kcal")
 
-menu_principale = st.radio(
-    "Sezione:", ["Diario Alimentare", "Sottopagina Allenamento Personale"], horizontal=True
+# Navigazione Sezioni
+sezione_scelta = st.radio(
+    "Seleziona Sezione:", ["Diario Alimentare", "Pianificazione Allenamenti"], horizontal=True
 )
 
 st.markdown("---")
 
-if menu_principale == "Diario Alimentare":
+if sezione_scelta == "Diario Alimentare":
   st.subheader(f"📅 Diario Alimentare di {atleta_corrente}")
-  data_selezionata = st.date_input("Data", value=date.today())
+  data_selezionata = st.date_input("Data Diario", value=date.today())
   data_str = data_selezionata.strftime("%Y-%m-%d")
 
   db_diario = dati_atleta.setdefault("db_diario", {})
@@ -350,11 +428,6 @@ if menu_principale == "Diario Alimentare":
     }
     salva_dati_disco()
 
-  st.info(
-      "Stai visualizzando e modificando esclusivamente i tuoi dati alimentari"
-      " protetti."
-  )
-
   banca_dati_corrente = st.session_state.banca_dati_df
   alimenti_validi = banca_dati_corrente["Alimento"].dropna().tolist()
   alimenti_validati = [
@@ -366,26 +439,20 @@ if menu_principale == "Diario Alimentare":
   if alimenti_validati:
     col_ins1, col_ins2 = st.columns(2)
     with col_ins1:
-      alimento_scelto = st.selectbox(
-          "Alimento", alimenti_validati, key="sel_alimento_principale"
-      )
+      alimento_scelto = st.selectbox("Alimento", alimenti_validati)
       item_row = banca_dati_corrente[
           banca_dati_corrente["Alimento"].astype(str) == str(alimento_scelto)
       ].iloc[0]
-
       val_gr_n = safe_float(item_row["gr/n"])
       default_q = int(val_gr_n) if val_gr_n > 0 else 100
 
     with col_ins2:
       quantita = st.number_input(
-          "Quantità (g o porzione)",
-          min_value=1.0,
-          value=float(default_q),
-          key="num_quantita_principale",
+          "Quantità (g o porzione)", min_value=1.0, value=float(default_q)
       )
 
-    if st.button("Aggiungi al pasto", key="btn_aggiungi_principale"):
-      pasto_ins = st.selectbox("Scegli pasto", PASTI, key="sel_pasto_aggiunta")
+    if st.button("Aggiungi al pasto"):
+      pasto_ins = st.selectbox("Scegli pasto", PASTI, key="pasto_ins_selezionato")
       fattore = quantita / default_q if default_q > 0 else 1
       c_calc = round(safe_float(item_row["carbo"]) * fattore, 2)
       p_calc = round(safe_float(item_row["proteine"]) * fattore, 2)
@@ -408,27 +475,147 @@ if menu_principale == "Diario Alimentare":
       salva_dati_disco()
       st.rerun()
 
+  st.markdown("### Riepilogo Pasti Giornalieri")
+  cols_pasti = st.columns(3)
+  for i, pasto in enumerate(PASTI):
+    with cols_pasti[i % 3]:
+      with st.container(border=True):
+        st.markdown(f"**{pasto}**")
+        df_p = db_diario[data_str][pasto]
+        if not df_p.empty:
+          st.dataframe(df_p, use_container_width=True)
+          if st.button(f"Svuota {pasto}", key=f"clear_{pasto}"):
+            db_diario[data_str][pasto] = pd.DataFrame(
+                columns=[
+                    "Alimento",
+                    "gr/n",
+                    "carbo",
+                    "proteine",
+                    "grassi",
+                    "kcal",
+                ]
+            )
+            salva_dati_disco()
+            st.rerun()
+        else:
+          st.info("Nessun alimento.")
+
 else:
-  st.subheader(f"🚴 Sottopagina Allenamento Privata - {atleta_corrente}")
-  st.markdown(
-      "Questa sottopagina contiene i tuoi dati di allenamento specifici,"
-      " completamente separati e invisibili agli altri utenti."
+  st.subheader("🚴 Pianificazione Allenamento per Anno Solare")
+
+  ftp_atleta = 279
+  st.sidebar.markdown(f"## Riferimenti FTP ({ftp_atleta}W)")
+  st.sidebar.markdown(
+      f"**Sweet Spot (SS):** {int(ftp_atleta * 0.88)}-{int(ftp_atleta * 0.93)}W"
+  )
+  st.sidebar.markdown(
+      f"**Soglia Z4:** {int(ftp_atleta * 0.91)}-{int(ftp_atleta * 1.05)}W"
   )
 
-  dati_allenamento = dati_atleta.setdefault("dati_allenamento", {})
-
-  note_allenamento = st.text_area(
-      "Note di Allenamento / Programma Settimanale",
-      value=dati_allenamento.get("note", ""),
-  )
-  ftp_personale = st.number_input(
-      "FTP Personale (Watt)", value=int(dati_allenamento.get("ftp", 279))
-  )
-
-  if st.button("Salva Dati Allenamento Personali"):
-    dati_allenamento["note"] = note_allenamento
-    dati_allenamento["ftp"] = ftp_personale
-    salva_dati_disco()
-    st.success(
-        "I tuoi dati di allenamento privati sono stati salvati con successo!"
+  col_anno, col_mese = st.columns(2)
+  with col_anno:
+    anno_selezionato = st.number_input(
+        "Anno Solare Corrente:", min_value=2020, max_value=2100, value=2026, step=1
     )
+  with col_mese:
+    mese_selezionato = st.selectbox("Mese Corrente:", elenco_mesi_completo)
+
+  st.markdown("---")
+
+  if anno_selezionato not in st.session_state.database_allenamenti:
+    st.session_state.database_allenamenti[anno_selezionato] = {}
+
+  if (
+      mese_selezionato
+      not in st.session_state.database_allenamenti[anno_selezionato]
+  ):
+    st.session_state.database_allenamenti[anno_selezionato][
+        mese_selezionato
+    ] = pd.DataFrame(
+        columns=[
+            "Settimana",
+            "Giorno",
+            "Esercizio / Nome",
+            "Watt",
+            "RPM",
+            "Ripetizioni",
+            "Lavoro (min)",
+            "Recupero (min)",
+        ]
+    )
+
+  dati_correnti = st.session_state.database_allenamenti[anno_selezionato][
+      mese_selezionato
+  ]
+
+  if isinstance(dati_correnti, dict):
+    righe_tabella = []
+    for settimana, giorni in dati_correnti.items():
+      for giorno, dettagli in giorni.items():
+        righe_tabella.append({
+            "Settimana": settimana,
+            "Giorno": giorno,
+            "Esercizio / Nome": dettagli.get("Esercizio", ""),
+            "Watt": int(dettagli.get("Watt", 0)),
+            "RPM": int(dettagli.get("RPM", 0)),
+            "Ripetizioni": int(dettagli.get("Ripetizioni", 0)),
+            "Lavoro (min)": int(dettagli.get("Lavoro_m", 0)),
+            "Recupero (min)": int(dettagli.get("Recupero_m", 0)),
+        })
+    df_base_mese = pd.DataFrame(righe_tabella)
+    st.session_state.database_allenamenti[anno_selezionato][
+        mese_selezionato
+    ] = df_base_mese
+    salva_dati_disco()
+  else:
+    df_base_mese = dati_correnti
+
+  with st.expander("📂 Carica piano di lavoro tramite file CSV"):
+    file_caricato = st.file_uploader(
+        "Seleziona il file CSV",
+        type=["csv"],
+        key=f"uploader_{anno_selezionato}_{mese_selezionato}",
+    )
+    if file_caricato is not None:
+      try:
+        df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
+        df_caricato.columns = df_caricato.columns.str.strip()
+        colonne_attese = [
+            "Settimana",
+            "Giorno",
+            "Esercizio / Nome",
+            "Watt",
+            "RPM",
+            "Ripetizioni",
+            "Lavoro (min)",
+            "Recupero (min)",
+        ]
+        if all(col in df_caricato.columns for col in colonne_attese):
+          st.session_state.database_allenamenti[anno_selezionato][
+              mese_selezionato
+          ] = df_caricato[colonne_attese]
+          salva_dati_disco()
+          st.success("File CSV caricato e salvato correttamente!")
+          st.rerun()
+        else:
+          st.error(
+              f"Il file CSV deve contenere le colonne: {colonne_attese}"
+          )
+      except Exception as e:
+        st.error(f"Errore nella lettura del file: {e}")
+
+  st.subheader(
+      f"✍️ Gestione Allenamenti: **{mese_selezionato} {anno_selezionato}**"
+  )
+  df_modificato = st.data_editor(
+      df_base_mese,
+      num_rows="dynamic",
+      use_container_width=True,
+      key=f"editor_{anno_selezionato}_{mese_selezionato}",
+  )
+
+  if not df_modificato.equals(df_base_mese):
+    st.session_state.database_allenamenti[anno_selezionato][
+        mese_selezionato
+    ] = df_modificato
+    salva_dati_disco()
