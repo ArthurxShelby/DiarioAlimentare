@@ -1,4 +1,3 @@
-import hashlib
 import os
 import pickle
 import re
@@ -42,11 +41,6 @@ def pulisci_dataframe_banca_dati(df):
     return df
 
 
-def hash_password(password):
-    """Cifra la password utilizzando l'algoritmo SHA-256."""
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
-
-
 def salva_dati_disco():
     """Salva lo stato della banca dati, degli atleti e dell'atleta corrente nel file locale."""
     try:
@@ -54,6 +48,7 @@ def salva_dati_disco():
             "atleti": st.session_state.get("atleti", {}),
             "banca_dati_df": st.session_state.get("banca_dati_df"),
             "atleta_corrente": st.session_state.get("atleta_corrente"),
+            "password_atleti": st.session_state.get("password_atleti", {}),
         }
         with open(FILE_PERSISTENZA, "wb") as f:
             pickle.dump(dati, f)
@@ -73,11 +68,9 @@ def carica_dati_disco():
         try:
             with open(OLD_FILE_PERSISTENZA, "rb") as f:
                 old_dati = pickle.load(f)
-            # Migrazione automatica al formato multi-atleta con password di default vuota (o protetta)
             migrated = {
                 "atleti": {
                     "Atleta Principale": {
-                        "password": hash_password(""),
                         "peso": old_dati.get("peso", 70.0),
                         "altezza": old_dati.get("altezza", 175.0),
                         "eta": old_dati.get("eta", 56),
@@ -91,6 +84,7 @@ def carica_dati_disco():
                 },
                 "banca_dati_df": old_dati.get("banca_dati_df", None),
                 "atleta_corrente": "Atleta Principale",
+                "password_atleti": {},
             }
             return migrated
         except Exception as e:
@@ -417,14 +411,9 @@ st.session_state.banca_dati_df = st.session_state.banca_dati_df[
 if "atleti" not in st.session_state:
     if dati_salvati and "atleti" in dati_salvati:
         st.session_state.atleti = dati_salvati["atleti"]
-        # Retrocompatibilità: se qualche atleta non ha la chiave 'password', la aggiungiamo vuota
-        for a_name in st.session_state.atleti:
-            if "password" not in st.session_state.atleti[a_name]:
-                st.session_state.atleti[a_name]["password"] = hash_password("")
     else:
         st.session_state.atleti = {
             "Atleta Principale": {
-                "password": hash_password(""),
                 "peso": 70.0,
                 "altezza": 175.0,
                 "eta": 56,
@@ -434,113 +423,148 @@ if "atleti" not in st.session_state:
             }
         }
 
-if "atleta_corrente" not in st.session_state:
-    if (
-        dati_salvati
-        and "atleta_corrente" in dati_salvati
-        and dati_salvati["atleta_corrente"] in st.session_state.atleti
-    ):
-        st.session_state.atleta_corrente = dati_salvati["atleta_corrente"]
+if "password_atleti" not in st.session_state:
+    if dati_salvati and "password_atleti" in dati_salvati:
+        st.session_state.password_atleti = dati_salvati["password_atleti"]
     else:
-        st.session_state.atleta_corrente = list(st.session_state.atleti.keys())[
-            0
-        ]
+        st.session_state.password_atleti = {}
 
-# Inizializzazione dello stato di autenticazione per gli atleti nella sessione
-if "autenticato" not in st.session_state:
-    st.session_state.autenticato = {}
+if "utente_loggato" not in st.session_state:
+    st.session_state.utente_loggato = None  # None = Admin / Libero, oppure Nome Atleta
 
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
-st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta (Mifflin)")
+# --- GESTIONE LOGIN / BLOCCO OSPITI ---
+ADMIN_PASSWORD = "adminpassword123"  # Password amministratore opzionale o configurabile
 
-# --- SEZIONE GESTIONE ATLETI NELLA SIDEBAR ---
-st.sidebar.header("Gestione Atleti")
-lista_atleti = list(st.session_state.atleti.keys())
-atleta_selezionato = st.sidebar.selectbox(
-    "Seleziona Atleta",
-    lista_atleta := lista_atleti,
-    index=lista_atleti.index(st.session_state.atleta_corrente)
-    if st.session_state.atleta_corrente in lista_atleti
-    else 0,
-    key="selectbox_atleta",
-)
+if st.session_state.utente_loggato is not None:
+    # Utente ospite/figlio loggato
+    atleta_corrente = st.session_state.utente_loggato
+    st.session_state.atleta_corrente = atleta_corrente
 
-if atleta_selezionato != st.session_state.atleta_corrente:
-    st.session_state.atleta_corrente = atleta_selezionato
-    salva_dati_disco()
-    st.rerun()
+    st.sidebar.warning(f"🔒 Accesso limitato come: **{atleta_corrente}**")
+    if st.sidebar.button("🚪 Esci (Logout)"):
+        st.session_state.utente_loggato = None
+        st.rerun()
+else:
+    # Schermata di controllo nella sidebar per login o visualizzazione Admin
+    st.sidebar.header("Accesso Applicazione")
+    modalita_accesso = st.sidebar.radio(
+        "Seleziona modalità", ["Proprietario (Admin)", "Ospite / Figlio"]
+    )
 
-# --- SISTEMA DI AUTENTICAZIONE PER PROFILO ---
-atleta_corrente_data = st.session_state.atleti[st.session_state.atleta_corrente]
-stored_password = atleta_corrente_data.get("password", hash_password(""))
+    if modalita_accesso == "Ospite / Figlio":
+        atleti_disponibili = [
+            a for a in st.session_state.atleti.keys() if a != "Atleta Principale"
+        ]
+        if not atleti_disponibili:
+            # Se esiste solo l'atleta principale, creiamo un profilo figlio di esempio se necessario o avvisiamo
+            st.sidebar.info(
+                "Nessun profilo ospite configurato. Crea prima un profilo dalla modalità Admin."
+            )
+            st.stop()
 
-# Se la password non è vuota (cioè stringa vuota di cifratura), richiediamo il login
-is_protected = stored_password != hash_password("")
-is_logged_in = st.session_state.autenticato.get(
-    st.session_state.atleta_corrente, not is_protected
-)
+        atleta_scelto_login = st.sidebar.selectbox(
+            "Seleziona il tuo profilo", atleti_disponibili
+        )
+        password_inserita = st.sidebar.text_input(
+            "Password Profilo", type="password"
+        )
 
-if is_protected and not is_logged_in:
-    st.sidebar.markdown("---")
-    st.sidebar.warning(f"🔒 Il profilo '{st.session_state.atleta_corrente}' è protetto da password.")
-    with st.sidebar.form(f"form_login_{st.session_state.atleta_corrente}"):
-        pwd_inserita = st.text_input("Inserisci Password", type="password")
-        btn_login = st.form_submit_button("Sblocca Profilo")
-        if btn_login:
-            if hash_password(pwd_inserita) == stored_password:
-                st.session_state.autenticato[st.session_state.atleta_corrente] = True
-                st.success("Accesso effettuato con successo!")
+        if st.sidebar.button("Accedi al Diario"):
+            pwd_salvata = st.session_state.password_atleti.get(
+                atleta_scelto_login, ""
+            )
+            if pwd_salvata == "" and password_inserita == "":
+                st.session_state.utente_loggato = atleta_scelto_login
+                st.session_state.atleta_corrente = atleta_scelto_login
+                st.rerun()
+            elif password_inserita == pwd_salvata and pwd_salvata != "":
+                st.session_state.utente_loggato = atleta_scelto_login
+                st.session_state.atleta_corrente = atleta_scelto_login
                 st.rerun()
             else:
-                st.error("Password errata.")
-
-    st.info(f"Seleziona o sblocca il profilo di **{st.session_state.atleta_corrente}** inserendo la password corretta nella barra laterale per visualizzare il diario e i parametri.")
-    st.stop()
-
-with st.sidebar.expander("Aggiungi o Gestisci Atleti"):
-    nuovo_atleta_nome = st.text_input("Nome Nuovo Atleta")
-    nuova_atleta_pwd = st.text_input("Password (Obbligatoria)", type="password", key="new_atleta_pwd")
-    if st.button("Crea Nuovo Atleta"):
-        nome_pulito = nuovo_atleta_nome.strip()
-        if nome_pulito == "":
-            st.error("Inserisci un nome valido.")
-        elif nome_pulito in st.session_state.atleti:
-            st.warning("Esiste già un atleta con questo nome.")
-        elif not nuova_atleta_pwd:
-            st.error("È obbligatorio impostare una password per il nuovo atleta.")
-        else:
-            st.session_state.atleti[nome_pulito] = {
-                "password": hash_password(nuova_atleta_pwd),
-                "peso": 70.0,
-                "altezza": 175.0,
-                "eta": 30,
-                "genere": "Uomo",
-                "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
-                "db_diario": {},
-            }
-            st.session_state.atleta_corrente = nome_pulito
-            st.session_state.autenticato[nome_pulito] = True
-            salva_dati_disco()
-            st.success(f"Atleta '{nome_pulito}' aggiunto con successo!")
-            st.rerun()
-
-    if len(st.session_state.atleti) > 1:
-        atleta_da_eliminare = st.selectbox(
-            "Elimina Atleta",
-            [a for a in lista_atleta if a != st.session_state.atleta_corrente],
+                st.sidebar.error("Password errata o non impostata.")
+        st.stop()
+    else:
+        # Controllo password Admin opzionale o accesso libero se proprietario dal link principale
+        password_admin = st.sidebar.text_input(
+            "Password Admin (opzionale)", type="password"
         )
-        if st.button("Conferma ed Elimina Atleta", type="primary"):
-            if atleta_da_eliminare in st.session_state.atleti:
-                del st.session_state.atleti[atleta_da_eliminare]
-                if atleta_da_eliminare in st.session_state.autenticato:
-                    del st.session_state.autenticato[atleta_da_eliminare]
-                st.session_state.atleta_corrente = list(
-                    st.session_state.atleti.keys()
-                )[0]
+        if password_admin != "" and password_admin != ADMIN_PASSWORD:
+            st.sidebar.error("Password Admin errata.")
+            st.stop()
+        st.session_state.atleta_corrente = "Atleta Principale"
+
+st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta (Mifflin)")
+
+# --- SEZIONE GESTIONE ATLETI NELLA SIDEBAR (SOLO PER ADMIN) ---
+if st.session_state.utente_loggato is None:
+    st.sidebar.header("Gestione Atleti")
+    lista_atleti = list(st.session_state.atleti.keys())
+    atleta_selezionato = st.sidebar.selectbox(
+        "Seleziona Atleta",
+        lista_atleti,
+        index=lista_atleti.index(st.session_state.atleta_corrente)
+        if st.session_state.atleta_corrente in lista_atleti
+        else 0,
+        key="selectbox_atleta",
+    )
+
+    if atleta_selezionato != st.session_state.atleta_corrente:
+        st.session_state.atleta_corrente = atleta_selezionato
+        salva_dati_disco()
+        st.rerun()
+
+    with st.sidebar.expander("Aggiungi o Gestisci Atleti"):
+        nuovo_atleta_nome = st.text_input("Nome Nuovo Atleta")
+        nuova_pwd_atleta = st.text_input(
+            "Password per il nuovo atleta", type="password"
+        )
+        if st.button("Crea Nuovo Atleta"):
+            nome_pulito = nuovo_atleta_nome.strip()
+            if nome_pulito == "":
+                st.error("Inserisci un nome valido.")
+            elif nome_pulito in st.session_state.atleti:
+                st.warning("Esiste già un atleta con questo nome.")
+            else:
+                st.session_state.atleti[nome_pulito] = {
+                    "peso": 70.0,
+                    "altezza": 175.0,
+                    "eta": 30,
+                    "genere": "Uomo",
+                    "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
+                    "db_diario": {},
+                }
+                if nuova_pwd_atleta.strip() != "":
+                    st.session_state.password_atleti[
+                        nome_pulito
+                    ] = nuova_pwd_atleta.strip()
+                st.session_state.atleta_corrente = nome_pulito
                 salva_dati_disco()
-                st.success(f"Atleta '{atleta_da_eliminare}' eliminato.")
+                st.success(f"Atleta '{nome_pulito}' aggiunto con successo!")
                 st.rerun()
+
+        if len(st.session_state.atleti) > 1:
+            atleta_da_eliminare = st.selectbox(
+                "Elimina Atleta",
+                [
+                    a
+                    for a in lista_atleti
+                    if a != st.session_state.atleta_corrente
+                ],
+            )
+            if st.button("Conferma ed Elimina Atleta", type="primary"):
+                if atleta_da_eliminare in st.session_state.atleti:
+                    del st.session_state.atleti[atleta_da_eliminare]
+                    if atleta_da_eliminare in st.session_state.password_atleti:
+                        del st.session_state.password_atleti[atleta_da_eliminare]
+                    st.session_state.atleta_corrente = list(
+                        st.session_state.atleti.keys()
+                    )[0]
+                    salva_dati_disco()
+                    st.success(f"Atleta '{atleta_da_eliminare}' eliminato.")
+                    st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.header(
@@ -728,166 +752,124 @@ with col_m4:
 
 st.markdown("---")
 
-with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=False):
-    st.markdown("### Accesso e Visualizzazione")
-    banca_dati = st.session_state.banca_dati_df
-    st.dataframe(banca_dati, use_container_width=True)
+# Sezione Banca Dati accessibile solo all'Admin o visibile in sola lettura agli ospiti
+if st.session_state.utente_loggato is None:
+    with st.expander(
+        "Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=False
+    ):
+        st.markdown("### Accesso e Visualizzazione")
+        banca_dati = st.session_state.banca_dati_df
+        st.dataframe(banca_dati, use_container_width=True)
 
-    csv_backup_data = banca_dati.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="📥 Scarica Backup Banca Dati (CSV)",
-        data=csv_backup_data,
-        file_name=f"banca_dati_alimentare_backup_{date.today().strftime('%Y-%m-%d')}.csv",
-        mime="text/csv",
-    )
-
-    st.markdown("---")
-
-    st.markdown("### Inserimento Manuale Singolo Alimento")
-    with st.form("form_inserimento_manuale"):
-        col_man1, col_man2, col_man3 = st.columns(3)
-        with col_man1:
-            nuovo_nome = st.text_input("Nome Alimento")
-        with col_man2:
-            nuovo_grn = st.number_input(
-                "Quantità di Riferimento (g o p)", min_value=1.0, value=100.0
-            )
-        with col_man3:
-            nuovo_kcal = st.number_input(
-                "Calorie (kcal)", min_value=0.0, value=0.0, step=0.1
-            )
-
-        col_man4, col_man5, col_man6 = st.columns(3)
-        with col_man4:
-            nuovo_carbo = st.number_input(
-                "Carboidrati (g)", min_value=0.0, value=0.0, step=0.1
-            )
-        with col_man5:
-            nuovo_prot = st.number_input(
-                "Proteine (g)", min_value=0.0, value=0.0, step=0.1
-            )
-        with col_man6:
-            nuovo_grassi = st.number_input(
-                "Grassi (g)", min_value=0.0, value=0.0, step=0.1
-            )
-
-        btn_submit_manuale = st.form_submit_button(
-            "Aggiungi Alimento alla Banca Dati"
-        )
-        if btn_submit_manuale:
-            if nuovo_nome.strip() == "":
-                st.error("Inserisci un nome valido per l'alimento.")
-            else:
-                nuova_riga_df = pd.DataFrame(
-                    [
-                        {
-                            "Alimento": nuovo_nome.strip().lower(),
-                            "gr/n": nuovo_grn,
-                            "carbo": nuovo_carbo,
-                            "proteine": nuovo_prot,
-                            "grassi": nuovo_grassi,
-                            "kcal": nuovo_kcal,
-                        }
-                    ]
-                )
-                nuova_riga_df = pulisci_dataframe_banca_dati(nuova_riga_df)
-                st.session_state.banca_dati_df = (
-                    pd.concat(
-                        [
-                            st.session_state.banca_dati_df[
-                                st.session_state.banca_dati_df[
-                                    "Alimento"
-                                ].astype(str).str.lower()
-                                != nuovo_nome.strip().lower()
-                            ],
-                            nuova_riga_df,
-                        ],
-                        ignore_index=True,
-                    )
-                    .sort_values("Alimento")
-                    .reset_index(drop=True)
-                )
-                salva_dati_disco()
-                st.success(
-                    f"Alimento '{nuovo_nome}' aggiunto/aggiornato con successo nella banca dati!"
-                )
-                st.rerun()
-
-    st.markdown("---")
-
-    col_bd1, col_bd2 = st.columns(2)
-
-    with col_bd1:
-        st.markdown("### Cancellazione Parziale o Totale")
-        alimenti_disponibili = banca_dati["Alimento"].dropna().tolist()
-        alimenti_da_eliminare = st.multiselect(
-            "Seleziona alimenti da rimuovere dalla banca dati:",
-            alimenti_disponibili,
-            key="multi_del_alimenti",
+        csv_backup_data = banca_dati.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="📥 Scarica Backup Banca Dati (CSV)",
+            data=csv_backup_data,
+            file_name=f"banca_dati_alimentare_backup_{date.today().strftime('%Y-%m-%d')}.csv",
+            mime="text/csv",
         )
 
-        col_del_a, col_del_b = st.columns(2)
-        with col_del_a:
-            if st.button("Elimina Selezionati"):
-                if alimenti_da_eliminare:
-                    st.session_state.banca_dati_df = banca_dati[
-                        ~banca_dati["Alimento"].isin(alimenti_da_eliminare)
-                    ].reset_index(drop=True)
-                    salva_dati_disco()
-                    st.success("Alimenti selezionati rimossi con successo!")
-                    st.rerun()
+        st.markdown("---")
+
+        st.markdown("### Inserimento Manuale Singolo Alimento")
+        with st.form("form_inserimento_manuale"):
+            col_man1, col_man2, col_man3 = st.columns(3)
+            with col_man1:
+                nuovo_nome = st.text_input("Nome Alimento")
+            with col_man2:
+                nuovo_grn = st.number_input(
+                    "Quantità di Riferimento (g o p)", min_value=1.0, value=100.0
+                )
+            with col_man3:
+                nuovo_kcal = st.number_input(
+                    "Calorie (kcal)", min_value=0.0, value=0.0, step=0.1
+                )
+
+            col_man4, col_man5, col_man6 = st.columns(3)
+            with col_man4:
+                nuovo_carbo = st.number_input(
+                    "Carboidrati (g)", min_value=0.0, value=0.0, step=0.1
+                )
+            with col_man5:
+                nuovo_prot = st.number_input(
+                    "Proteine (g)", min_value=0.0, value=0.0, step=0.1
+                )
+            with col_man6:
+                nuovo_grassi = st.number_input(
+                    "Grassi (g)", min_value=0.0, value=0.0, step=0.1
+                )
+
+            btn_submit_manuale = st.form_submit_button(
+                "Aggiungi Alimento alla Banca Dati"
+            )
+            if btn_submit_manuale:
+                if nuovo_nome.strip() == "":
+                    st.error("Inserisci un nome valido per l'alimento.")
                 else:
-                    st.warning("Nessun alimento selezionato.")
-        with col_del_b:
-            if st.button("Svuota Intera Banca Dati", type="primary"):
-                st.session_state.banca_dati_df = pd.DataFrame(
-                    columns=[
-                        "Alimento",
-                        "gr/n",
-                        "carbo",
-                        "proteine",
-                        "grassi",
-                        "kcal",
-                    ]
-                )
-                salva_dati_disco()
-                st.warning("Banca dati svuotata completamente.")
-                st.rerun()
-
-    with col_bd2:
-        st.markdown("### Integrazione File CSV")
-        st.info(
-            "Carica un file CSV. L'ordine atteso per colonna è: Alimento, gr/n, carbo, proteine, grassi, kcal."
-        )
-        file_caricato = st.file_uploader(
-            "Carica file CSV", type=["csv"], key="uploader_banca_dati"
-        )
-
-        if file_caricato is not None:
-            try:
-                df_nuovo = None
-                try:
-                    df_nuovo = pd.read_csv(
-                        file_caricato, encoding="utf-8", sep=None, engine="python"
+                    nuova_riga_df = pd.DataFrame(
+                        [
+                            {
+                                "Alimento": nuovo_nome.strip().lower(),
+                                "gr/n": nuovo_grn,
+                                "carbo": nuovo_carbo,
+                                "proteine": nuovo_prot,
+                                "grassi": nuovo_grassi,
+                                "kcal": nuovo_kcal,
+                            }
+                        ]
                     )
-                except UnicodeDecodeError:
-                    file_caricato.seek(0)
-                    df_nuovo = pd.read_csv(
-                        file_caricato,
-                        encoding="latin-1",
-                        sep=None,
-                        engine="python",
+                    nuova_riga_df = pulisci_dataframe_banca_dati(nuova_riga_df)
+                    st.session_state.banca_dati_df = (
+                        pd.concat(
+                            [
+                                st.session_state.banca_dati_df[
+                                    st.session_state.banca_dati_df[
+                                        "Alimento"
+                                    ].astype(str).str.lower()
+                                    != nuovo_nome.strip().lower()
+                                ],
+                                nuova_riga_df,
+                            ],
+                            ignore_index=True,
+                        )
+                        .sort_values("Alimento")
+                        .reset_index(drop=True)
                     )
-                except Exception:
-                    file_caricato.seek(0)
-                    df_nuovo = pd.read_csv(
-                        file_caricato, encoding="utf-8", sep=";", engine="python"
+                    salva_dati_disco()
+                    st.success(
+                        f"Alimento '{nuovo_nome}' aggiunto/aggiornato con successo nella banca dati!"
                     )
+                    st.rerun()
 
-                if df_nuovo is not None and not df_nuovo.empty:
-                    st.write("Anteprima dati letti dal file:", df_nuovo.head())
-                    if st.button("Conferma e Aggiungi alla Banca Dati"):
-                        colonne_attese = [
+        st.markdown("---")
+
+        col_bd1, col_bd2 = st.columns(2)
+
+        with col_bd1:
+            st.markdown("### Cancellazione Parziale o Totale")
+            alimenti_disponibili = banca_dati["Alimento"].dropna().tolist()
+            alimenti_da_eliminare = st.multiselect(
+                "Seleziona alimenti da rimuovere dalla banca dati:",
+                alimenti_disponibili,
+                key="multi_del_alimenti",
+            )
+
+            col_del_a, col_del_b = st.columns(2)
+            with col_del_a:
+                if st.button("Elimina Selezionati"):
+                    if alimenti_da_eliminare:
+                        st.session_state.banca_dati_df = banca_dati[
+                            ~banca_dati["Alimento"].isin(alimenti_da_eliminare)
+                        ].reset_index(drop=True)
+                        salva_dati_disco()
+                        st.success("Alimenti selezionati rimossi con successo!")
+                        st.rerun()
+                    else:
+                        st.warning("Nessun alimento selezionato.")
+            with col_del_b:
+                if st.button("Svuota Intera Banca Dati", type="primary"):
+                    st.session_state.banca_dati_df = pd.DataFrame(
+                        columns=[
                             "Alimento",
                             "gr/n",
                             "carbo",
@@ -895,84 +877,148 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                             "grassi",
                             "kcal",
                         ]
-                        cols_orig = [
-                            str(c).strip().lower() for c in df_nuovo.columns
-                        ]
-                        df_nuovo.columns = cols_orig
+                    )
+                    salva_dati_disco()
+                    st.warning("Banca dati svuotata completamente.")
+                    st.rerun()
 
-                        mapping_colonne = {}
-                        for c in cols_orig:
-                            if "alimento" in c or "nome" in c:
-                                mapping_colonne[c] = "Alimento"
-                            elif "grass" in c or c == "g":
-                                mapping_colonne[c] = "grassi"
-                            elif (
-                                "gr" in c
-                                or "quant" in c
-                                or "peso" in c
-                                or "numero" in c
-                            ):
-                                mapping_colonne[c] = "gr/n"
-                            elif "carb" in c:
-                                mapping_colonne[c] = "carbo"
-                            elif "prot" in c:
-                                mapping_colonne[c] = "proteine"
-                            elif "kcal" in c or "calorie" in c or "kca" in c:
-                                mapping_colonne[c] = "kcal"
+        with col_bd2:
+            st.markdown("### Integrazione File CSV")
+            st.info(
+                "Carica un file CSV. L'ordine atteso per colonna è: Alimento, gr/n, carbo, proteine, grassi, kcal."
+            )
+            file_caricato = st.file_uploader(
+                "Carica file CSV", type=["csv"], key="uploader_banca_dati"
+            )
 
-                        df_nuovo = df_nuovo.rename(columns=mapping_colonne)
-                        df_nuovo = df_nuovo.loc[
-                            :, ~df_nuovo.columns.duplicated()
-                        ]
+            if file_caricato is not None:
+                try:
+                    df_nuovo = None
+                    try:
+                        df_nuovo = pd.read_csv(
+                            file_caricato,
+                            encoding="utf-8",
+                            sep=None,
+                            engine="python",
+                        )
+                    except UnicodeDecodeError:
+                        file_caricato.seek(0)
+                        df_nuovo = pd.read_csv(
+                            file_caricato,
+                            encoding="latin-1",
+                            sep=None,
+                            engine="python",
+                        )
+                    except Exception:
+                        file_caricato.seek(0)
+                        df_nuovo = pd.read_csv(
+                            file_caricato,
+                            encoding="utf-8",
+                            sep=";",
+                            engine="python",
+                        )
 
-                        presenti = [
-                            col
-                            for col in colonne_attese
-                            if col in df_nuovo.columns
-                        ]
-                        if len(presenti) < 4 and len(df_nuovo.columns) >= 4:
-                            col_mapping_pos = {}
-                            for idx, col_name in enumerate(df_nuovo.columns):
-                                if idx < len(colonne_attese):
-                                    col_mapping_pos[col_name] = colonne_attese[
-                                        idx
-                                    ]
-                            df_nuovo = df_nuovo.rename(columns=col_mapping_pos)
+                    if df_nuovo is not None and not df_nuovo.empty:
+                        st.write("Anteprima dati letti dal file:", df_nuovo.head())
+                        if st.button("Conferma e Aggiungi alla Banca Dati"):
+                            colonne_attese = [
+                                "Alimento",
+                                "gr/n",
+                                "carbo",
+                                "proteine",
+                                "grassi",
+                                "kcal",
+                            ]
+                            cols_orig = [
+                                str(c).strip().lower() for c in df_nuovo.columns
+                            ]
+                            df_nuovo.columns = cols_orig
+
+                            mapping_colonne = {}
+                            for c in cols_orig:
+                                if "alimento" in c or "nome" in c:
+                                    mapping_colonne[c] = "Alimento"
+                                elif "grass" in c or c == "g":
+                                    mapping_colonne[c] = "grassi"
+                                elif (
+                                    "gr" in c
+                                    or "quant" in c
+                                    or "peso" in c
+                                    or "numero" in c
+                                ):
+                                    mapping_colonne[c] = "gr/n"
+                                elif "carb" in c:
+                                    mapping_colonne[c] = "carbo"
+                                elif "prot" in c:
+                                    mapping_colonne[c] = "proteine"
+                                elif (
+                                    "kcal" in c
+                                    or "calorie" in c
+                                    or "kca" in c
+                                ):
+                                    mapping_colonne[c] = "kcal"
+
+                            df_nuovo = df_nuovo.rename(columns=mapping_colonne)
                             df_nuovo = df_nuovo.loc[
                                 :, ~df_nuovo.columns.duplicated()
                             ]
 
-                        data_dict = {}
-                        for col in colonne_attese:
-                            if col in df_nuovo.columns:
-                                data_dict[col] = df_nuovo[col].values
-                            else:
-                                data_dict[col] = (
-                                    0 if col != "Alimento" else "Sconosciuto"
+                            presenti = [
+                                col
+                                for col in colonne_attese
+                                if col in df_nuovo.columns
+                            ]
+                            if len(presenti) < 4 and len(df_nuovo.columns) >= 4:
+                                col_mapping_pos = {}
+                                for idx, col_name in enumerate(
+                                    df_nuovo.columns
+                                ):
+                                    if idx < len(colonne_attese):
+                                        col_mapping_pos[
+                                            col_name
+                                        ] = colonne_attese[idx]
+                                df_nuovo = df_nuovo.rename(
+                                    columns=col_mapping_pos
                                 )
+                                df_nuovo = df_nuovo.loc[
+                                    :, ~df_nuovo.columns.duplicated()
+                                ]
 
-                        df_finale = pd.DataFrame(data_dict)
-                        df_finale = pulisci_dataframe_banca_dati(df_finale)
-                        df_finale = df_finale.dropna(subset=["Alimento"])
-                        df_finale = df_finale[
-                            df_finale["Alimento"].astype(str).str.strip() != ""
-                        ]
+                            data_dict = {}
+                            for col in colonne_attese:
+                                if col in df_nuovo.columns:
+                                    data_dict[col] = df_nuovo[col].values
+                                else:
+                                    data_dict[col] = (
+                                        0 if col != "Alimento" else "Sconosciuto"
+                                    )
 
-                        st.session_state.banca_dati_df = (
-                            pd.concat(
-                                [st.session_state.banca_dati_df, df_finale],
-                                ignore_index=True,
+                            df_finale = pd.DataFrame(data_dict)
+                            df_finale = pulisci_dataframe_banca_dati(df_finale)
+                            df_finale = df_finale.dropna(subset=["Alimento"])
+                            df_finale = df_finale[
+                                df_finale["Alimento"].astype(str).str.strip()
+                                != ""
+                            ]
+
+                            st.session_state.banca_dati_df = (
+                                pd.concat(
+                                    [
+                                        st.session_state.banca_dati_df,
+                                        df_finale,
+                                    ],
+                                    ignore_index=True,
+                                )
+                                .drop_duplicates(subset=["Alimento"])
+                                .reset_index(drop=True)
                             )
-                            .drop_duplicates(subset=["Alimento"])
-                            .reset_index(drop=True)
-                        )
-                        salva_dati_disco()
-                        st.success(
-                            "Banca dati aggiornata con successo dal file CSV!"
-                        )
-                        st.rerun()
-            except Exception as e:
-                st.error(f"Errore durante la lettura del file CSV: {e}")
+                            salva_dati_disco()
+                            st.success(
+                                "Banca dati aggiornata con successo dal file CSV!"
+                            )
+                            st.rerun()
+                except Exception as e:
+                    st.error(f"Errore durante la lettura del file CSV: {e}")
 
 st.markdown("---")
 
