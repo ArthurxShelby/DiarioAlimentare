@@ -14,16 +14,9 @@ st.set_page_config(
     layout="wide",
 )
 
-# --- 0. GESTIONE PERSISTENZA DATI E HASH PASSWORD ---
+# --- 0. GESTIONE PERSISTENZA DATI E PULIZIA ---
 FILE_PERSISTENZA = "diario_alimentare_multi_db.pkl"
 OLD_FILE_PERSISTENZA = "diario_alimentare_db.pkl"
-
-
-def hash_password(password):
-    """Restituisce l'hash SHA-256 della password."""
-    return (
-        hashlib.sha256(password.encode("utf-8")).hexdigest() if password else ""
-    )
 
 
 def safe_float(val):
@@ -49,6 +42,11 @@ def pulisci_dataframe_banca_dati(df):
     return df
 
 
+def hash_password(password):
+    """Cifra la password utilizzando l'algoritmo SHA-256."""
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+
 def salva_dati_disco():
     """Salva lo stato della banca dati, degli atleti e dell'atleta corrente nel file locale."""
     try:
@@ -64,7 +62,7 @@ def salva_dati_disco():
 
 
 def carica_dati_disco():
-    """Carica i dati salvati dal file locale (con supporto alla migrazione)."""
+    """Carica i dati salvati dal file locale (con supporto alla migrazione dal vecchio formato singolo)."""
     if os.path.exists(FILE_PERSISTENZA):
         try:
             with open(FILE_PERSISTENZA, "rb") as f:
@@ -75,7 +73,7 @@ def carica_dati_disco():
         try:
             with open(OLD_FILE_PERSISTENZA, "rb") as f:
                 old_dati = pickle.load(f)
-            # Migrazione automatica al formato multi-atleta con password di default vuota/hashata
+            # Migrazione automatica al formato multi-atleta con password di default vuota (o protetta)
             migrated = {
                 "atleti": {
                     "Atleta Principale": {
@@ -419,10 +417,10 @@ st.session_state.banca_dati_df = st.session_state.banca_dati_df[
 if "atleti" not in st.session_state:
     if dati_salvati and "atleti" in dati_salvati:
         st.session_state.atleti = dati_salvati["atleti"]
-        # Assicuriamoci che ogni atleta abbia la chiave password
-        for a_nome in st.session_state.atleti:
-            if "password" not in st.session_state.atleti[a_nome]:
-                st.session_state.atleti[a_nome]["password"] = hash_password("")
+        # Retrocompatibilità: se qualche atleta non ha la chiave 'password', la aggiungiamo vuota
+        for a_name in st.session_state.atleti:
+            if "password" not in st.session_state.atleti[a_name]:
+                st.session_state.atleti[a_name]["password"] = hash_password("")
     else:
         st.session_state.atleti = {
             "Atleta Principale": {
@@ -448,13 +446,9 @@ if "atleta_corrente" not in st.session_state:
             0
         ]
 
-# Gestione dello stato di autenticazione per l'atleta corrente
+# Inizializzazione dello stato di autenticazione per gli atleti nella sessione
 if "autenticato" not in st.session_state:
-    st.session_state.autenticato = False
-
-# Se cambiamo atleta, resettiamo lo stato di autenticazione finché non viene inserita la password corretta
-if "ultimo_atleta_selezionato" not in st.session_state:
-    st.session_state.ultimo_atleta_selezionato = st.session_state.atleta_corrente
+    st.session_state.autenticato = {}
 
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
@@ -465,52 +459,56 @@ st.sidebar.header("Gestione Atleti")
 lista_atleti = list(st.session_state.atleti.keys())
 atleta_selezionato = st.sidebar.selectbox(
     "Seleziona Atleta",
-    lista_atleti,
+    lista_atleta := lista_atleti,
     index=lista_atleti.index(st.session_state.atleta_corrente)
     if st.session_state.atleta_corrente in lista_atleti
     else 0,
     key="selectbox_atleta",
 )
 
-if atleta_selezionato != st.session_state.ultimo_atleta_selezionato:
+if atleta_selezionato != st.session_state.atleta_corrente:
     st.session_state.atleta_corrente = atleta_selezionato
-    st.session_state.ultimo_atleta_selezionato = atleta_selezionato
-    st.session_state.autenticato = (
-        False  # Richiede nuovamente la password per il nuovo utente
-    )
     salva_dati_disco()
     st.rerun()
 
-# --- VERIFICA PASSWORD / LOGIN UTENTE ---
-atleta_data = st.session_state.atleti[st.session_state.atleta_corrente]
-password_salvata = atleta_data.get("password", hash_password(""))
+# --- SISTEMA DI AUTENTICAZIONE PER PROFILO ---
+atleta_corrente_data = st.session_state.atleti[st.session_state.atleta_corrente]
+stored_password = atleta_corrente_data.get("password", hash_password(""))
 
-# Se l'account ha una password configurata e non è ancora autenticato
-if password_salvata != hash_password("") and not st.session_state.autenticato:
-    st.warning(
-        f"L'account di **{st.session_state.atleta_corrente}** è protetto da password."
-    )
-    with st.form("form_login_atleta"):
-        pwd_inserita = st.text_input("Inserisci la Password", type="password")
-        btn_login = st.form_submit_button("Accedi")
+# Se la password non è vuota (cioè stringa vuota di cifratura), richiediamo il login
+is_protected = stored_password != hash_password("")
+is_logged_in = st.session_state.autenticato.get(
+    st.session_state.atleta_corrente, not is_protected
+)
+
+if is_protected and not is_logged_in:
+    st.sidebar.markdown("---")
+    st.sidebar.warning(f"🔒 Il profilo '{st.session_state.atleta_corrente}' è protetto da password.")
+    with st.sidebar.form(f"form_login_{st.session_state.atleta_corrente}"):
+        pwd_inserita = st.text_input("Inserisci Password", type="password")
+        btn_login = st.form_submit_button("Sblocca Profilo")
         if btn_login:
-            if hash_password(pwd_inserita) == password_salvata:
-                st.session_state.autenticato = True
+            if hash_password(pwd_inserita) == stored_password:
+                st.session_state.autenticato[st.session_state.atleta_corrente] = True
                 st.success("Accesso effettuato con successo!")
                 st.rerun()
             else:
-                st.error("Password errata. Riprova.")
-    st.stop()  # Interrompe il rendering del resto dell'app finché non si effettua il login
+                st.error("Password errata.")
+
+    st.info(f"Seleziona o sblocca il profilo di **{st.session_state.atleta_corrente}** inserendo la password corretta nella barra laterale per visualizzare il diario e i parametri.")
+    st.stop()
 
 with st.sidebar.expander("Aggiungi o Gestisci Atleti"):
     nuovo_atleta_nome = st.text_input("Nome Nuovo Atleta")
-    nuova_atleta_pwd = st.text_input("Password (opzionale)", type="password")
+    nuova_atleta_pwd = st.text_input("Password (Obbligatoria)", type="password", key="new_atleta_pwd")
     if st.button("Crea Nuovo Atleta"):
         nome_pulito = nuovo_atleta_nome.strip()
         if nome_pulito == "":
             st.error("Inserisci un nome valido.")
         elif nome_pulito in st.session_state.atleti:
             st.warning("Esiste già un atleta con questo nome.")
+        elif not nuova_atleta_pwd:
+            st.error("È obbligatorio impostare una password per il nuovo atleta.")
         else:
             st.session_state.atleti[nome_pulito] = {
                 "password": hash_password(nuova_atleta_pwd),
@@ -522,10 +520,7 @@ with st.sidebar.expander("Aggiungi o Gestisci Atleti"):
                 "db_diario": {},
             }
             st.session_state.atleta_corrente = nome_pulito
-            st.session_state.ultimo_atleta_selezionato = nome_pulito
-            st.session_state.autenticato = (
-                True  # Il creatore entra subito loggato
-            )
+            st.session_state.autenticato[nome_pulito] = True
             salva_dati_disco()
             st.success(f"Atleta '{nome_pulito}' aggiunto con successo!")
             st.rerun()
@@ -533,18 +528,16 @@ with st.sidebar.expander("Aggiungi o Gestisci Atleti"):
     if len(st.session_state.atleti) > 1:
         atleta_da_eliminare = st.selectbox(
             "Elimina Atleta",
-            [a for a in lista_atleti if a != st.session_state.atleta_corrente],
+            [a for a in lista_atleta if a != st.session_state.atleta_corrente],
         )
         if st.button("Conferma ed Elimina Atleta", type="primary"):
             if atleta_da_eliminare in st.session_state.atleti:
                 del st.session_state.atleti[atleta_da_eliminare]
+                if atleta_da_eliminare in st.session_state.autenticato:
+                    del st.session_state.autenticato[atleta_da_eliminare]
                 st.session_state.atleta_corrente = list(
                     st.session_state.atleti.keys()
                 )[0]
-                st.session_state.ultimo_atleta_selezionato = (
-                    st.session_state.atleta_corrente
-                )
-                st.session_state.autenticato = True
                 salva_dati_disco()
                 st.success(f"Atleta '{atleta_da_eliminare}' eliminato.")
                 st.rerun()
@@ -553,6 +546,8 @@ st.sidebar.markdown("---")
 st.sidebar.header(
     f"Parametri Mifflin & Allenamento: {st.session_state.atleta_corrente}"
 )
+
+atleta_data = st.session_state.atleti[st.session_state.atleta_corrente]
 
 saved_peso = atleta_data.get("peso", 70.0)
 saved_altezza = atleta_data.get("altezza", 175.0)
