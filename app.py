@@ -431,7 +431,6 @@ if "atleti" not in st.session_state:
 # Assicuriamoci che ogni atleta abbia la sua banca dati isolata
 for a_nome, a_dati in st.session_state.atleti.items():
   if "banca_dati_df" not in a_dati or a_dati["banca_dati_df"] is None:
-    # Se l'atleta principale eredita la globale, gli altri partono con una copia pulita dei default o globale
     a_dati["banca_dati_df"] = (
         st.session_state.banca_dati_df.copy()
         if a_nome == "Atleta Principale"
@@ -519,7 +518,7 @@ if st.session_state.utente_loggato is None:
       index=lista_atleti.index(st.session_state.atleta_corrente)
       if st.session_state.atleta_corrente in lista_atleti
       else 0,
-      key="selectbox_atleta",
+      key="selectbox_atleta_admin",  # Modificato per evitare duplicazioni di chiavi
   )
 
   if atleta_selezionato != st.session_state.atleta_corrente:
@@ -615,114 +614,6 @@ if st.session_state.utente_loggato is None:
 
   st.sidebar.markdown("---")
 
-# Proseguimento dei parametri dell'atleta corrente...
-
-# --- SEZIONE GESTIONE ATLETI NELLA SIDEBAR (SOLO PER ADMIN) ---
-if st.session_state.utente_loggato is None:
-  st.sidebar.header("Gestione Atleti")
-  lista_atleti = list(st.session_state.atleti.keys())
-  atleta_selezionato = st.sidebar.selectbox(
-      "Seleziona Atleta",
-      lista_atleti,
-      index=lista_atleti.index(st.session_state.atleta_corrente)
-      if st.session_state.atleta_corrente in lista_atleti
-      else 0,
-      key="selectbox_atleta",
-  )
-
-  if atleta_selezionato != st.session_state.atleta_corrente:
-    st.session_state.atleta_corrente = atleta_selezionato
-    salva_dati_disco()
-    st.rerun()
-
-  with st.sidebar.expander("Aggiungi o Gestisci Atleti"):
-    nuovo_atleta_nome = st.text_input("Nome Nuovo Atleta")
-    nuova_pwd_atleta = st.text_input(
-        "Password per il nuovo atleta", type="password"
-    )
-    if st.button("Crea Nuovo Atleta"):
-      nome_pulito = nuovo_atleta_nome.strip()
-      if nome_pulito == "":
-        st.error("Inserisci un nome valido.")
-      elif nome_pulito in st.session_state.atleti:
-        st.warning("Esiste già un atleta con questo nome.")
-      else:
-        # Isolamento banca dati per il nuovo utente (copia indipendente dei default)
-        st.session_state.atleti[nome_pulito] = {
-            "peso": 70.0,
-            "altezza": 175.0,
-            "eta": 30,
-            "genere": "Uomo",
-            "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
-            "db_diario": {},
-            "db_allenamenti": {},
-            "banca_dati_df": pd.DataFrame(DEFAULT_BANCA_DATI),
-        }
-        if nuova_pwd_atleta.strip() != "":
-          st.session_state.password_atleti[nome_pulito] = (
-              nuova_pwd_atleta.strip()
-          )
-        st.session_state.atleta_corrente = nome_pulito
-        salva_dati_disco()
-        st.success(
-            f"Atleta '{nome_pulito}' aggiunto con banca dati isolata con"
-            " successo!"
-        )
-        st.rerun()
-
-    st.markdown("---")
-    st.markdown("#### Modifica Password o Elimina Utente Esistente")
-    atleti_modificabili = [a for a in lista_atleti if a != "Atleta Principale"]
-
-    if not atleti_modificabili:
-      st.info("Nessun utente secondario configurato da modificare o eliminare.")
-    else:
-      atleta_gestione = st.selectbox(
-          "Seleziona Utente da Gestire", atleti_modificabili, key="sel_gestione_utente"
-      )
-
-      nuova_password_mod = st.text_input(
-          "Nuova Password (lascia vuoto per rimuoverla)",
-          type="password",
-          key="input_mod_pwd_atleta",
-      )
-      if st.button("Aggiorna Password Utente"):
-        if nuova_password_mod.strip() == "":
-          if atleta_gestione in st.session_state.password_atleti:
-            del st.session_state.password_atleti[atleta_gestione]
-          salva_dati_disco()
-          st.success(
-              f"Password rimossa per l'utente '{atleta_gestione}' (accesso libero"
-              " con password vuota)."
-          )
-        else:
-          st.session_state.password_atleti[atleta_gestione] = (
-              nuova_password_mod.strip()
-          )
-          salva_dati_disco()
-          st.success(
-              f"Password aggiornata con successo per l'utente '{atleta_gestione}'!"
-          )
-        st.rerun()
-
-      st.markdown("")
-      if st.button(
-          f"Conferma ed Elimina Utente '{atleta_gestione}'",
-          type="primary",
-          key="btn_del_user_specific",
-      ):
-        if atleta_gestione in st.session_state.atleti:
-          del st.session_state.atleti[atleta_gestione]
-          if atleta_gestione in st.session_state.password_atleti:
-            del st.session_state.password_atleti[atleta_gestione]
-          st.session_state.atleta_corrente = list(
-              st.session_state.atleti.keys()
-          )[0]
-          salva_dati_disco()
-          st.success(f"Utente '{atleta_gestione}' eliminato permanentemente.")
-          st.rerun()
-
-st.sidebar.markdown("---")
 st.sidebar.header(
     f"Parametri Mifflin & Allenamento: {st.session_state.atleta_corrente}"
 )
@@ -997,16 +888,13 @@ banca_dati_corrente = atleta_data.setdefault(
 banca_dati_corrente = pulisci_dataframe_banca_dati(banca_dati_corrente)
 atleta_data["banca_dati_df"] = banca_dati_corrente
 
-# Mostra la gestione della banca dati alimentari privata dell'utente loggato (o Admin per l'atleta principale)
 expander_title = (
     f"Gestione Banca Dati Alimenti Privata ({st.session_state.atleta_corrente})"
     if st.session_state.utente_loggato is not None
     else "Gestione Avanzata Banca Dati Alimenti (Personale Atleta Corrente)"
 )
 with st.expander(expander_title, expanded=False):
-  st.markdown(
-      "### Accesso e Visualizzazione Banca Dati Personale"
-  )
+  st.markdown("### Accesso e Visualizzazione Banca Dati Personale")
   st.dataframe(banca_dati_corrente, use_container_width=True)
 
   csv_backup_data = banca_dati_corrente.to_csv(index=False).encode("utf-8")
@@ -1103,7 +991,10 @@ with st.expander(expander_title, expanded=False):
 
     col_del_a, col_del_b = st.columns(2)
     with col_del_a:
-      if st.button("Elimina Selezionati", key=f"btn_del_sel_{st.session_state.atleta_corrente}"):
+      if st.button(
+          "Elimina Selezionati",
+          key=f"btn_del_sel_{st.session_state.atleta_corrente}",
+      ):
         if alimenti_da_eliminare:
           atleta_data["banca_dati_df"] = banca_dati_corrente[
               ~banca_dati_corrente["Alimento"].isin(alimenti_da_eliminare)
@@ -1114,7 +1005,11 @@ with st.expander(expander_title, expanded=False):
         else:
           st.warning("Nessun alimento selezionato.")
     with col_del_b:
-      if st.button("Svuota Intera Banca Dati", type="primary", key=f"btn_clear_all_{st.session_state.atleta_corrente}"):
+      if st.button(
+          "Svuota Intera Banca Dati",
+          type="primary",
+          key=f"btn_clear_all_{st.session_state.atleta_corrente}",
+      ):
         atleta_data["banca_dati_df"] = pd.DataFrame(
             columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"]
         )
@@ -1129,7 +1024,9 @@ with st.expander(expander_title, expanded=False):
         " carbo, proteine, grassi, kcal."
     )
     file_caricato = st.file_uploader(
-        "Carica file CSV", type=["csv"], key=f"uploader_banca_dati_{st.session_state.atleta_corrente}"
+        "Carica file CSV",
+        type=["csv"],
+        key=f"uploader_banca_dati_{st.session_state.atleta_corrente}",
     )
 
     if file_caricato is not None:
@@ -1152,7 +1049,10 @@ with st.expander(expander_title, expanded=False):
 
         if df_nuovo is not None and not df_nuovo.empty:
           st.write("Anteprima dati letti dal file:", df_nuovo.head())
-          if st.button("Conferma e Aggiungi alla Tua Banca Dati", key=f"btn_confirm_csv_{st.session_state.atleta_corrente}"):
+          if st.button(
+              "Conferma e Aggiungi alla Tua Banca Dati",
+              key=f"btn_confirm_csv_{st.session_state.atleta_corrente}",
+          ):
             colonne_attese = [
                 "Alimento",
                 "gr/n",
@@ -1216,7 +1116,9 @@ with st.expander(expander_title, expanded=False):
                 .reset_index(drop=True)
             )
             salva_dati_disco()
-            st.success("Banca dati personale aggiornata con successo dal file CSV!")
+            st.success(
+                "Banca dati personale aggiornata con successo dal file CSV!"
+            )
             st.rerun()
       except Exception as e:
         st.error(f"Errore durante la lettura del file CSV: {e}")
@@ -1330,9 +1232,9 @@ for i, pasto in enumerate(PASTI):
           with col_btn1:
             if st.button("Elimina", key=f"btn_del_{pasto}"):
               idx_to_drop = opzioni_rimozione[voce_da_rimuovere]
-              db_diario_atleta[data_str][pasto] = df_p.drop(idx_to_drop).reset_index(
-                  drop=True
-              )
+              db_diario_atleta[data_str][pasto] = df_p.drop(
+                  idx_to_drop
+              ).reset_index(drop=True)
               salva_dati_disco()
               st.rerun()
           with col_btn2:
