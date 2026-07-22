@@ -69,7 +69,6 @@ with dt.sidebar:
         "",
         [
             "Panoramica",
-            "Sessioni di Allenamento",
             "Diario Nutrizionale",
             "Impostazioni",
         ],
@@ -160,7 +159,6 @@ with col_sx:
         """,
         unsafe_allow_html=True,
     )
-    # Esempio di grafico nativo Streamlit
     chart_data = {
         "Giorno": ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"],
         "Potenza (W)": [180, 210, 0, 195, 220, 250, 230],
@@ -179,12 +177,11 @@ with col_dx:
         """
         <div class="metric-card">
             <h3>🥗 Ripartizione Macronutrienti</h3>
-            <p style="color: #8fa98c; font-size: 14px;">Riepporto giornaliero stimato per sostenere i blocchi di carico.</p>
+            <p style="color: #8fa98c; font-size: 14px;">Rapporto giornaliero stimato per sostenere i blocchi di carico.</p>
         """,
         unsafe_allow_html=True,
     )
 
-    # Indicatori di progresso personalizzati
     dt.text("Carboidrati (60%)")
     dt.progress(0.60)
 
