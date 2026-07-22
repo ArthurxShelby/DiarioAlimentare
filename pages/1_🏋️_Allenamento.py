@@ -245,52 +245,39 @@ if not df_modificato.equals(df_base_mese):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 6. PANNELLO DI CANCELLAZIONE AVANZATO ---
+# --- 6. PANNELLO DI CANCELLAZIONE AVANZATO (DA DATA A DATA) ---
 with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
     st.write(
-        "Seleziona un intervallo esatto (Mese e Anno) per svuotare i dati in quel periodo specifico."
+        "Seleziona un intervallo esatto basato su date specifiche per svuotare i dati di tutti i mesi inclusi in questo arco temporale."
     )
 
-    col_p1, col_p2, col_p3, col_p4 = st.columns(4)
-    with col_p1:
-        mese_inizio_del = st.selectbox(
-            "Mese Inizio:", elenco_mesi_completo, key="m_ini"
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        data_inizio_del = st.date_input(
+            "Data Inizio Periodo",
+            value=datetime.date(2026, 1, 1),
+            key="data_ini_del",
         )
-    with col_p2:
-        anno_inizio_del = st.number_input(
-            "Anno Inizio:",
-            min_value=2020,
-            max_value=2100,
-            value=2026,
-            step=1,
-            key="a_ini",
-        )
-    with col_p3:
-        mese_fine_del = st.selectbox(
-            "Mese Fine:", elenco_mesi_completo, index=11, key="m_fin"
-        )
-    with col_p4:
-        anno_fine_del = st.number_input(
-            "Anno Fine:",
-            min_value=2020,
-            max_value=2100,
-            value=2026,
-            step=1,
-            key="a_fin",
+    with col_d2:
+        data_fine_del = st.date_input(
+            "Data Fine Periodo",
+            value=datetime.date(2026, 12, 31),
+            key="data_fin_del",
         )
 
     if st.button("🚨 Svuota dati per il periodo selezionato"):
-        idx_m_ini = elenco_mesi_completo.index(mese_inizio_del)
-        idx_m_fin = elenco_mesi_completo.index(mese_fine_del)
-
-        if anno_inizio_del > anno_fine_del or (
-            anno_inizio_del == anno_fine_del and idx_m_ini > idx_m_fin
-        ):
+        if data_inizio_del > data_fine_del:
             st.error(
-                "Il periodo di inizio deve precedere o coincidere con il periodo di fine."
+                "La data di inizio non può essere successiva alla data di fine."
             )
         else:
             try:
+                # Determina l'intervallo mese/anno basato sulle date selezionate
+                anno_inizio_del = data_inizio_del.year
+                anno_fine_del = data_fine_del.year
+                idx_m_ini = data_inizio_del.month - 1
+                idx_m_fin = data_fine_del.month - 1
+
                 for anno_target in range(anno_inizio_del, anno_fine_del + 1):
                     if anno_target not in st.session_state.database_allenamenti:
                         continue
@@ -298,7 +285,9 @@ with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)
                     start_idx = (
                         idx_m_ini if anno_target == anno_inizio_del else 0
                     )
-                    end_idx = idx_m_fin if anno_target == anno_fine_del else 11
+                    end_idx = (
+                        idx_m_fin if anno_target == anno_fine_del else 11
+                    )
 
                     mesi_da_pulire = elenco_mesi_completo[
                         start_idx : end_idx + 1
@@ -328,7 +317,7 @@ with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)
 
                 salva_database()  # Salvataggio delle modifiche di cancellazione
                 st.success(
-                    f"Dati svuotati e salvati con successo da {mese_inizio_del} {anno_inizio_del} a {mese_fine_del} {anno_fine_del}!"
+                    f"Dati svuotati e salvati con successo dal {data_inizio_del.strftime('%d/%m/%Y')} al {data_fine_del.strftime('%d/%m/%Y')}!"
                 )
                 st.rerun()
             except Exception as e:
