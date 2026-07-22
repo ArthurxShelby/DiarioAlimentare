@@ -214,6 +214,119 @@ PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
 st.title("🏋️ Pianificatore Alimentare & Allenamento - Piattaforma Unificata")
 
+# --- CLASSE SUPPORTO GENERAZIONE PDF DIARIO ---
+class PDFDiario(FPDF):
+
+  def header(self):
+    self.set_font("helvetica", "B", 14)
+    self.cell(
+        0,
+        10,
+        "Diario Alimentare - Report Nutrizionale",
+        border=0,
+        align="C",
+        new_x="LMARGIN",
+        new_y="NEXT",
+    )
+    self.ln(5)
+
+  def footer(self):
+    self.set_y(-15)
+    self.set_font("helvetica", "I", 8)
+    self.cell(
+        0, 10, f"Pagina {self.page_no()}", border=0, align="C"
+    )
+
+
+def genera_pdf_diario(atleta_nome, db_diario_atleta, date_selezionate):
+  pdf = PDFDiario(orientation="P", unit="mm", format="A4")
+  pdf.set_auto_page_break(auto=True, margin=15)
+
+  for d_str in date_selezionate:
+    pdf.add_page()
+    pdf.set_font("helvetica", "B", 12)
+    pdf.cell(
+        0,
+        8,
+        f"Atleta: {atleta_nome} | Data: {d_str}",
+        border=0,
+        new_x="LMARGIN",
+        new_y="NEXT",
+    )
+    pdf.ln(3)
+
+    giornata_dati = db_diario_atleta.get(d_str, {})
+    tot_c, tot_p, tot_g, tot_k = 0.0, 0.0, 0.0, 0.0
+
+    for pasto in PASTI:
+      pdf.set_font("helvetica", "B", 10)
+      pdf.cell(
+          0,
+        6,
+          f"Pasto: {pasto}",
+          border=0,
+          new_x="LMARGIN",
+          new_y="NEXT",
+      )
+      df_pasto = giornata_dati.get(pasto, pd.DataFrame())
+
+      if not df_pasto.empty:
+        # Intestazione tabella
+        pdf.set_font("helvetica", "B", 9)
+        pdf.cell(70, 6, "Alimento", border=1)
+        pdf.cell(20, 6, "Quantità", border=1)
+        pdf.cell(20, 6, "Carbo", border=1)
+        pdf.cell(20, 6, "Prot", border=1)
+        pdf.cell(20, 6, "Grassi", border=1)
+        pdf.cell(20, 6, "Kcal", border=1, new_x="LMARGIN", new_y="NEXT")
+
+        pdf.set_font("helvetica", "", 9)
+        for _, row in df_pasto.iterrows():
+          pdf.cell(70, 6, str(row["Alimento"])[:35], border=1)
+          pdf.cell(20, 6, f"{safe_float(row['gr/n']):.1f}", border=1)
+          pdf.cell(20, 6, f"{safe_float(row['carbo']):.1f}", border=1)
+          pdf.cell(20, 6, f"{safe_float(row['proteine']):.1f}", border=1)
+          pdf.cell(20, 6, f"{safe_float(row['grassi']):.1f}", border=1)
+          pdf.cell(
+              20,
+              6,
+              f"{safe_float(row['kcal']):.1f}",
+              border=1,
+              new_x="LMARGIN",
+              new_y="NEXT",
+          )
+
+          tot_c += safe_float(row["carbo"])
+          tot_p += safe_float(row["proteine"])
+          tot_g += safe_float(row["grassi"])
+          tot_k += safe_float(row["kcal"])
+      else:
+        pdf.set_font("helvetica", "I", 9)
+        pdf.cell(
+            0,
+            6,
+            "Nessun alimento registrato.",
+            border=0,
+            new_x="LMARGIN",
+            new_y="NEXT",
+        )
+      pdf.ln(2)
+
+    pdf.ln(3)
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(
+        0,
+        8,
+        f"Totali Giornalieri -> Carbo: {tot_c:.1f}g | Prot: {tot_p:.1f}g |"
+        f" Grassi: {tot_g:.1f}g | Kcal: {tot_k:.1f}",
+        border=1,
+        new_x="LMARGIN",
+        new_y="NEXT",
+    )
+
+  return bytes(pdf.output())
+
+
 # --- BARRA LATERALE: LOGIN E GESTIONE ACCESSO ---
 st.sidebar.header("🔐 Accesso al Sistema")
 
@@ -500,6 +613,48 @@ if sezione_scelta == "Diario Alimentare":
         else:
           st.info("Nessun alimento.")
 
+  # --- MACRO ESPORTAZIONE PDF (GIORNALIERA E DA DATA A DATA) ---
+  st.markdown("---")
+  with st.expander("📄 Esportazione Report in PDF (Diario Alimentare)"):
+    tipo_esportazione = st.radio(
+        "Seleziona modalità di esportazione:", ["Giornaliera", "Da Data a Data"]
+    )
+
+    if tipo_esportazione == "Giornaliera":
+      data_pdf_singola = st.date_input(
+          "Seleziona Data per PDF", value=date.today(), key="pdf_singola_data"
+      )
+      date_da_esportare = [data_pdf_singola.strftime("%Y-%m-%d")]
+    else:
+      col_p1, col_p2 = st.columns(2)
+      with col_p1:
+        d_inizio = st.date_input(
+            "Data Inizio", value=date.today(), key="pdf_d_inizio"
+        )
+      with col_p2:
+        d_fine = st.date_input(
+            "Data Fine",
+            value=date.today() + timedelta(days=7),
+            key="pdf_d_fine",
+        )
+
+      date_da_esportare = []
+      curr = d_inizio
+      while curr <= d_fine:
+        date_da_esportare.append(curr.strftime("%Y-%m-%d"))
+        curr += timedelta(days=1)
+
+    if st.button("Genera PDF Diario Alimentare"):
+      pdf_bytes = genera_pdf_diario(
+          atleta_corrente, db_diario, date_da_esportare
+      )
+      st.download_button(
+          label="⬇️ Scarica File PDF Generato",
+          data=pdf_bytes,
+          file_name=f"diario_alimentare_{atleta_corrente}.pdf",
+          mime="application/pdf",
+      )
+
 else:
   st.subheader("🚴 Pianificazione Allenamento per Anno Solare")
 
@@ -619,14 +774,10 @@ else:
       )
 
     if st.button("Esegui Cancellazione Intervallo"):
-      # Esempio di logica applicata al diario o al database se si integrano i campi data puntuali.
-      # Nel caso della tabella mensile basata su stringhe (Settimana/Giorno), puliamo il DataFrame o azzeriamo.
       st.info(
           f"Richiesta di cancellazione registrata per l'intervallo:"
           f" {data_inizio_del} a {data_fine_del}."
       )
-      # Qui puoi personalizzare la logica di pulizia sul DataFrame corrente:
-      # Ad esempio, svuotare l'intero DataFrame o filtrare righe specifiche
       st.session_state.database_allenamenti[anno_selezionato][
           mese_selezionato
       ] = pd.DataFrame(columns=df_base_mese.columns)
