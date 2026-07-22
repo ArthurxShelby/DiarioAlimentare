@@ -448,49 +448,38 @@ PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
 st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta (Mifflin)")
 
-# --- SISTEMA DI AUTENTICAZIONE PROPRIETARIO NELLA SIDEBAR CON PULIZIA CAMPO ---
+# --- SISTEMA DI AUTENTICAZIONE AMMINISTRATORE TRAMITE CALLBACK (PULIZIA CAMPO INTEGRATA) ---
 st.sidebar.header("🔑 Accesso Proprietario / Amministratore")
-
-# Utilizzo di un form o gestione della chiave per resettare il campo password dopo l'invio
-if "pwd_admin_input" not in st.session_state:
-  st.session_state["pwd_admin_input"] = ""
-
-
-def gestisci_login_admin():
-  inserita = st.session_state.get("temp_pwd_admin", "")
-  if inserita == PASSWORD_ADMIN:
-    st.session_state["is_admin_logged"] = True
-    st.sidebar.success("Modalità Amministratore Attiva (Pieno Controllo)")
-  else:
-    st.session_state["is_admin_logged"] = False
-    if inserita:
-      st.sidebar.error("Password amministratore errata. Riprova.")
-
 
 if "is_admin_logged" not in st.session_state:
   st.session_state["is_admin_logged"] = False
 
-# Casella di input password con azzeramento immediato ad ogni tentativo
-password_inserita = st.sidebar.text_input(
-    "Inserisci password admin", type="password", key="temp_pwd_admin"
-)
 
-if password_inserita:
-  if password_inserita == PASSWORD_ADMIN:
+def check_admin_login():
+  inserita = st.session_state.get("input_pwd_admin_widget", "")
+  if inserita == PASSWORD_ADMIN:
     st.session_state["is_admin_logged"] = True
+    st.session_state["input_pwd_admin_widget"] = ""  # Svuota campo password
   else:
     st.session_state["is_admin_logged"] = False
-    st.sidebar.error(
-        "Password errata. Riprova a inserire la password corretta."
-    )
+    st.session_state["input_pwd_admin_widget"] = ""  # Svuota campo password
+
+
+st.sidebar.text_input(
+    "Inserisci password admin",
+    type="password",
+    key="input_pwd_admin_widget",
+    on_change=check_admin_login,
+)
 
 is_admin = st.session_state["is_admin_logged"]
 
 if is_admin:
-  st.sidebar.success("Accesso Admin Effettuato con Successo.")
+  st.sidebar.success("Modalità Amministratore Attiva (Pieno Controllo)")
 else:
-  if not password_inserita:
-    st.sidebar.info("Inserisci la password admin per sbloccare la gestione.")
+  # Se l'utente ha provato a scrivere qualcosa senza premere Invio o se ha fallito
+  # Mostriamo un feedback chiaro se il campo è stato appena inviato o se c'è un errore logico
+  pass
 
 st.sidebar.markdown("---")
 
@@ -508,27 +497,46 @@ atleta_selezionato = st.sidebar.selectbox(
     key="selectbox_atleta",
 )
 
-# Controllo password profilo (se impostata e non siamo admin)
+# Controllo password profilo tramite callback dedicata per svuotare il campo in caso di errore/successo
+if "pwd_profilo_input" not in st.session_state:
+  st.session_state["pwd_profilo_input"] = ""
+
+if "profilo_sbloccato_stato" not in st.session_state:
+  st.session_state["profilo_sbloccato_stato"] = {}
+
 richiede_password_profilo = (
     st.session_state.password_utenti.get(atleta_selezionato, "") != ""
 )
 profilo_sbloccato = True
 
 if richiede_password_profilo and not is_admin:
-  pwd_profilo_inserita = st.sidebar.text_input(
+
+  def check_profilo_login():
+    inserita_prof = st.session_state.get("input_pwd_prof_widget", "")
+    if inserita_prof == st.session_state.password_utenti[atleta_selezionato]:
+      st.session_state["profilo_sbloccato_stato"][atleta_selezionato] = True
+      st.session_state["input_pwd_prof_widget"] = ""
+    else:
+      st.session_state["profilo_sbloccato_stato"][atleta_selezionato] = False
+      st.session_state["input_pwd_prof_widget"] = ""
+
+  st.sidebar.text_input(
       f"Inserisci password per '{atleta_selezionato}'",
       type="password",
-      key=f"pwd_prof_{atleta_selezionato}",
+      key="input_pwd_prof_widget",
+      on_change=check_profilo_login,
   )
-  if pwd_profilo_inserita == st.session_state.password_utenti[atleta_selezionato]:
-    profilo_sbloccato = True
+
+  profilo_sbloccato = st.session_state["profilo_sbloccato_stato"].get(
+      atleta_selezionato, False
+  )
+
+  if profilo_sbloccato:
     st.sidebar.success("Profilo sbloccato!")
   else:
-    profilo_sbloccato = False
-    if pwd_profilo_inserita:
-      st.sidebar.error("Password errata per questo profilo.")
-    else:
-      st.sidebar.warning("Questo profilo è protetto da password.")
+    st.sidebar.warning(
+        "Inserisci la password corretta e premi Invio per sbloccare il profilo."
+    )
 
 if profilo_sbloccato:
   if atleta_selezionato != st.session_state.atleta_corrente:
