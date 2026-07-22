@@ -134,7 +134,7 @@ if "atleti" not in st.session_state:
                 ),
             },
             "db_diario": {},
-            "dati_allenamento": {},  # Sottopagina allenamento isolata per singolo utente
+            "dati_allenamento": {},
         }
     }
 
@@ -146,7 +146,7 @@ if "credenziali" not in st.session_state:
 
 # Stato di autenticazione corrente
 if "utente_autenticato" not in st.session_state:
-  st.session_state["utente_autenticato"] = None  # Può essere nome atleta o "Admin"
+  st.session_state["utente_autenticato"] = None
 
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
@@ -157,7 +157,6 @@ st.sidebar.header("🔐 Accesso al Sistema")
 
 lista_atleti = list(st.session_state.atleti.keys())
 
-# Scelta della modalità di accesso
 modalita_accesso = st.sidebar.radio(
     "Accedi come:", ["Atleta", "Amministratore Master"]
 )
@@ -183,7 +182,6 @@ if modalita_accesso == "Amministratore Master":
       st.rerun()
 
 else:
-  # Accesso Atleta con password dedicata
   atleta_scelto_login = st.sidebar.selectbox(
       "Seleziona il tuo Profilo", lista_atleti
   )
@@ -200,7 +198,7 @@ else:
       st.success(f"Benvenuto, {atleta_scelto_login}!")
       st.rerun()
     else:
-      st.error("Password non corretta per questo profilo.")
+      st.sidebar.error("Password non corretta per questo profilo.")
 
   if st.session_state["utente_autenticato"] and st.session_state[
       "utente_autenticato"
@@ -260,9 +258,8 @@ if st.session_state["utente_autenticato"] == "Admin":
     st.markdown("---")
     st.subheader("Gestione Banca Dati Alimenti (Globale)")
     st.dataframe(st.session_state.banca_dati_df, use_container_width=True)
-    # [Opzionale: qui l'admin gestisce la banca dati globale condivisa]
 
-  st.stop()  # L'admin gestisce solo il backend/creazione, non compila diari personali
+  st.stop()
 
 # --- ACCESSO UTENTE STANDARD (ISOLATO AL 100%) ---
 atleta_corrente = st.session_state["utente_autenticato"]
@@ -271,7 +268,6 @@ dati_atleta = st.session_state.atleti[atleta_corrente]
 st.sidebar.markdown("---")
 st.sidebar.header(f"⚙️ Parametri & Allenamento: {atleta_corrente}")
 
-# Dati antropometrici specifici dell'atleta loggato
 profilo = dati_atleta.setdefault("profilo", {})
 peso = st.sidebar.number_input(
     "Peso (kg)", value=float(profilo.get("peso", 75.0))
@@ -295,7 +291,6 @@ livello_allenamento = st.sidebar.selectbox(
     index=3,
 )
 
-# Aggiornamento dati nel profilo isolato
 if (
     profilo.get("peso") != peso
     or profilo.get("altezza") != altezza
@@ -312,7 +307,6 @@ if (
   })
   salva_dati_disco()
 
-# Calcolo Fabbisogno
 pal_dict = {
     "Riposo / Sedentario (PAL 1.2)": 1.2,
     "Attività Leggera (PAL 1.375)": 1.375,
@@ -335,7 +329,6 @@ st.sidebar.info(
     f"**Profilo Personale:** {atleta_corrente}\n\n**TDEE:** {obj_kcal:.0f} kcal"
 )
 
-# --- NAVIGAZIONE INTERNA AL PROFILO (PAGINA PRINCIPALE & SOTTOPAGINA ALLENAMENTO) ---
 menu_principale = st.radio(
     "Sezione:", ["Diario Alimentare", "Sottopagina Allenamento Personale"], horizontal=True
 )
@@ -357,18 +350,66 @@ if menu_principale == "Diario Alimentare":
     }
     salva_dati_disco()
 
-  # Inserimento e gestione pasti confinati unicamente all'atleta loggato
   st.info(
       "Stai visualizzando e modificando esclusivamente i tuoi dati alimentari"
       " protetti."
   )
-  # [Logica di inserimento alimenti nel diario dell'utente...]
+
+  banca_dati_corrente = st.session_state.banca_dati_df
+  alimenti_validi = banca_dati_corrente["Alimento"].dropna().tolist()
+  alimenti_validati = [
+      str(a)
+      for a in alimenti_validi
+      if str(a).strip() != "" and str(a).lower() != "nan"
+  ]
+
+  if alimenti_validati:
+    col_ins1, col_ins2 = st.columns(2)
+    with col_ins1:
+      alimento_scelto = st.selectbox(
+          "Alimento", alimenti_validati, key="sel_alimento_principale"
+      )
+      item_row = banca_dati_corrente[
+          banca_dati_corrente["Alimento"].astype(str) == str(alimento_scelto)
+      ].iloc[0]
+
+      val_gr_n = safe_float(item_row["gr/n"])
+      default_q = int(val_gr_n) if val_gr_n > 0 else 100
+
+    with col_ins2:
+      quantita = st.number_input(
+          "Quantità (g o porzione)",
+          min_value=1.0,
+          value=float(default_q),
+          key="num_quantita_principale",
+      )
+
+    if st.button("Aggiungi al pasto", key="btn_aggiungi_principale"):
+      pasto_ins = st.selectbox("Scegli pasto", PASTI, key="sel_pasto_aggiunta")
+      fattore = quantita / default_q if default_q > 0 else 1
+      c_calc = round(safe_float(item_row["carbo"]) * fattore, 2)
+      p_calc = round(safe_float(item_row["proteine"]) * fattore, 2)
+      g_calc = round(safe_float(item_row["grassi"]) * fattore, 2)
+      k_calc = round(safe_float(item_row["kcal"]) * fattore, 2)
+
+      nuova_riga = pd.DataFrame([
+          {
+              "Alimento": alimento_scelto,
+              "gr/n": quantita,
+              "carbo": c_calc,
+              "proteine": p_calc,
+              "grassi": g_calc,
+              "kcal": k_calc,
+          }
+      ])
+      db_diario[data_str][pasto_ins] = pd.concat(
+          [db_diario[data_str][pasto_ins], nuova_riga], ignore_index=True
+      )
+      salva_dati_disco()
+      st.rerun()
 
 else:
-  # SOTTOPAGINA ALLENAMENTO ISOLATA STRUTTURALMENTE
-  st.subheader(
-      f"🚴 Sottopagina Allenamento Privata - {atleta_corrente}"
-  )
+  st.subheader(f"🚴 Sottopagina Allenamento Privata - {atleta_corrente}")
   st.markdown(
       "Questa sottopagina contiene i tuoi dati di allenamento specifici,"
       " completamente separati e invisibili agli altri utenti."
@@ -376,12 +417,11 @@ else:
 
   dati_allenamento = dati_atleta.setdefault("dati_allenamento", {})
 
-  # Esempio di gestione dati di allenamento personali isolati
   note_allenamento = st.text_area(
       "Note di Allenamento / Programma Settimanale",
       value=dati_allenamento.get("note", ""),
   )
-   ftp_personale = st.number_input(
+  ftp_personale = st.number_input(
       "FTP Personale (Watt)", value=int(dati_allenamento.get("ftp", 279))
   )
 
@@ -389,4 +429,6 @@ else:
     dati_allenamento["note"] = note_allenamento
     dati_allenamento["ftp"] = ftp_personale
     salva_dati_disco()
-    st.success("I tuoi dati di allenamento privati sono stati salvati con successo!")
+    st.success(
+        "I tuoi dati di allenamento privati sono stati salvati con successo!"
+    )
