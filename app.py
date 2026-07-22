@@ -7,7 +7,6 @@ import re
 import streamlit as st
 
 # --- CONFIGURAZIONE PASSWORD AMMINISTRATORE ---
-# Modifica questa stringa con la password segreta che desideri utilizzare
 PASSWORD_ADMIN = "admin123"
 
 # Configurazione della pagina
@@ -46,10 +45,11 @@ def pulisci_dataframe_banca_dati(df):
 
 
 def salva_dati_disco():
-  """Salva lo stato della banca dati, degli atleti e dell'atleta corrente nel file locale."""
+  """Salva lo stato della banca dati, degli atleti, delle password e dell'atleta corrente."""
   try:
     dati = {
         "atleti": st.session_state.get("atleti", {}),
+        "password_utenti": st.session_state.get("password_utenti", {}),
         "banca_dati_df": st.session_state.get("banca_dati_df"),
         "atleta_corrente": st.session_state.get("atleta_corrente"),
     }
@@ -60,7 +60,7 @@ def salva_dati_disco():
 
 
 def carica_dati_disco():
-  """Carica i dati salvati dal file locale (con supporto alla migrazione dal vecchio formato singolo)."""
+  """Carica i dati salvati dal file locale."""
   if os.path.exists(FILE_PERSISTENZA):
     try:
       with open(FILE_PERSISTENZA, "rb") as f:
@@ -71,7 +71,6 @@ def carica_dati_disco():
     try:
       with open(OLD_FILE_PERSISTENZA, "rb") as f:
         old_dati = pickle.load(f)
-      # Migrazione automatica al formato multi-atleta
       migrated = {
           "atleti": {
               "Atleta Principale": {
@@ -86,6 +85,7 @@ def carica_dati_disco():
                   "db_diario": old_dati.get("db_diario", {}),
               }
           },
+          "password_utenti": {"Atleta Principale": ""},
           "banca_dati_df": old_dati.get("banca_dati_df", None),
           "atleta_corrente": "Atleta Principale",
       }
@@ -97,7 +97,6 @@ def carica_dati_disco():
 
 dati_salvati = carica_dati_disco()
 
-# Banca dati precompilata iniziale (condivisa tra gli atleti)
 DEFAULT_BANCA_DATI = [
     {
         "Alimento": "anguria",
@@ -389,7 +388,7 @@ DEFAULT_BANCA_DATI = [
     },
 ]
 
-# Inizializzazione della Banca Dati
+# Inizializzazione Banca Dati
 if "banca_dati_df" not in st.session_state:
   if (
       dati_salvati
@@ -426,6 +425,15 @@ if "atleti" not in st.session_state:
         }
     }
 
+# Inizializzazione Password Utenti
+if "password_utenti" not in st.session_state:
+  if dati_salvati and "password_utenti" in dati_salvati:
+    st.session_state.password_utenti = dati_salvati["password_utenti"]
+  else:
+    st.session_state.password_utenti = {
+        atleta: "" for atleta in st.session_state.atleti
+    }
+
 if "atleta_corrente" not in st.session_state:
   if (
       dati_salvati
@@ -440,63 +448,81 @@ PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
 st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta (Mifflin)")
 
-# --- SISTEMA DI AUTENTICAZIONE PROPRIETARIO NELLA SIDEBAR ---
+# --- SISTEMA DI AUTENTICAZIONE PROPRIETARIO NELLA SIDEBAR (TYPE="PASSWORD") ---
 st.sidebar.header("🔑 Accesso Proprietario / Amministratore")
 password_inserita = st.sidebar.text_input(
     "Inserisci password admin", type="password", key="pwd_admin_input"
 )
 
-# Verifica se la password corrisponde a quella impostata
 is_admin = password_inserita == PASSWORD_ADMIN
 
 if is_admin:
   st.sidebar.success("Modalità Amministratore Attiva (Pieno Controllo)")
 else:
-  st.sidebar.info(
-      "Modalità Ospite (Sola visualizzazione o test protetto)."
-      "\nI tuoi dati personali e la banca dati sono protetti."
-  )
+  if password_inserita:
+    st.sidebar.error("Password amministratore errata.")
+  else:
+    st.sidebar.info(
+        "Modalità Ospite / Atleta. Inserisci la password admin per sbloccare"
+        " la gestione totale."
+    )
 
 st.sidebar.markdown("---")
 
-# --- SEZIONE GESTIONE ATLETI NELLA SIDEBAR ---
-st.sidebar.header("Gestione Atleti")
+# --- SEZIONE GESTIONE ATLETI E ACCOUNT PROTETTI NELLA SIDEBAR ---
+st.sidebar.header("Gestione Atleti e Account")
 lista_atleti = list(st.session_state.atleti.keys())
 
-if not is_admin:
-  if "Ospite" not in st.session_state.atleti:
-    st.session_state.atleti["Ospite"] = {
-        "peso": 70.0,
-        "altezza": 175.0,
-        "eta": 30,
-        "genere": "Uomo",
-        "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
-        "db_diario": {},
-    }
-  st.session_state.atleta_corrente = "Ospite"
-  st.sidebar.warning(
-      "Stai navigando come **Ospite**. Non puoi modificare il profilo"
-      " dell'Atleta Principale."
-  )
-  atleta_selezionato = "Ospite"
-else:
-  atleta_selezionato = st.sidebar.selectbox(
-      "Seleziona Atleta",
-      lista_atleti,
-      index=lista_atleti.index(st.session_state.atleta_corrente)
-      if st.session_state.atleta_corrente in lista_atleti
-      else 0,
-      key="selectbox_atleta",
-  )
+# Selezione dell'atleta su cui operare
+atleta_selezionato = st.sidebar.selectbox(
+    "Seleziona Profilo Atleta",
+    lista_atleti,
+    index=lista_atleti.index(st.session_state.atleta_corrente)
+    if st.session_state.atleta_corrente in lista_atleti
+    else 0,
+    key="selectbox_atleta",
+)
 
+# Controllo password profilo (se impostata e non siamo admin)
+richiede_password_profilo = (
+    st.session_state.password_utenti.get(atleta_selezionato, "") != ""
+)
+profilo_sbloccato = True
+
+if richiede_password_profilo and not is_admin:
+  pwd_profilo_inserita = st.sidebar.text_input(
+      f"Inserisci password per '{atleta_selezionato}'",
+      type="password",
+      key=f"pwd_prof_{atleta_selezionato}",
+  )
+  if pwd_profilo_inserita == st.session_state.password_utenti[atleta_selezionato]:
+    profilo_sbloccato = True
+    st.sidebar.success("Profilo sbloccato!")
+  else:
+    profilo_sbloccato = False
+    if pwd_profilo_inserita:
+      st.sidebar.error("Password errata per questo profilo.")
+    else:
+      st.sidebar.warning("Questo profilo è protetto da password.")
+
+if profilo_sbloccato:
   if atleta_selezionato != st.session_state.atleta_corrente:
     st.session_state.atleta_corrente = atleta_selezionato
     salva_dati_disco()
     st.rerun()
 
-  with st.sidebar.expander("Aggiungi o Gestisci Atleti"):
-    nuovo_atleta_nome = st.text_input("Nome Nuovo Atleta")
-    if st.button("Crea Nuovo Atleta"):
+# Sezione di creazione e gestione account riservata all'Admin o libera se strutturata correttamente
+if is_admin:
+  with st.sidebar.expander("🛠️ Crea o Gestisci Account Atleti"):
+    st.markdown("### Nuovo Account")
+    nuovo_atleta_nome = st.text_input("Nome Nuovo Atleta", key="input_new_ath_name")
+    nuova_password_atleta = st.text_input(
+        "Password Account (opzionale)",
+        type="password",
+        key="input_new_ath_pwd",
+    )
+
+    if st.button("Crea Nuovo Atleta con Password"):
       nome_pulito = nuovo_atleta_nome.strip()
       if nome_pulito == "":
         st.error("Inserisci un nome valido.")
@@ -511,19 +537,24 @@ else:
             "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
             "db_diario": {},
         }
+        st.session_state.password_utenti[nome_pulito] = nuova_password_atleta
         st.session_state.atleta_corrente = nome_pulito
         salva_dati_disco()
-        st.success(f"Atleta '{nome_pulito}' aggiunto con successo!")
+        st.success(f"Atleta '{nome_pulito}' creato con successo!")
         st.rerun()
 
     if len(st.session_state.atleti) > 1:
+      st.markdown("### Elimina Account")
       atleta_da_eliminare = st.selectbox(
-          "Elimina Atleta",
+          "Seleziona da eliminare",
           [a for a in lista_atleti if a != st.session_state.atleta_corrente],
+          key="sel_del_atleta",
       )
       if st.button("Conferma ed Elimina Atleta", type="primary"):
         if atleta_da_eliminare in st.session_state.atleti:
           del st.session_state.atleti[atleta_da_eliminare]
+          if atleta_da_eliminare in st.session_state.password_utenti:
+            del st.session_state.password_utenti[atleta_da_eliminare]
           st.session_state.atleta_corrente = list(
               st.session_state.atleti.keys()
           )[0]
@@ -532,6 +563,15 @@ else:
           st.rerun()
 
 st.sidebar.markdown("---")
+
+# Se il profilo corrente non è sbloccato, blocchiamo la visualizzazione del contenuto per sicurezza
+if not profilo_sbloccato:
+  st.warning(
+      "🔒 Inserisci la password corretta nella barra laterale per accedere ai"
+      f" dati del profilo di **{atleta_selezionato}**."
+  )
+  st.stop()
+
 st.sidebar.header(
     f"Parametri Mifflin & Allenamento: {st.session_state.atleta_corrente}"
 )
@@ -604,8 +644,7 @@ if (
   atleta_data["eta"] = eta
   atleta_data["genere"] = genere
   atleta_data["livello_allenamento"] = livello_allenamento
-  if is_admin or st.session_state.atleta_corrente == "Ospite":
-    salva_dati_disco()
+  salva_dati_disco()
 
 pal_dict = {
     "Riposo / Sedentario (PAL 1.2)": 1.2,
@@ -645,8 +684,7 @@ if data_str not in db_diario_atleta:
       )
       for pasto in PASTI
   }
-  if is_admin or st.session_state.atleta_corrente == "Ospite":
-    salva_dati_disco()
+  salva_dati_disco()
 
 tot_carbo = sum(
     [
@@ -720,7 +758,7 @@ with col_m4:
 
 st.markdown("---")
 
-# --- SEZIONE BANCA DATI PROTETTA ---
+# --- SEZIONE BANCA DATI PROTETTA (SOLO ADMIN PUÒ MODIFICARE) ---
 if is_admin:
   with st.expander(
       "Gestione Avanzata Banca Dati Alimenti (Condivisa - Riservata Admin)",
@@ -946,13 +984,9 @@ if is_admin:
           st.error(f"Errore durante la lettura del file CSV: {e}")
 else:
   with st.expander(
-      "Visualizzazione Banca Dati Alimenti (Sola Lettura per Ospiti)",
-      expanded=False,
+      "Visualizzazione Banca Dati Alimenti (Sola Lettura)", expanded=False
   ):
-    st.info(
-        "La modifica o l'aggiunta di elementi nella banca dati globale è"
-        " riservata all'amministratore."
-    )
+    st.info("La modifica della banca dati è riservata all'amministratore.")
     st.dataframe(st.session_state.banca_dati_df, use_container_width=True)
 
 st.markdown("---")
@@ -1013,8 +1047,7 @@ if alimenti_validati:
         [db_diario_atleta[data_str][pasto_selezionato], nuova_riga],
         ignore_index=True,
     )
-    if is_admin or st.session_state.atleta_corrente == "Ospite":
-      salva_dati_disco()
+    salva_dati_disco()
     st.rerun()
 else:
   st.warning("La banca dati è vuota o contiene solo elementi non validi.")
@@ -1069,16 +1102,14 @@ for i, pasto in enumerate(PASTI):
               db_diario_atleta[data_str][pasto] = df_p.drop(idx_to_drop).reset_index(
                   drop=True
               )
-              if is_admin or st.session_state.atleta_corrente == "Ospite":
-                salva_dati_disco()
+              salva_dati_disco()
               st.rerun()
           with col_btn2:
             if st.button("Svuota", key=f"clear_{pasto}"):
               db_diario_atleta[data_str][pasto] = pd.DataFrame(
                   columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"]
               )
-              if is_admin or st.session_state.atleta_corrente == "Ospite":
-                salva_dati_disco()
+              salva_dati_disco()
               st.rerun()
       else:
         st.info("Nessun alimento registrato.")
