@@ -1325,33 +1325,47 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     pdf_output.set_font("Arial", "B", 12)
                     pdf_output.set_text_color(0, 0, 0)
                     pdf_output.cell(
-                        0, 10, "Traccia Giornaliera dei Macronutrienti:", ln=True
+                        0, 10, "Traccia Giornaliera dei Macronutrienti (Tutti i giorni):", ln=True
                     )
                     pdf_output.set_font("Arial", "", 10)
 
-                    if dettaglio_periodo:
-                        for d_str, dk, dc, dp, dg in dettaglio_periodo:
+                    for i in range(delta_giorni):
+                        d_corrente = data_inizio + timedelta(days=i)
+                        d_str = d_corrente.strftime("%Y-%m-%d")
+                        
+                        dk, dc, dp, dg = 0.0, 0.0, 0.0, 0.0
+                        if d_str in db_diario_atleta:
+                            dk = sum([safe_float(db_diario_atleta[d_str][p]["kcal"].sum()) for p in PASTI if not db_diario_atleta[d_str][p].empty])
+                            dc = sum([safe_float(db_diario_atleta[d_str][p]["carbo"].sum()) for p in PASTI if not db_diario_atleta[d_str][p].empty])
+                            dp = sum([safe_float(db_diario_atleta[d_str][p]["proteine"].sum()) for p in PASTI if not db_diario_atleta[d_str][p].empty])
+                            dg = sum([safe_float(db_diario_atleta[d_str][p]["grassi"].sum()) for p in PASTI if not db_diario_atleta[d_str][p].empty])
+
+                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.write(6, f" - {d_str} -> ")
+
+                        if dk > obj_kcal:
+                            pdf_output.set_text_color(220, 20, 60)
+                        else:
                             pdf_output.set_text_color(0, 0, 0)
-                            pdf_output.write(6, f" - {d_str}: ")
-                            if dk > obj_kcal:
-                                pdf_output.set_text_color(220, 20, 60)
-                            pdf_output.write(6, f"{dk:.1f} kcal")
-                            pdf_output.set_text_color(0, 0, 0)
-                            pdf_output.write(6, " | Carbo: ")
-                            if dc > obj_carbo:
-                                pdf_output.set_text_color(220, 20, 60)
-                            pdf_output.write(6, f"{dc:.1f}g")
-                            pdf_output.set_text_color(0, 0, 1)
-                            pdf_output.write(
-                                6, f" | Prot: {dp:.1f}g | Grassi: {dg:.1f}g\n"
-                            )
-                    else:
-                        pdf_output.cell(
-                            0,
-                            6,
-                            " - Nessun dato registrato nel periodo selezionato",
-                            ln=True,
-                        )
+                        pdf_output.write(6, f"Kcal: {dk:.1f}")
+
+                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.write(6, " | Carbo: ")
+                        if dc > obj_carbo:
+                            pdf_output.set_text_color(220, 20, 60)
+                        pdf_output.write(6, f"{dc:.1f}g")
+
+                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.write(6, " | Prot: ")
+                        if dp > obj_prot:
+                            pdf_output.set_text_color(220, 20, 60)
+                        pdf_output.write(6, f"{dp:.1f}g")
+
+                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.write(6, " | Grassi: ")
+                        if dg > obj_grassi:
+                            pdf_output.set_text_color(220, 20, 60)
+                        pdf_output.write(6, f"{dg:.1f}g\n")
 
                     raw_output = pdf_output.output()
                     pdf_bytes = (
