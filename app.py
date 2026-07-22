@@ -1088,58 +1088,44 @@ with col_pdf1:
             pdf_output.cell(0, 10, "Riepilogo Totale:", ln=True)
             pdf_output.set_font("Arial", "", 11)
 
-            # Funzione di supporto per stampare in rosso se c'è eccedenza (valore superato rispetto all'obiettivo)
-            def cella_con_colore_eccedenza(
-                pdf, label, valore, obiettivo, unita
-            ):
-                pdf.set_text_color(0, 0, 0)
-                pdf.write(8, f"{label}: ")
-                if valore > obiettivo:
-                    pdf.set_text_color(220, 20, 60)  # Rosso cremisi
-                pdf.write(8, f"{valore:.1f}")
-                pdf.set_text_color(0, 0, 0)
-                pdf.write(
-                    8, f" / {obiettivo} {unita} ({livello_allenamento})\n"
-                )
-
             # Stampa calorie con controllo eccedenza
-            pdf.set_text_color(0, 0, 0)
-            pdf.write(8, "Calorie: ")
+            pdf_output.set_text_color(0, 0, 0)
+            pdf_output.write(8, "Calorie: ")
             if tot_kcal > obj_kcal:
-                pdf.set_text_color(220, 20, 60)
-            pdf.write(8, f"{tot_kcal:.1f}")
-            pdf.set_text_color(0, 0, 0)
-            pdf.write(
+                pdf_output.set_text_color(220, 20, 60)
+            pdf_output.write(8, f"{tot_kcal:.1f}")
+            pdf_output.set_text_color(0, 0, 0)
+            pdf_output.write(
                 8, f" / {obj_kcal} kcal ({livello_allenamento})\n"
             )
-            pdf.ln(2)
+            pdf_output.ln(2)
 
             # Stampa carboidrati con controllo eccedenza
-            pdf.write(8, "Carboidrati: ")
+            pdf_output.write(8, "Carboidrati: ")
             if tot_carbo > obj_carbo:
-                pdf.set_text_color(220, 20, 60)
-            pdf.write(8, f"{tot_carbo:.1f}")
-            pdf.set_text_color(0, 0, 0)
-            pdf.write(8, f" / {obj_carbo} g\n")
-            pdf.ln(2)
+                pdf_output.set_text_color(220, 20, 60)
+            pdf_output.write(8, f"{tot_carbo:.1f}")
+            pdf_output.set_text_color(0, 0, 0)
+            pdf_output.write(8, f" / {obj_carbo} g\n")
+            pdf_output.ln(2)
 
             # Stampa proteine con controllo eccedenza
-            pdf.write(8, "Proteine: ")
+            pdf_output.write(8, "Proteine: ")
             if tot_prot > obj_prot:
-                pdf.set_text_color(220, 20, 60)
-            pdf.write(8, f"{tot_prot:.1f}")
-            pdf.set_text_color(0, 0, 0)
-            pdf.write(8, f" / {obj_prot} g\n")
-            pdf.ln(2)
+                pdf_output.set_text_color(220, 20, 60)
+            pdf_output.write(8, f"{tot_prot:.1f}")
+            pdf_output.set_text_color(0, 0, 0)
+            pdf_output.write(8, f" / {obj_prot} g\n")
+            pdf_output.ln(2)
 
             # Stampa grassi con controllo eccedenza
-            pdf.write(8, "Grassi: ")
+            pdf_output.write(8, "Grassi: ")
             if tot_grassi > obj_grassi:
-                pdf.set_text_color(220, 20, 60)
-            pdf.write(8, f"{tot_grassi:.1f}")
-            pdf.set_text_color(0, 0, 0)
-            pdf.write(8, f" / {obj_grassi} g\n")
-            pdf.ln(10)
+                pdf_output.set_text_color(220, 20, 60)
+            pdf_output.write(8, f"{tot_grassi:.1f}")
+            pdf_output.set_text_color(0, 0, 0)
+            pdf_output.write(8, f" / {obj_grassi} g\n")
+            pdf_output.ln(10)
 
             for pasto in PASTI:
                 pdf_output.set_font("Arial", "B", 12)
@@ -1354,7 +1340,7 @@ with col_pdf2:
                         if dc > obj_carbo:
                             pdf_output.set_text_color(220, 20, 60)
                         pdf_output.write(6, f"{dc:.1f}g")
-                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.set_text_color(0, 0, 1)
                         pdf_output.write(
                             6, f" | Prot: {dp:.1f}g | Grassi: {dg:.1f}g\n"
                         )
