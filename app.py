@@ -511,7 +511,7 @@ if profilo_sbloccato:
     salva_dati_disco()
     st.rerun()
 
-# Sezione di creazione e gestione account riservata all'Admin o libera se strutturata correttamente
+# Sezione di creazione e gestione account riservata all'Admin
 if is_admin:
   with st.sidebar.expander("🛠️ Crea o Gestisci Account Atleti"):
     st.markdown("### Nuovo Account")
