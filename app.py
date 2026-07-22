@@ -801,67 +801,79 @@ if data_str not in db_allenamenti_atleta:
   )
   salva_dati_disco()
 
-with st.form(f"form_allenamento_{st.session_state.atleta_corrente}"):
-  col_all1, col_all2, col_all3 = st.columns(3)
-  with col_all1:
-    tipo_allenamento = st.selectbox(
-        "Tipologia",
-        [
-            "Bici Strada (Rouleur/Climber)",
-            "Rulli / Indoor",
-            "Palestra / Pesi",
-            "Riposo / Scarico",
-            "Altro",
-        ],
-    )
-  with col_all2:
-    durata_min = st.number_input("Durata (min)", min_value=0, value=60, step=5)
-  with col_all3:
-    km_percorsi = st.number_input(
-        "Distanza (km)", min_value=0.0, value=0.0, step=0.5
-    )
+# Blocco interazione allenamenti in base al profilo loggato (Admin vs Ospite)
+is_ospite = st.session_state.utente_loggator is not None if False else (st.session_state.utente_loggato is not None)
 
-  col_all4, col_all5 = st.columns(2)
-  with col_all4:
-    dislivello = st.number_input("Dislivello (m)", min_value=0, value=0, step=50)
-  with col_all5:
-    tss = st.number_input("TSS Stimato", min_value=0.0, value=0.0, step=1.0)
-
-  note_allenamento = st.text_area("Note / Sensazioni di guida")
-
-  btn_aggiungi_all = st.form_submit_button("Registra Allenamento del Giorno")
-  if btn_aggiungi_all:
-    nuova_riga_all = pd.DataFrame([
-        {
-            "Tipologia": tipo_allenamento,
-            "Durata (min)": durata_min,
-            "Km": km_percorsi,
-            "Dislivello (m)": dislivello,
-            "TSS": tss,
-            "Note": note_allenamento,
-        }
-    ])
-    db_allenamenti_atleta[data_str] = pd.concat(
-        [db_allenamenti_atleta[data_str], nuova_riga_all], ignore_index=True
-    )
-    salva_dati_disco()
-    st.success("Allenamento registrato con successo per questo atleta!")
-    st.rerun()
-
-df_all_oggi = db_allenamenti_atleta[data_str]
-if not df_all_oggi.empty:
-  st.markdown("### Allenamenti registrati in data odierna:")
-  st.dataframe(df_all_oggi, use_container_width=True)
-
-  if st.button("Elimina ultimo allenamento inserito", key="btn_del_all"):
-    db_allenamenti_atleta[data_str] = df_all_oggi.iloc[:-1].reset_index(
-        drop=True
-    )
-    salva_dati_disco()
-    st.success("Ultimo allenamento rimosso.")
-    st.rerun()
+if is_ospite:
+  st.info("🔒 Visualizzazione in sola lettura della sezione allenamenti per l'utente ospite.")
+  df_all_oggi = db_allenamenti_atleta[data_str]
+  if not df_all_oggi.empty:
+    st.markdown("### Allenamenti registrati in data odierna:")
+    st.dataframe(df_all_oggi, use_container_width=True)
+  else:
+    st.info("Nessun allenamento registrato per questa data.")
 else:
-  st.info("Nessun allenamento registrato per questa data.")
+  with st.form(f"form_allenamento_{st.session_state.atleta_corrente}"):
+    col_all1, col_all2, col_all3 = st.columns(3)
+    with col_all1:
+      tipo_allenamento = st.selectbox(
+          "Tipologia",
+          [
+              "Bici Strada (Rouleur/Climber)",
+              "Rulli / Indoor",
+              "Palestra / Pesi",
+              "Riposo / Scarico",
+              "Altro",
+          ],
+      )
+    with col_all2:
+      durata_min = st.number_input("Durata (min)", min_value=0, value=60, step=5)
+    with col_all3:
+      km_percorsi = st.number_input(
+          "Distanza (km)", min_value=0.0, value=0.0, step=0.5
+      )
+
+    col_all4, col_all5 = st.columns(2)
+    with col_all4:
+      dislivello = st.number_input("Dislivello (m)", min_value=0, value=0, step=50)
+    with col_all5:
+      tss = st.number_input("TSS Stimato", min_value=0.0, value=0.0, step=1.0)
+
+    note_allenamento = st.text_area("Note / Sensazioni di guida")
+
+    btn_aggiungi_all = st.form_submit_button("Registra Allenamento del Giorno")
+    if btn_aggiungi_all:
+      nuova_riga_all = pd.DataFrame([
+          {
+              "Tipologia": tipo_allenamento,
+              "Durata (min)": durata_min,
+              "Km": km_percorsi,
+              "Dislivello (m)": dislivello,
+              "TSS": tss,
+              "Note": note_allenamento,
+          }
+      ])
+      db_allenamenti_atleta[data_str] = pd.concat(
+          [db_allenamenti_atleta[data_str], nuova_riga_all], ignore_index=True
+      )
+      salva_dati_disco()
+      st.success("Allenamento registrato con successo per questo atleta!")
+      st.rerun()
+
+  df_all_oggi = db_allenamenti_atleta[data_str]
+  if not df_all_oggi.empty:
+    st.markdown("### Allenamenti registrati in data odierna:")
+    st.dataframe(df_all_oggi, use_container_width=True)
+
+    if st.button("Elimina ultimo allenamento inserito", key="btn_del_all"):
+      db_allenamenti_atleta[data_str] = df_all_oggi.iloc[:-1].reset_index(
+          drop=True
+      )
+      salva_dati_disco()
+      st.success("Ultimo allenamento rimosso.")
+      st.rerun()
+  else:
+    st.info("Nessun allenamento registrato per questa data.")
 
 st.markdown("---")
 
@@ -1496,4 +1508,4 @@ with col_pdf2:
             mime="application/pdf",
         )
     except Exception as e:
-      st.error(f"Errore nella generazione del PDF personalizzato: {e}")
+      st.error(f"Errore nella generazione del PDF personalizzato: e")
