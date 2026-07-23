@@ -37,7 +37,7 @@ if ruolo_utente == "Proprietario / Autorizzato":
     else:
         st.sidebar.error("Password errata. Modalità limitata a Ospite.")
 
-# --- 0. GESTIONE PERSISTENZA DATI, PKL E PULIZIA ---
+# --- 0. GESTIONE PERSISTENZA DATI E PULIZIA ---
 FILE_PERSISTENZA = "diario_alimentare_multi_db.pkl"
 OLD_FILE_PERSISTENZA = "diario_alimentare_db.pkl"
 
@@ -57,17 +57,11 @@ def safe_float(val):
 
 
 def pulisci_dataframe_banca_dati(df):
-    """Assicura che le colonne numeriche siano float e ordina rigorosamente in ordine alfabetico ignorando maiuscole/minuscole."""
+    """Assicura che tutte le colonne numeriche siano float puliti."""
     colonne_numeriche = ["gr/n", "carbo", "proteine", "grassi", "kcal"]
     for col in colonne_numeriche:
         if col in df.columns:
             df[col] = df[col].apply(safe_float)
-    if "Alimento" in df.columns:
-        # Pulisce gli spazi vuoti superflui dai nomi degli alimenti
-        df["Alimento"] = df["Alimento"].astype(str).str.strip()
-        # Crea una colonna d'appoggio temporanea inminuscolo per un ordinamento alfabetico perfetto
-        df["_sort_key"] = df["Alimento"].str.lower()
-        df = df.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
     return df
 
 
@@ -427,7 +421,6 @@ if "banca_dati_df" not in st.session_state:
     else:
         st.session_state.banca_dati_df = pd.DataFrame(DEFAULT_BANCA_DATI)
 
-# Applicazione pulizia e ordinamento alfabetico forzato all'avvio
 st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(
     st.session_state.banca_dati_df
 )
@@ -471,7 +464,6 @@ PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta (Mifflin)")
 
 # --- SEZIONE GESTIONE ATLETI NELLA SIDEBAR ---
-st.sidebar.markdown("---")
 st.sidebar.header("Gestione Atleti")
 lista_atleti = list(st.session_state.atleti.keys())
 atleta_selezionato = st.sidebar.selectbox(
@@ -733,13 +725,12 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
     banca_dati = st.session_state.banca_dati_df
     st.dataframe(banca_dati, use_container_width=True)
 
-    csv_backup_data = banca_dati.to_csv(index=False).encode("utf-8-sig")
+    csv_backup_data = banca_dati.to_csv(index=False).encode("utf-8")
     st.download_button(
         label="📥 Scarica Backup Banca Dati (CSV)",
         data=csv_backup_data,
         file_name=f"banca_dati_alimentare_backup_{date.today().strftime('%Y-%m-%d')}.csv",
         mime="text/csv",
-        key="btn_download_banca_dati_csv",
     )
 
     if is_proprietario:
@@ -791,20 +782,23 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                             }
                         ]
                     )
-                    
-                    # Unione ed esecuzione pulizia/ordinamento alfabetico immediato
-                    df_aggiornato = pd.concat(
-                        [
-                            st.session_state.banca_dati_df[
-                                st.session_state.banca_dati_df["Alimento"].astype(str).str.lower()
-                                != nuovo_nome.strip().lower()
+                    nuova_riga_df = pulisci_dataframe_banca_dati(nuova_riga_df)
+                    st.session_state.banca_dati_df = (
+                        pd.concat(
+                            [
+                                st.session_state.banca_dati_df[
+                                    st.session_state.banca_dati_df[
+                                        "Alimento"
+                                    ].astype(str).str.lower()
+                                    != nuovo_nome.strip().lower()
+                                ],
+                                nuova_riga_df,
                             ],
-                            nuova_riga_df,
-                        ],
-                        ignore_index=True,
+                            ignore_index=True,
+                        )
+                        .sort_values("Alimento")
+                        .reset_index(drop=True)
                     )
-                    st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(df_aggiornato)
-                    
                     salva_dati_disco()
                     st.success(
                         f"Alimento '{nuovo_nome}' aggiunto/aggiornato con successo nella banca dati!"
@@ -827,10 +821,9 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
             with col_del_a:
                 if st.button("Elimina Selezionati"):
                     if alimenti_da_eliminare:
-                        df_aggiornato = banca_dati[
+                        st.session_state.banca_dati_df = banca_dati[
                             ~banca_dati["Alimento"].isin(alimenti_da_eliminare)
                         ].reset_index(drop=True)
-                        st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(df_aggiornato)
                         salva_dati_disco()
                         st.success("Alimenti selezionati rimossi con successo!")
                         st.rerun()
@@ -853,13 +846,124 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                     st.rerun()
 
         with col_bd2:
-            st.markdown("### Gestione Banca Dati")
-            st.info("I dati inseriti o aggiornati vengono ordinati automaticamente in ordine alfabetico.")
-            if st.button("Forza Riordinamento Alfabetico"):
-                st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(st.session_state.banca_dati_df)
-                salva_dati_disco()
-                st.success("Banca dati riordinata alfabeticamente con successo!")
-                st.rerun()
+            st.markdown("### Integrazione File CSV")
+            st.info(
+                "Carica un file CSV. L'ordine atteso per colonna è: Alimento, gr/n, carbo, proteine, grassi, kcal."
+            )
+            file_caricato = st.file_uploader(
+                "Carica file CSV", type=["csv"], key="uploader_banca_dati"
+            )
+
+            if file_caricato is not None:
+                try:
+                    df_nuovo = None
+                    try:
+                        df_nuovo = pd.read_csv(
+                            file_caricato, encoding="utf-8", sep=None, engine="python"
+                        )
+                    except UnicodeDecodeError:
+                        file_caricato.seek(0)
+                        df_nuovo = pd.read_csv(
+                            file_caricato,
+                            encoding="latin-1",
+                            sep=None,
+                            engine="python",
+                        )
+                    except Exception:
+                        file_caricato.seek(0)
+                        df_nuovo = pd.read_csv(
+                            file_caricato, encoding="utf-8", sep=";", engine="python"
+                        )
+
+                    if df_nuovo is not None and not df_nuovo.empty:
+                        st.write("Anteprima dati letti dal file:", df_nuovo.head())
+                        if st.button("Conferma e Aggiungi alla Banca Dati"):
+                            colonne_attese = [
+                                "Alimento",
+                                "gr/n",
+                                "carbo",
+                                "proteine",
+                                "grassi",
+                                "kcal",
+                            ]
+                            cols_orig = [
+                                str(c).strip().lower() for c in df_nuovo.columns
+                            ]
+                            df_nuovo.columns = cols_orig
+
+                            mapping_colonne = {}
+                            for c in cols_orig:
+                                if "alimento" in c or "nome" in c:
+                                    mapping_colonne[c] = "Alimento"
+                                elif "grass" in c or c == "g":
+                                    mapping_colonne[c] = "grassi"
+                                elif (
+                                    "gr" in c
+                                    or "quant" in c
+                                    or "peso" in c
+                                    or "numero" in c
+                                ):
+                                    mapping_colonne[c] = "gr/n"
+                                elif "carb" in c:
+                                    mapping_colonne[c] = "carbo"
+                                elif "prot" in c:
+                                    mapping_colonne[c] = "proteine"
+                                elif "kcal" in c or "calorie" in c or "kca" in c:
+                                    mapping_colonne[c] = "kcal"
+
+                            df_nuovo = df_nuovo.rename(columns=mapping_colonne)
+                            df_nuovo = df_nuovo.loc[
+                                :, ~df_nuovo.columns.duplicated()
+                            ]
+
+                            presenti = [
+                                col
+                                for col in colonne_attese
+                                if col in df_nuovo.columns
+                            ]
+                            if len(presenti) < 4 and len(df_nuovo.columns) >= 4:
+                                col_mapping_pos = {}
+                                for idx, col_name in enumerate(df_nuovo.columns):
+                                    if idx < len(colonne_attese):
+                                        col_mapping_pos[col_name] = colonne_attese[
+                                            idx
+                                        ]
+                                df_nuovo = df_nuovo.rename(columns=col_mapping_pos)
+                                df_nuovo = df_nuovo.loc[
+                                    :, ~df_nuovo.columns.duplicated()
+                                ]
+
+                            data_dict = {}
+                            for col in colonne_attese:
+                                if col in df_nuovo.columns:
+                                    data_dict[col] = df_nuovo[col].values
+                                else:
+                                    data_dict[col] = (
+                                        0 if col != "Alimento" else "Sconosciuto"
+                                    )
+
+                            df_finale = pd.DataFrame(data_dict)
+                            df_finale = pulisci_dataframe_banca_dati(df_finale)
+                            df_finale = df_finale.dropna(subset=["Alimento"])
+                            df_finale = df_finale[
+                                df_finale["Alimento"].astype(str).str.strip() != ""
+                            ]
+
+                            st.session_state.banca_dati_df = (
+                                pd.concat(
+                                    [st.session_state.banca_dati_df, df_finale],
+                                    ignore_index=True,
+                                )
+                                .drop_duplicates(subset=["Alimento"])
+                                .reset_index(drop=True)
+                            )
+                            salva_dati_disco()
+                            st.success(
+                                "Banca dati aggiornata con successo dal file CSV!"
+                            )
+                            st.rerun()
+                except Exception as e:
+                    st.error(f"Errore durante la lettura del file CSV: {e}")
     else:
         st.info("🔒 Funzionalità di modifica della banca dati riservate al proprietario.")
 
@@ -1129,6 +1233,7 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         tot_p_prot,
                         tot_p_grassi,
                     ) = 0.0, 0.0, 0.0, 0.0
+                    dettaglio_periodo = []
 
                     for i in range(delta_giorni):
                         d_corrente = data_inizio + timedelta(days=i)
@@ -1177,6 +1282,11 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                             tot_p_carbo += d_carbo
                             tot_p_prot += d_prot
                             tot_p_grassi += d_grassi
+
+                            if d_kcal > 0 or d_carbo > 0:
+                                dettaglio_periodo.append(
+                                    (d_str, d_kcal, d_carbo, d_prot, d_grassi)
+                                )
 
                     pdf_output = FPDF()
                     pdf_output.add_page()
@@ -1255,7 +1365,7 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     pdf_output.set_font("Arial", "B", 12)
                     pdf_output.set_text_color(0, 0, 0)
                     pdf_output.cell(
-                        0, 10, "Traccia Giornaliera dei Macronutrienti:", ln=True
+                        0, 10, "Traccia Giornaliera dei Macronutrienti (Tutti i giorni):", ln=True
                     )
                     pdf_output.set_font("Arial", "", 10)
 
@@ -1312,70 +1422,3 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     )
             except Exception as e:
                 st.error(f"Errore nella generazione del PDF personalizzato: {e}")
-
-# --- SEZIONE GESTIONE PERSISTENZA FILE PKL IN FONDO ALLA PAGINA ---
-st.markdown("---")
-st.subheader("💾 Gestione Database e File di Salvataggio (.pkl)")
-st.markdown(
-    "Da qui puoi scaricare il file di salvataggio completo della web app o ripristinarne uno caricandolo dal tuo computer."
-)
-
-if is_proprietario:
-    salva_dati_disco()
-
-col_pkl_1, col_pkl_2 = st.columns(2)
-
-with col_pkl_1:
-    st.markdown("### Scarica Database (.pkl)")
-    if os.path.exists(FILE_PERSISTENZA):
-        try:
-            with open(FILE_PERSISTENZA, "rb") as f:
-                pkl_bytes = f.read()
-            st.download_button(
-                label="📥 Scarica File .pkl",
-                data=pkl_bytes,
-                file_name=FILE_PERSISTENZA,
-                mime="application/octet-stream",
-                key="btn_download_pkl_bottom",
-            )
-        except Exception as e:
-            st.error(f"Errore lettura file pkl: {e}")
-    else:
-        try:
-            dati_iniziali = {
-                "atleti": st.session_state.atleti,
-                "banca_dati_df": st.session_state.banca_dati_df,
-                "atleta_corrente": st.session_state.atleta_corrente,
-            }
-            pkl_bytes = pickle.dumps(dati_iniziali)
-            st.download_button(
-                label="📥 Scarica File .pkl",
-                data=pkl_bytes,
-                file_name=FILE_PERSISTENZA,
-                mime="application/octet-stream",
-                key="btn_download_pkl_bottom",
-            )
-        except Exception as e:
-            st.error(f"Errore generazione file pkl: {e}")
-
-with col_pkl_2:
-    st.markdown("### Ripristina Database (.pkl)")
-    if is_proprietario:
-        uploaded_pkl = st.file_uploader(
-            "Carica file di salvataggio (.pkl)", type=["pkl"], key="uploader_pkl_bottom"
-        )
-        if uploaded_pkl is not None:
-            try:
-                dati_caricati_pkl = pickle.load(uploaded_pkl)
-                if isinstance(dati_caricati_pkl, dict) and "atleti" in dati_caricati_pkl:
-                    with open(FILE_PERSISTENZA, "wb") as f_out:
-                        uploaded_pkl.seek(0)
-                        f_out.write(uploaded_pkl.read())
-                    st.success("File .pkl caricato e ripristinato con successo! Ricarico...")
-                    st.rerun()
-                else:
-                    st.error("File .pkl non valido.")
-            except Exception as e:
-                st.error(f"Errore importazione file .pkl: {e}")
-    else:
-        st.info("🔒 Ripristino riservato al proprietario.")
