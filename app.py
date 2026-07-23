@@ -1233,7 +1233,6 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         tot_p_prot,
                         tot_p_grassi,
                     ) = 0.0, 0.0, 0.0, 0.0
-                    dettaglio_periodo = []
 
                     for i in range(delta_giorni):
                         d_corrente = data_inizio + timedelta(days=i)
@@ -1282,11 +1281,6 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                             tot_p_carbo += d_carbo
                             tot_p_prot += d_prot
                             tot_p_grassi += d_grassi
-
-                            if d_kcal > 0 or d_carbo > 0:
-                                dettaglio_periodo.append(
-                                    (d_str, d_kcal, d_carbo, d_prot, d_grassi)
-                                )
 
                     pdf_output = FPDF()
                     pdf_output.add_page()
@@ -1422,3 +1416,32 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     )
             except Exception as e:
                 st.error(f"Errore nella generazione del PDF personalizzato: {e}")
+
+# --- PARTE FINALE: DOWNLOAD DATI DIARIO (RISERVATO AL PROPRIETARIO) ---
+st.markdown("---")
+if is_proprietario:
+    st.subheader("📥 Esportazione Dati Diario (Atleta Corrente)")
+    # Raccoglie tutti i dati inseriti nel diario dell'atleta e permette di esportarli in CSV
+    dati_giornalieri_export = []
+    for d_str, pasti_dict in db_diario_atleta.items():
+        for nome_pasto, df_pasto in pasti_dict.items():
+            if not df_pasto.empty:
+                df_temp = df_pasto.copy()
+                df_temp.insert(0, "Data", d_str)
+                df_temp.insert(1, "Pasto", nome_pasto)
+                dati_giornalieri_export.append(df_temp)
+    
+    if dati_giornalieri_export:
+        df_export_totale = pd.concat(dati_giornalieri_export, ignore_index=True)
+        csv_diario_bytes = df_export_totale.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label=f"Scarica Storico Diario in CSV ({st.session_state.atleta_corrente})",
+            data=csv_diario_bytes,
+            file_name=f"storico_diario_{st.session_state.atleta_corrente}.csv",
+            mime="text/csv",
+            key="download_button_proprietario_diario"
+        )
+    else:
+        st.info("Nessun dato registrato nel diario per questo atleta da esportare al momento.")
+else:
+    st.info("🔒 Area di download dei dati del diario riservata esclusivamente al proprietario.")
