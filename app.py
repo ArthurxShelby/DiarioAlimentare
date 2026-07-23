@@ -120,40 +120,6 @@ def carica_dati_disco():
 
 dati_salvati = carica_dati_disco()
 
-# Sezione Sidebar per Backup e Ripristino File .pkl
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 💾 Gestione File di Salvataggio (.pkl)")
-if os.path.exists(FILE_PERSISTENZA):
-    try:
-        with open(FILE_PERSISTENZA, "rb") as f:
-            pkl_bytes = f.read()
-        st.sidebar.download_button(
-            label="📥 Scarica Database (.pkl)",
-            data=pkl_bytes,
-            file_name=FILE_PERSISTENZA,
-            mime="application/octet-stream",
-        )
-    except Exception as e:
-        st.sidebar.error(f"Errore lettura file pkl: {e}")
-
-if is_proprietario:
-    uploaded_pkl = st.sidebar.file_uploader(
-        "Carica file di salvataggio (.pkl)", type=["pkl"], key="uploader_pkl"
-    )
-    if uploaded_pkl is not None:
-        try:
-            dati_caricati_pkl = pickle.load(uploaded_pkl)
-            if isinstance(dati_caricati_pkl, dict) and "atleti" in dati_caricati_pkl:
-                with open(FILE_PERSISTENZA, "wb") as f_out:
-                    uploaded_pkl.seek(0)
-                    f_out.write(uploaded_pkl.read())
-                st.sidebar.success("File .pkl caricato e ripristinato con successo! Ricarico...")
-                st.rerun()
-            else:
-                st.sidebar.error("Il file .pkl caricato non ha una struttura valida.")
-        except Exception as e:
-            st.sidebar.error(f"Errore durante l'importazione del file .pkl: {e}")
-
 # Banca dati precompilata iniziale (condivisa tra gli atleti)
 DEFAULT_BANCA_DATI = [
     {
@@ -499,7 +465,64 @@ PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
 st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta (Mifflin)")
 
+# --- SEZIONE GESTIONE PERSISTENZA FILE PKL NELLA SIDEBAR ---
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 💾 Gestione File di Salvataggio (.pkl)")
+
+# Assicuriamoci di salvare lo stato corrente su disco se siamo proprietari in modo che il file .pkl sia sempre aggiornato prima del download
+if is_proprietario:
+    salva_dati_disco()
+
+if os.path.exists(FILE_PERSISTENZA):
+    try:
+        with open(FILE_PERSISTENZA, "rb") as f:
+            pkl_bytes = f.read()
+        st.sidebar.download_button(
+            label="📥 Scarica Database (.pkl)",
+            data=pkl_bytes,
+            file_name=FILE_PERSISTENZA,
+            mime="application/octet-stream",
+        )
+    except Exception as e:
+        st.sidebar.error(f"Errore lettura file pkl: {e}")
+else:
+    # Se il file non esiste ancora fisicamente, creiamolo al volo per permettere il download
+    try:
+        dati_iniziali = {
+            "atleti": st.session_state.atleti,
+            "banca_dati_df": st.session_state.banca_dati_df,
+            "atleta_corrente": st.session_state.atleta_corrente,
+        }
+        pkl_bytes = pickle.dumps(dati_iniziali)
+        st.sidebar.download_button(
+            label="📥 Scarica Database (.pkl)",
+            data=pkl_bytes,
+            file_name=FILE_PERSISTENZA,
+            mime="application/octet-stream",
+        )
+    except Exception as e:
+        st.sidebar.error(f"Errore generazione file pkl: {e}")
+
+if is_proprietario:
+    uploaded_pkl = st.sidebar.file_uploader(
+        "Carica file di salvataggio (.pkl)", type=["pkl"], key="uploader_pkl"
+    )
+    if uploaded_pkl is not None:
+        try:
+            dati_caricati_pkl = pickle.load(uploaded_pkl)
+            if isinstance(dati_caricati_pkl, dict) and "atleti" in dati_caricati_pkl:
+                with open(FILE_PERSISTENZA, "wb") as f_out:
+                    uploaded_pkl.seek(0)
+                    f_out.write(uploaded_pkl.read())
+                st.sidebar.success("File .pkl caricato e ripristinato con successo! Ricarico...")
+                st.rerun()
+            else:
+                st.sidebar.error("Il file .pkl caricato non ha una struttura valida.")
+        except Exception as e:
+            st.sidebar.error(f"Errore durante l'importazione del file .pkl: {e}")
+
 # --- SEZIONE GESTIONE ATLETI NELLA SIDEBAR ---
+st.sidebar.markdown("---")
 st.sidebar.header("Gestione Atleti")
 lista_atleti = list(st.session_state.atleti.keys())
 atleta_selezionato = st.sidebar.selectbox(
@@ -761,7 +784,8 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
     banca_dati = st.session_state.banca_dati_df
     st.dataframe(banca_dati, use_container_width=True)
 
-    csv_backup_data = banca_dati.to_csv(index=False).encode("utf-8")
+    # Correzione download banca dati in CSV con encoding sicuro per Excel (utf-8-sig)
+    csv_backup_data = banca_dati.to_csv(index=False).encode("utf-8-sig")
     st.download_button(
         label="📥 Scarica Backup Banca Dati (CSV)",
         data=csv_backup_data,
