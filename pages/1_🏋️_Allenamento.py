@@ -84,14 +84,6 @@ database_iniziale = {
                     "Lavoro_m": 15,
                     "Recupero_m": 5,
                 },
-                "Sabato": {
-                    "Esercizio": "Fondo Lungo Z2",
-                    "Watt": 210,
-                    "RPM": 85,
-                    "Ripetizioni": 1,
-                    "Lavoro_m": 120,
-                    "Recupero_m": 0,
-                },
             }
         },
     }
@@ -349,3 +341,19 @@ if is_proprietario:
 else:
     with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
         st.warning("⚠️ Funzione riservata esclusivamente al proprietario o agli utenti autorizzati.")
+
+# --- 7. PARTE FINALE: DOWNLOAD DATI (RISERVATO AL PROPRIETARIO) ---
+st.markdown("---")
+if is_proprietario:
+    st.subheader("📥 Esportazione Dati Allenamenti")
+    # Converte il DataFrame corrente del mese in CSV per il download esclusivo del proprietario
+    csv_allenamenti_export = df_base_mese.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label=f"Scarica Piano Allenamenti ({mese_selezionato} {anno_selezionato}) in CSV",
+        data=csv_allenamenti_export,
+        file_name=f"allenamenti_{anno_selezionato}_{mese_selezionato}.csv",
+        mime="text/csv",
+        key="download_button_proprietario_allenamenti"
+    )
+else:
+    st.info("🔒 Area di download dati riservata al proprietario.")
