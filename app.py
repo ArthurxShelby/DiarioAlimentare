@@ -728,7 +728,6 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
     banca_dati = st.session_state.banca_dati_df
     st.dataframe(banca_dati, use_container_width=True)
 
-    # Download banca dati in CSV con encoding sicuro per Excel (utf-8-sig)
     csv_backup_data = banca_dati.to_csv(index=False).encode("utf-8-sig")
     st.download_button(
         label="📥 Scarica Backup Banca Dati (CSV)",
@@ -937,20 +936,21 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                                 df_finale["Alimento"].astype(str).str.strip() != ""
                             ]
 
-                            st.session_state.banca_dati_df = (
-                                pd.concat(
-                                    [st.session_state.banca_dati_df, df_finale],
-                                    ignore_index=True,
-                                )
-                                .drop_duplicates(subset=["Alimento"])
-                                .sort_values("Alimento")
-                                .reset_index(drop=True)
+                            df_aggiornato = pd.concat(
+                                [st.session_state.banca_dati_df, df_finale],
+                                ignore_index=True,
                             )
+                            df_aggiornato["Alimento_lower"] = df_aggiornato["Alimento"].astype(str).str.lower().str.strip()
+                            df_aggiornato = df_aggiornato.drop_duplicates(subset=["Alimento_lower"], keep="last")
+                            df_aggiornato = df_aggiornato.drop(columns=["Alimento_lower"])
+                            df_aggiornato = pulisci_dataframe_banca_dati(df_aggiornato)
+
+                            st.session_state.banca_dati_df = df_aggiornato
                             salva_dati_disco()
                             st.session_state["ultimo_file_csv_processato"] = file_id
                             
                             st.success(
-                                "✅ File CSV elaborato, importato con successo e banca dati ordinata in ordine alfabetico!"
+                                f"✅ File CSV importato con successo! Aggiunti/aggiornati {len(df_finale)} alimenti."
                             )
                             st.rerun()
                     except Exception as e:
