@@ -1,9 +1,8 @@
-import os
-import pickle
-import re
 from datetime import date, timedelta
 from fpdf import FPDF
 import pandas as pd
+import pickle
+from supabase import create_client
 import streamlit as st
 
 # Configurazione della pagina
@@ -37,9 +36,48 @@ if ruolo_utente == "Proprietario / Autorizzato":
     else:
         st.sidebar.error("Password errata. Modalità limitata a Ospite.")
 
-# --- 0. GESTIONE PERSISTENZA DATI E PULIZIA ---
-FILE_PERSISTENZA = "diario_alimentare_multi_db.pkl"
-OLD_FILE_PERSISTENZA = "diario_alimentare_db.pkl"
+# --- 0. GESTIONE PERSISTENZA CLOUD (SUPABASE) ---
+
+
+# Inizializzazione della connessione a Supabase usando i segreti
+@st.cache_resource
+def init_supabase():
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
+
+
+supabase = init_supabase()
+
+
+# Funzione per caricare i dati dal Cloud di Supabase
+def carica_dati_disco():
+    try:
+        response = (
+            supabase.table("app_data").select("payload").eq("id", 1).execute()
+        )
+        if response.data and len(response.data) > 0:
+            return response.data[0]["payload"]
+    except Exception as e:
+        st.warning(f"Impossibile connettersi al cloud: {e}")
+    return {}
+
+
+# Funzione per salvare i dati sul Cloud di Supabase
+def salva_dati_disco(dati=None):
+    """Salva lo stato della banca dati, degli atleti e dell'atleta corrente su Supabase (solo se proprietario)."""
+    if not is_proprietario:
+        return
+    try:
+        if dati is None:
+            dati = {
+                "atleti": st.session_state.get("atleti", {}),
+                "banca_dati_df": st.session_state.get("banca_dati_df"),
+                "atleta_corrente": st.session_state.get("atleta_corrente"),
+            }
+        supabase.table("app_data").upsert({"id": 1, "payload": dati}).execute()
+    except Exception as e:
+        st.error(f"Errore durante il salvataggio sul cloud: {e}")
 
 
 def safe_float(val):
@@ -63,57 +101,6 @@ def pulisci_dataframe_banca_dati(df):
         if col in df.columns:
             df[col] = df[col].apply(safe_float)
     return df
-
-
-def salva_dati_disco():
-    """Salva lo stato della banca dati, degli atleti e dell'atleta corrente nel file locale (solo se proprietario)."""
-    if not is_proprietario:
-        return
-    try:
-        dati = {
-            "atleti": st.session_state.get("atleti", {}),
-            "banca_dati_df": st.session_state.get("banca_dati_df"),
-            "atleta_corrente": st.session_state.get("atleta_corrente"),
-        }
-        with open(FILE_PERSISTENZA, "wb") as f:
-            pickle.dump(dati, f)
-    except Exception as e:
-        st.error(f"Errore durante il salvataggio dei dati: {e}")
-
-
-def carica_dati_disco():
-    """Carica i dati salvati dal file locale (con supporto alla migrazione dal vecchio formato singolo)."""
-    if os.path.exists(FILE_PERSISTENZA):
-        try:
-            with open(FILE_PERSISTENZA, "rb") as f:
-                return pickle.load(f)
-        except Exception as e:
-            st.error(f"Errore durante il caricamento dei dati salvati: {e}")
-    elif os.path.exists(OLD_FILE_PERSISTENZA):
-        try:
-            with open(OLD_FILE_PERSISTENZA, "rb") as f:
-                old_dati = pickle.load(f)
-            migrated = {
-                "atleti": {
-                    "Atleta Principale": {
-                        "peso": old_dati.get("peso", 70.0),
-                        "altezza": old_dati.get("altezza", 175.0),
-                        "eta": old_dati.get("eta", 56),
-                        "genere": old_dati.get("genere", "Uomo"),
-                        "livello_allenamento": old_dati.get(
-                            "livello_allenamento",
-                            "Allenamento Moderato (PAL 1.55)",
-                        ),
-                        "db_diario": old_dati.get("db_diario", {}),
-                    }
-                },
-                "banca_dati_df": old_dati.get("banca_dati_df", None),
-                "atleta_corrente": "Atleta Principale",
-            }
-            return migrated
-        except Exception as e:
-            st.error(f"Errore durante la migrazione dei vecchi dati: {e}")
-    return None
 
 
 dati_salvati = carica_dati_disco()
@@ -417,7 +404,13 @@ if "banca_dati_df" not in st.session_state:
         and "banca_dati_df" in dati_salvati
         and dati_salvati["banca_dati_df"] is not None
     ):
-        st.session_state.banca_dati_df = dati_salvati["banca_dati_df"]
+        # Se salvato come lista di dizionari o dataframe serializzato
+        if isinstance(dati_salvati["banca_dati_df"], list):
+            st.session_state.banca_dati_df = pd.DataFrame(
+                dati_salvati["banca_dati_df"]
+            )
+        else:
+            st.session_state.banca_dati_df = dati_salvati["banca_dati_df"]
     else:
         st.session_state.banca_dati_df = pd.DataFrame(DEFAULT_BANCA_DATI)
 
@@ -855,8 +848,6 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
             )
 
             if file_caricato is not None:
-                # Feedback visivo verde immediato all'avvenuto upload del file CSV
-                st.success("File CSV caricato con successo! Clicca su conferma per applicare le modifiche.")
                 try:
                     df_nuovo = None
                     try:
@@ -1033,7 +1024,11 @@ if alimenti_validati:
             salva_dati_disco()
             st.rerun()
     else:
-        st.button("Aggiungi al pasto selezionato", key="btn_aggiungi_principale", disabled=True)
+        st.button(
+            "Aggiungi al pasto selezionato",
+            key="btn_aggiungi_principale",
+            disabled=True,
+        )
         st.caption("🔒 Azione non consentita in modalità ospite (sola lettura).")
 else:
     st.warning("La banca dati è vuota o contiene solo elementi non validi.")
@@ -1117,7 +1112,10 @@ st.subheader(
     f"Esportazione Report in PDF - {st.session_state.atleta_corrente}"
 )
 
-with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Intervallo)", expanded=False):
+with st.expander(
+    "📥 Opzioni di Esportazione Report PDF (Giornaliero e Intervallo)",
+    expanded=False,
+):
     col_pdf1, col_pdf2 = st.columns(2)
 
     with col_pdf1:
@@ -1367,20 +1365,57 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     pdf_output.set_font("Arial", "B", 12)
                     pdf_output.set_text_color(0, 0, 0)
                     pdf_output.cell(
-                        0, 10, "Traccia Giornaliera dei Macronutrienti (Tutti i giorni):", ln=True
+                        0,
+                        10,
+                        "Traccia Giornaliera dei Macronutrienti (Tutti i giorni):",
+                        ln=True,
                     )
                     pdf_output.set_font("Arial", "", 10)
 
                     for i in range(delta_giorni):
                         d_corrente = data_inizio + timedelta(days=i)
                         d_str = d_corrente.strftime("%Y-%m-%d")
-                        
+
                         dk, dc, dp, dg = 0.0, 0.0, 0.0, 0.0
                         if d_str in db_diario_atleta:
-                            dk = sum([safe_float(db_diario_atleta[d_str][p]["kcal"].sum()) for p in PASTI if not db_diario_atleta[d_str][p].empty])
-                            dc = sum([safe_float(db_diario_atleta[d_str][p]["carbo"].sum()) for p in PASTI if not db_diario_atleta[d_str][p].empty])
-                            dp = sum([safe_float(db_diario_atleta[d_str][p]["proteine"].sum()) for p in PASTI if not db_diario_atleta[d_str][p].empty])
-                            dg = sum([safe_float(db_diario_atleta[d_str][p]["grassi"].sum()) for p in PASTI if not db_diario_atleta[d_str][p].empty])
+                            dk = sum(
+                                [
+                                    safe_float(
+                                        db_diario_atleta[d_str][p]["kcal"].sum()
+                                    )
+                                    for p in PASTI
+                                    if not db_diario_atleta[d_str][p].empty
+                                ]
+                            )
+                            dc = sum(
+                                [
+                                    safe_float(
+                                        db_diario_atleta[d_str][p]["carbo"].sum()
+                                    )
+                                    for p in PASTI
+                                    if not db_diario_atleta[d_str][p].empty
+                                ]
+                            )
+                            dp = sum(
+                                [
+                                    safe_float(
+                                        db_diario_atleta[d_str][p][
+                                            "proteine"
+                                        ].sum()
+                                    )
+                                    for p in PASTI
+                                    if not db_diario_atleta[d_str][p].empty
+                                ]
+                            )
+                            dg = sum(
+                                [
+                                    safe_float(
+                                        db_diario_atleta[d_str][p]["grassi"].sum()
+                                    )
+                                    for p in PASTI
+                                    if not db_diario_atleta[d_str][p].empty
+                                ]
+                            )
 
                         pdf_output.set_text_color(0, 0, 0)
                         pdf_output.write(6, f" - {d_str} -> ")
@@ -1424,62 +1459,3 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     )
             except Exception as e:
                 st.error(f"Errore nella generazione del PDF personalizzato: {e}")
-
-# --- SEZIONE GESTIONE FILE PKL (IN FONDO ALLA PAGINA) ---
-st.markdown("---")
-st.subheader("⚙️ Gestione Avanzata Database (File PKL)")
-
-with st.expander("📂 Backup e Ripristino Database Completo (.pkl)", expanded=False):
-    col_pkl1, col_pkl2 = st.columns(2)
-
-    with col_pkl1:
-        st.markdown("### Esportazione (Backup)")
-        st.info("Scarica l'intero stato dell'applicazione (atleti, diari e banca dati) in un unico file binario.")
-        
-        try:
-            dati_correnti = {
-                "atleti": st.session_state.get("atleti", {}),
-                "banca_dati_df": st.session_state.get("banca_dati_df"),
-                "atleta_corrente": st.session_state.get("atleta_corrente"),
-            }
-            pkl_bytes = pickle.dumps(dati_correnti)
-            st.download_button(
-                label="📥 Scarica Database (.pkl)",
-                data=pkl_bytes,
-                file_name=f"backup_completo_diario_{date.today().strftime('%Y-%m-%d')}.pkl",
-                mime="application/octet-stream",
-            )
-        except Exception as e:
-            st.error(f"Errore nella preparazione del file PKL: {e}")
-
-    with col_pkl2:
-        st.markdown("### Importazione (Ripristino)")
-        st.warning("⚠️ Il ripristino di un file PKL sovrascriverà i dati correnti presenti nella sessione.")
-        
-        file_pkl_caricato = st.file_uploader("Carica file di backup (.pkl)", type=["pkl"], key="uploader_pkl")
-
-        if file_pkl_caricato is not None:
-            # Feedback visivo verde immediato all'avvenuto upload del file PKL
-            st.success("File PKL caricato con successo! Clicca su conferma per ripristinare il database.")
-            if is_proprietario:
-                if st.button("Conferma e Ripristina Database"):
-                    try:
-                        dati_caricati = pickle.load(file_pkl_caricato)
-                        if isinstance(dati_caricati, dict) and "atleti" in dati_caricati:
-                            st.session_state.atleti = dati_caricati["atleti"]
-                            if "banca_dati_df" in dati_caricati and dati_caricati["banca_dati_df"] is not None:
-                                st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(dati_caricati["banca_dati_df"])
-                            if "atleta_corrente" in dati_caricati and dati_caricati["atleta_corrente"] in st.session_state.atleti:
-                                st.session_state.atleta_corrente = dati_caricati["atleta_corrente"]
-                            else:
-                                st.session_state.atleta_corrente = list(st.session_state.atleti.keys())[0]
-                            
-                            salva_dati_disco()
-                            st.success("Database ripristinato con successo da file PKL!")
-                            st.rerun()
-                        else:
-                            st.error("Il file PKL caricato non ha una struttura valida.")
-                    except Exception as e:
-                        st.error(f"Errore durante la lettura del file PKL: {e}")
-            else:
-                st.info("🔒 Il ripristino del database PKL è riservato al proprietario autorizzato.")
