@@ -978,7 +978,7 @@ banca_dati_corrente = st.session_state.banca_dati_df
 alimenti_validi = banca_dati_corrente["Alimento"].dropna().tolist()
 alimenti_validati = [
     str(a)
-    for a in alimenti_validi
+    for a in alimenti_validati
     if str(a).strip() != "" and str(a).lower() != "nan"
 ]
 
@@ -1423,56 +1423,57 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
             except Exception as e:
                 st.error(f"Errore nella generazione del PDF personalizzato: {e}")
 
-# --- SEZIONE DEDICATA: GESTIONE ED ESTRAPOLAZIONE FILE .PKL DEL DIARIO (IN FONDO ALLA PAGINA) ---
+# --- 8. GESTIONE BACKUP COMPLETO DATABASE DIARIO (.PKL): ESPORTAZIONE E IMPORTAZIONE ---
 st.markdown("---")
-st.subheader("📦 Gestione ed Estrapolazione Database Diario (.pkl)")
-st.write("Usa questa sezione in fondo alla pagina per scaricare il file binario `.pkl` del diario alimentare e degli atleti o per ricaricarne uno aggiornato.")
+st.subheader("💾 Gestione Backup Database Diario Completo (.pkl)")
 
-col_pkl_down_d, col_pkl_up_d = st.columns(2)
+if is_proprietario:
+    col_exp_d, col_imp_d = st.columns(2)
 
-with col_pkl_down_d:
-    st.markdown("### Download Database (.pkl)")
-    try:
+    # Esportazione .pkl Diario
+    with col_exp_d:
+        st.markdown("#### 📥 Esporta Database Diario")
+        if not os.path.exists(FILE_PERSISTENZA):
+            salva_dati_disco()
+            
         if os.path.exists(FILE_PERSISTENZA):
-            with open(FILE_PERSISTENZA, "rb") as f:
-                pkl_bytes_d = f.read()
-            st.download_button(
-                label="📥 Scarica diario_alimentare_multi_db.pkl",
-                data=pkl_bytes_d,
-                file_name=FILE_PERSISTENZA,
-                mime="application/octet-stream",
-                key="download_pkl_diario"
-            )
+            with open(FILE_PERSISTENZA, "rb") as f_db_d:
+                st.download_button(
+                    label="Scarica backup database diario (.pkl)",
+                    data=f_db_d,
+                    file_name=FILE_PERSISTENZA,
+                    mime="application/octet-stream",
+                    key="download_pkl_diario_finale"
+                )
         else:
-            st.info("Nessun file .pkl del diario trovato sul disco al momento.")
-    except Exception as e:
-        st.error(f"Errore nella preparazione del download del file .pkl: {e}")
+            st.warning("File database del diario non ancora disponibile su disco.")
 
-with col_pkl_up_d:
-    st.markdown("### Upload / Ripristino Database (.pkl)")
-    if is_proprietario:
-        file_pkl_caricato_d = st.file_uploader(
+    # Importazione / Ripristino .pkl Diario
+    with col_imp_d:
+        st.markdown("#### 📤 Importa / Ripristina Database Diario")
+        file_pkl_diario_caricato = st.file_uploader(
             "Carica un file .pkl di backup del diario",
             type=["pkl"],
-            key="uploader_pkl_diario"
+            key="uploader_pkl_diario_backup"
         )
-        if file_pkl_caricato_d is not None:
-            try:
-                dati_caricati_pkl_d = pickle.load(file_pkl_caricato_d)
-                if isinstance(dati_caricati_pkl_d, dict):
-                    # Aggiorna lo stato della sessione e salva su disco
-                    if "atleti" in dati_caricati_pkl_d:
-                        st.session_state.atleti = dati_caricati_pkl_d["atleti"]
-                    if "banca_dati_df" in dati_caricati_pkl_d:
-                        st.session_state.banca_dati_df = dati_caricati_pkl_d["banca_dati_df"]
-                    if "atleta_corrente" in dati_caricati_pkl_d:
-                        st.session_state.atleta_corrente = dati_caricati_pkl_d["atleta_corrente"]
-                    salva_dati_disco()
-                    st.success("Database .pkl del diario caricato e ripristinato con successo!")
-                    st.rerun()
-                else:
-                    st.error("Il file .pkl caricato non ha una struttura valida.")
-            except Exception as e:
-                st.error(f"Errore durante la lettura del file .pkl: {e}")
-    else:
-        st.info("🔒 L'upload del file .pkl è riservato al proprietario.")
+
+        if file_pkl_diario_caricato is not None:
+            if st.button("Conferma e Sovrascrivi Database Diario"):
+                try:
+                    db_ripristinato = pickle.load(file_pkl_diario_caricato)
+                    if isinstance(db_ripristinato, dict) and "atleti" in db_ripristinato:
+                        st.session_state.atleti = db_ripristinato.get("atleti", {})
+                        if "banca_dati_df" in db_ripristinato and db_ripristinato["banca_dati_df"] is not None:
+                            st.session_state.banca_dati_df = db_ripristinato["banca_dati_df"]
+                        if "atleta_corrente" in db_ripristinato and db_ripristinato["atleta_corrente"] in st.session_state.atleti:
+                            st.session_state.atleta_corrente = db_ripristinato["atleta_corrente"]
+                        
+                        salva_dati_disco()
+                        st.success("Database del diario ripristinato e salvato con successo!")
+                        st.rerun()
+                    else:
+                        st.error("Il file .pkl caricato non ha una struttura valida per il diario.")
+                except Exception as e:
+                    st.error(f"Errore durante il caricamento del file .pkl del diario: {e}")
+else:
+    st.info("ℹ️ La gestione del backup completo (.pkl) del diario è riservata esclusivamente al proprietario.")
