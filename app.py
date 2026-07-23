@@ -2,6 +2,7 @@ from datetime import date, timedelta
 from fpdf import FPDF
 import pandas as pd
 import pickle
+import re  # <--- AGGIUNGI QUESTA RIGA
 from supabase import create_client
 import streamlit as st
 
