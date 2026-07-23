@@ -57,10 +57,10 @@ st.sidebar.markdown(
 st.sidebar.markdown("**Cadenza Soglia:** ~90 RPM")
 st.sidebar.markdown("**Cadenza SS:** ~85 RPM")
 
-# Bottone per il download del file .pkl nell'area riservata o sidebar se proprietario
+# --- BOTTONE DOWNLOAD .PKL (RISERVATO AL PROPRIETARIO) ---
 if is_proprietario:
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### 💾 Gestione Backup Dati")
+    st.sidebar.markdown("### 💾 Backup e Persistenza")
     if os.path.exists(DB_FILE):
         with open(DB_FILE, "rb") as f:
             st.sidebar.download_button(
@@ -69,6 +69,8 @@ if is_proprietario:
                 file_name="database_allenamenti.pkl",
                 mime="application/octet-stream"
             )
+    else:
+        st.sidebar.info("Il file di database non è ancora stato generato.")
 
 # --- 2. DATABASE INIZIALE STRUTTURATO ---
 database_iniziale = {
