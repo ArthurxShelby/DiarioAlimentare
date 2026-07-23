@@ -57,13 +57,17 @@ def safe_float(val):
 
 
 def pulisci_dataframe_banca_dati(df):
-    """Assicura che tutte le colonne numeriche siano float puliti e ordina alfabeticamente."""
+    """Assicura che le colonne numeriche siano float e ordina rigorosamente in ordine alfabetico ignorando maiuscole/minuscole."""
     colonne_numeriche = ["gr/n", "carbo", "proteine", "grassi", "kcal"]
     for col in colonne_numeriche:
         if col in df.columns:
             df[col] = df[col].apply(safe_float)
     if "Alimento" in df.columns:
-        df = df.sort_values("Alimento").reset_index(drop=True)
+        # Pulisce gli spazi vuoti superflui dai nomi degli alimenti
+        df["Alimento"] = df["Alimento"].astype(str).str.strip()
+        # Crea una colonna d'appoggio temporanea inminuscolo per un ordinamento alfabetico perfetto
+        df["_sort_key"] = df["Alimento"].str.lower()
+        df = df.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
     return df
 
 
@@ -423,6 +427,7 @@ if "banca_dati_df" not in st.session_state:
     else:
         st.session_state.banca_dati_df = pd.DataFrame(DEFAULT_BANCA_DATI)
 
+# Applicazione pulizia e ordinamento alfabetico forzato all'avvio
 st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(
     st.session_state.banca_dati_df
 )
@@ -786,23 +791,20 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                             }
                         ]
                     )
-                    nuova_riga_df = pulisci_dataframe_banca_dati(nuova_riga_df)
-                    st.session_state.banca_dati_df = (
-                        pd.concat(
-                            [
-                                st.session_state.banca_dati_df[
-                                    st.session_state.banca_dati_df[
-                                        "Alimento"
-                                    ].astype(str).str.lower()
-                                    != nuovo_nome.strip().lower()
-                                ],
-                                nuova_riga_df,
+                    
+                    # Unione ed esecuzione pulizia/ordinamento alfabetico immediato
+                    df_aggiornato = pd.concat(
+                        [
+                            st.session_state.banca_dati_df[
+                                st.session_state.banca_dati_df["Alimento"].astype(str).str.lower()
+                                != nuovo_nome.strip().lower()
                             ],
-                            ignore_index=True,
-                        )
-                        .sort_values("Alimento")
-                        .reset_index(drop=True)
+                            nuova_riga_df,
+                        ],
+                        ignore_index=True,
                     )
+                    st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(df_aggiornato)
+                    
                     salva_dati_disco()
                     st.success(
                         f"Alimento '{nuovo_nome}' aggiunto/aggiornato con successo nella banca dati!"
@@ -825,9 +827,10 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
             with col_del_a:
                 if st.button("Elimina Selezionati"):
                     if alimenti_da_eliminare:
-                        st.session_state.banca_dati_df = banca_dati[
+                        df_aggiornato = banca_dati[
                             ~banca_dati["Alimento"].isin(alimenti_da_eliminare)
                         ].reset_index(drop=True)
+                        st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(df_aggiornato)
                         salva_dati_disco()
                         st.success("Alimenti selezionati rimossi con successo!")
                         st.rerun()
@@ -850,113 +853,13 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                     st.rerun()
 
         with col_bd2:
-            st.markdown("### Integrazione File CSV (Anti-Loop)")
-            st.info(
-                "Carica un file CSV. L'ordine atteso per colonna è: Alimento, gr/n, carbo, proteine, grassi, kcal."
-            )
-            file_caricato = st.file_uploader(
-                "Carica file CSV", type=["csv"], key="uploader_banca_dati_safe"
-            )
-
-            if file_caricato is not None:
-                file_id = f"{file_caricato.name}_{file_caricato.size}"
-                if st.session_state.get("ultimo_file_csv_processato") != file_id:
-                    try:
-                        df_nuovo = None
-                        try:
-                            df_nuovo = pd.read_csv(
-                                file_caricato, encoding="utf-8", sep=None, engine="python"
-                            )
-                        except UnicodeDecodeError:
-                            file_caricato.seek(0)
-                            df_nuovo = pd.read_csv(
-                                file_caricato,
-                                encoding="latin-1",
-                                sep=None,
-                                engine="python",
-                            )
-                        except Exception:
-                            file_caricato.seek(0)
-                            df_nuovo = pd.read_csv(
-                                file_caricato, encoding="utf-8", sep=";", engine="python"
-                            )
-
-                        if df_nuovo is not None and not df_nuovo.empty:
-                            colonne_attese = [
-                                "Alimento",
-                                "gr/n",
-                                "carbo",
-                                "proteine",
-                                "grassi",
-                                "kcal",
-                            ]
-                            cols_orig = [
-                                str(c).strip().lower() for c in df_nuovo.columns
-                            ]
-                            df_nuovo.columns = cols_orig
-
-                            mapping_colonne = {}
-                            for c in cols_orig:
-                                if "alimento" in c or "nome" in c:
-                                    mapping_colonne[c] = "Alimento"
-                                elif "grass" in c or c == "g":
-                                    mapping_colonne[c] = "grassi"
-                                elif (
-                                    "gr" in c
-                                    or "quant" in c
-                                    or "peso" in c
-                                    or "numero" in c
-                                ):
-                                    mapping_colonne[c] = "gr/n"
-                                elif "carb" in c:
-                                    mapping_colonne[c] = "carbo"
-                                elif "prot" in c:
-                                    mapping_colonne[c] = "proteine"
-                                elif "kcal" in c or "calorie" in c or "kca" in c:
-                                    mapping_colonne[c] = "kcal"
-
-                            df_nuovo = df_nuovo.rename(columns=mapping_colonne)
-                            df_nuovo = df_nuovo.loc[
-                                :, ~df_nuovo.columns.duplicated()
-                            ]
-
-                            data_dict = {}
-                            for col in colonne_attese:
-                                if col in df_nuovo.columns:
-                                    data_dict[col] = df_nuovo[col].values
-                                else:
-                                    data_dict[col] = (
-                                        0 if col != "Alimento" else "Sconosciuto"
-                                    )
-
-                            df_finale = pd.DataFrame(data_dict)
-                            df_finale = pulisci_dataframe_banca_dati(df_finale)
-                            df_finale = df_finale.dropna(subset=["Alimento"])
-                            df_finale = df_finale[
-                                df_finale["Alimento"].astype(str).str.strip() != ""
-                            ]
-
-                            df_aggiornato = pd.concat(
-                                [st.session_state.banca_dati_df, df_finale],
-                                ignore_index=True,
-                            )
-                            df_aggiornato["Alimento_lower"] = df_aggiornato["Alimento"].astype(str).str.lower().str.strip()
-                            df_aggiornato = df_aggiornato.drop_duplicates(subset=["Alimento_lower"], keep="last")
-                            df_aggiornato = df_aggiornato.drop(columns=["Alimento_lower"])
-                            df_aggiornato = pulisci_dataframe_banca_dati(df_aggiornato)
-
-                            st.session_state.banca_dati_df = df_aggiornato
-                            salva_dati_disco()
-                            st.session_state["ultimo_file_csv_processato"] = file_id
-                            
-                            st.success(
-                                f"✅ File CSV importato con successo! Aggiunti/aggiornati {len(df_finale)} alimenti."
-                            )
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"Errore durante la lettura del file CSV: {e}")
-                else:
-                    st.success("File CSV già importato correttamente in questa sessione.")
+            st.markdown("### Gestione Banca Dati")
+            st.info("I dati inseriti o aggiornati vengono ordinati automaticamente in ordine alfabetico.")
+            if st.button("Forza Riordinamento Alfabetico"):
+                st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(st.session_state.banca_dati_df)
+                salva_dati_disco()
+                st.success("Banca dati riordinata alfabeticamente con successo!")
+                st.rerun()
     else:
         st.info("🔒 Funzionalità di modifica della banca dati riservate al proprietario.")
 
@@ -1471,8 +1374,8 @@ with col_pkl_2:
                     st.success("File .pkl caricato e ripristinato con successo! Ricarico...")
                     st.rerun()
                 else:
-                    st.error("Il file .pkl caricato non ha una struttura valida.")
+                    st.error("File .pkl non valido.")
             except Exception as e:
-                st.error(f"Errore durante l'importazione del file .pkl: {e}")
+                st.error(f"Errore importazione file .pkl: {e}")
     else:
-        st.info("🔒 Ripristino file .pkl riservato al proprietario autenticato.")
+        st.info("🔒 Ripristino riservato al proprietario.")
