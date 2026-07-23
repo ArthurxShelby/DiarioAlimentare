@@ -978,7 +978,7 @@ banca_dati_corrente = st.session_state.banca_dati_df
 alimenti_validi = banca_dati_corrente["Alimento"].dropna().tolist()
 alimenti_validati = [
     str(a)
-    for a in alimenti_validati
+    for a in alimenti_validi
     if str(a).strip() != "" and str(a).lower() != "nan"
 ]
 
