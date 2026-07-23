@@ -855,6 +855,8 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
             )
 
             if file_caricato is not None:
+                # Feedback visivo verde immediato all'avvenuto upload del file CSV
+                st.success("File CSV caricato con successo! Clicca su conferma per applicare le modifiche.")
                 try:
                     df_nuovo = None
                     try:
@@ -1457,6 +1459,8 @@ with st.expander("📂 Backup e Ripristino Database Completo (.pkl)", expanded=F
         file_pkl_caricato = st.file_uploader("Carica file di backup (.pkl)", type=["pkl"], key="uploader_pkl")
 
         if file_pkl_caricato is not None:
+            # Feedback visivo verde immediato all'avvenuto upload del file PKL
+            st.success("File PKL caricato con successo! Clicca su conferma per ripristinare il database.")
             if is_proprietario:
                 if st.button("Conferma e Ripristina Database"):
                     try:
