@@ -91,6 +91,8 @@ elenco_mesi_completo = [
 # Inizializzazione della memoria persistente
 if "database_allenamenti" not in st.session_state:
     st.session_state.database_allenamenti = carica_database(database_iniziale)
+    if is_proprietario:
+        salva_database()
 
 st.title("🏋️ Pianificazione Allenamento per Anno Solare")
 
@@ -250,23 +252,53 @@ else:
     with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
         st.warning("⚠️ Funzione riservata esclusivamente al proprietario.")
 
-# --- 7. BOTTONE DI ESTRAZIONE/DOWNLOAD .PKL (IN FONDO ALLA PAGINA) ---
+# --- 7. GESTIONE BACKUP COMPLETO DATABASE (.PKL): ESPORTAZIONE E IMPORTAZIONE ---
 st.markdown("---")
-st.subheader("📥 Esportazione Database Completo")
+st.subheader("💾 Gestione Backup Database Completo (.pkl)")
+
 if is_proprietario:
-    if os.path.exists(DB_FILE):
-        try:
+    col_exp, col_imp = st.columns(2)
+
+    # Pulsante di Esportazione
+    with col_exp:
+        st.markdown("#### 📥 Esporta Database")
+        # Assicuriamoci che il file esista prima di offrire il download
+        if not os.path.exists(DB_FILE):
+            salva_database()
+            
+        if os.path.exists(DB_FILE):
             with open(DB_FILE, "rb") as f_db:
                 st.download_button(
-                    label="Scarica il file completo database_allenamenti.pkl",
+                    label="Scarica backup database (.pkl)",
                     data=f_db,
                     file_name=DB_FILE,
                     mime="application/octet-stream",
                     key="download_pkl_finale"
                 )
-        except Exception as e:
-            st.error(f"Impossibile leggere il file pkl per il download: {e}")
-    else:
-        st.info("Il file di database non è ancora stato creato su disco.")
+        else:
+            st.warning("File database non ancora disponibile.")
+
+    # Sezione di Importazione / Ripristino .pkl
+    with col_imp:
+        st.markdown("#### 📤 Importa / Ripristina Database")
+        file_pkl_caricato = st.file_uploader(
+            "Carica un file .pkl di backup",
+            type=["pkl"],
+            key="uploader_pkl_backup"
+        )
+
+        if file_pkl_caricato is not None:
+            if st.button("Conferma e Sovrascrivi Database"):
+                try:
+                    db_ripristinato = pickle.load(file_pkl_caricato)
+                    if isinstance(db_ripristinato, dict):
+                        st.session_state.database_allenamenti = db_ripristinato
+                        salva_database()
+                        st.success("Database ripristinato e salvato con successo!")
+                        st.rerun()
+                    else:
+                        st.error("Il file .pkl caricato non ha una struttura valida.")
+                except Exception as e:
+                    st.error(f"Errore durante il caricamento del file .pkl: {e}")
 else:
-    st.info("ℹ️ L'estrazione del file di backup .pkl è riservata esclusivamente al proprietario.")
+    st.info("ℹ️ La gestione del backup completo (.pkl) è riservata esclusivamente al proprietario.")
