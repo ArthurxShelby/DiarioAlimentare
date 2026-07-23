@@ -1,4 +1,3 @@
 streamlit
 pandas
-garminconnect
-fpdf2
+supabase
