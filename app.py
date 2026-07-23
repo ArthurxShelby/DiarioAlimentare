@@ -57,11 +57,13 @@ def safe_float(val):
 
 
 def pulisci_dataframe_banca_dati(df):
-    """Assicura che tutte le colonne numeriche siano float puliti."""
+    """Assicura che tutte le colonne numeriche siano float puliti e ordina alfabeticamente."""
     colonne_numeriche = ["gr/n", "carbo", "proteine", "grassi", "kcal"]
     for col in colonne_numeriche:
         if col in df.columns:
             df[col] = df[col].apply(safe_float)
+    if "Alimento" in df.columns:
+        df = df.sort_values("Alimento").reset_index(drop=True)
     return df
 
 
@@ -949,17 +951,21 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                                 df_finale["Alimento"].astype(str).str.strip() != ""
                             ]
 
+                            # Concatenazione, rimozione duplicati e ordinamento alfabetico rigoroso
                             st.session_state.banca_dati_df = (
                                 pd.concat(
                                     [st.session_state.banca_dati_df, df_finale],
                                     ignore_index=True,
                                 )
                                 .drop_duplicates(subset=["Alimento"])
+                                .sort_values("Alimento")
                                 .reset_index(drop=True)
                             )
                             salva_dati_disco()
+                            
+                            # Feedback chiaro e visibile di avvenuto download/importazione e aggiornamento
                             st.success(
-                                "Banca dati aggiornata con successo dal file CSV!"
+                                "✅ File CSV elaborato, importato con successo e banca dati ordinata in ordine alfabetico!"
                             )
                             st.rerun()
                 except Exception as e:
@@ -1422,58 +1428,3 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     )
             except Exception as e:
                 st.error(f"Errore nella generazione del PDF personalizzato: {e}")
-
-# --- 8. GESTIONE BACKUP COMPLETO DATABASE DIARIO (.PKL): ESPORTAZIONE E IMPORTAZIONE ---
-st.markdown("---")
-st.subheader("💾 Gestione Backup Database Diario Completo (.pkl)")
-
-if is_proprietario:
-    col_exp_d, col_imp_d = st.columns(2)
-
-    # Esportazione .pkl Diario
-    with col_exp_d:
-        st.markdown("#### 📥 Esporta Database Diario")
-        if not os.path.exists(FILE_PERSISTENZA):
-            salva_dati_disco()
-            
-        if os.path.exists(FILE_PERSISTENZA):
-            with open(FILE_PERSISTENZA, "rb") as f_db_d:
-                st.download_button(
-                    label="Scarica backup database diario (.pkl)",
-                    data=f_db_d,
-                    file_name=FILE_PERSISTENZA,
-                    mime="application/octet-stream",
-                    key="download_pkl_diario_finale"
-                )
-        else:
-            st.warning("File database del diario non ancora disponibile su disco.")
-
-    # Importazione / Ripristino .pkl Diario
-    with col_imp_d:
-        st.markdown("#### 📤 Importa / Ripristina Database Diario")
-        file_pkl_diario_caricato = st.file_uploader(
-            "Carica un file .pkl di backup del diario",
-            type=["pkl"],
-            key="uploader_pkl_diario_backup"
-        )
-
-        if file_pkl_diario_caricato is not None:
-            if st.button("Conferma e Sovrascrivi Database Diario"):
-                try:
-                    db_ripristinato = pickle.load(file_pkl_diario_caricato)
-                    if isinstance(db_ripristinato, dict) and "atleti" in db_ripristinato:
-                        st.session_state.atleti = db_ripristinato.get("atleti", {})
-                        if "banca_dati_df" in db_ripristinato and db_ripristinato["banca_dati_df"] is not None:
-                            st.session_state.banca_dati_df = db_ripristinato["banca_dati_df"]
-                        if "atleta_corrente" in db_ripristinato and db_ripristinato["atleta_corrente"] in st.session_state.atleti:
-                            st.session_state.atleta_corrente = db_ripristinato["atleta_corrente"]
-                        
-                        salva_dati_disco()
-                        st.success("Database del diario ripristinato e salvato con successo!")
-                        st.rerun()
-                    else:
-                        st.error("Il file .pkl caricato non ha una struttura valida per il diario.")
-                except Exception as e:
-                    st.error(f"Errore durante il caricamento del file .pkl del diario: {e}")
-else:
-    st.info("ℹ️ La gestione del backup completo (.pkl) del diario è riservata esclusivamente al proprietario.")
