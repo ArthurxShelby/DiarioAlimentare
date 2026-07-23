@@ -37,7 +37,7 @@ if ruolo_utente == "Proprietario / Autorizzato":
     else:
         st.sidebar.error("Password errata. Modalità limitata a Ospite.")
 
-# --- 0. GESTIONE PERSISTENZA DATI E PULIZIA ---
+# --- 0. GESTIONE PERSISTENZA DATI, PKL E PULIZIA ---
 FILE_PERSISTENZA = "diario_alimentare_multi_db.pkl"
 OLD_FILE_PERSISTENZA = "diario_alimentare_db.pkl"
 
@@ -119,6 +119,40 @@ def carica_dati_disco():
 
 
 dati_salvati = carica_dati_disco()
+
+# Sezione Sidebar per Backup e Ripristino File .pkl
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 💾 Gestione File di Salvataggio (.pkl)")
+if os.path.exists(FILE_PERSISTENZA):
+    try:
+        with open(FILE_PERSISTENZA, "rb") as f:
+            pkl_bytes = f.read()
+        st.sidebar.download_button(
+            label="📥 Scarica Database (.pkl)",
+            data=pkl_bytes,
+            file_name=FILE_PERSISTENZA,
+            mime="application/octet-stream",
+        )
+    except Exception as e:
+        st.sidebar.error(f"Errore lettura file pkl: {e}")
+
+if is_proprietario:
+    uploaded_pkl = st.sidebar.file_uploader(
+        "Carica file di salvataggio (.pkl)", type=["pkl"], key="uploader_pkl"
+    )
+    if uploaded_pkl is not None:
+        try:
+            dati_caricati_pkl = pickle.load(uploaded_pkl)
+            if isinstance(dati_caricati_pkl, dict) and "atleti" in dati_caricati_pkl:
+                with open(FILE_PERSISTENZA, "wb") as f_out:
+                    uploaded_pkl.seek(0)
+                    f_out.write(uploaded_pkl.read())
+                st.sidebar.success("File .pkl caricato e ripristinato con successo! Ricarico...")
+                st.rerun()
+            else:
+                st.sidebar.error("Il file .pkl caricato non ha una struttura valida.")
+        except Exception as e:
+            st.sidebar.error(f"Errore durante l'importazione del file .pkl: {e}")
 
 # Banca dati precompilata iniziale (condivisa tra gli atleti)
 DEFAULT_BANCA_DATI = [
@@ -879,95 +913,93 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
 
                     if df_nuovo is not None and not df_nuovo.empty:
                         st.write("Anteprima dati letti dal file:", df_nuovo.head())
-                        if st.button("Conferma e Aggiungi alla Banca Dati"):
-                            colonne_attese = [
-                                "Alimento",
-                                "gr/n",
-                                "carbo",
-                                "proteine",
-                                "grassi",
-                                "kcal",
-                            ]
-                            cols_orig = [
-                                str(c).strip().lower() for c in df_nuovo.columns
-                            ]
-                            df_nuovo.columns = cols_orig
+                        colonne_attese = [
+                            "Alimento",
+                            "gr/n",
+                            "carbo",
+                            "proteine",
+                            "grassi",
+                            "kcal",
+                        ]
+                        cols_orig = [
+                            str(c).strip().lower() for c in df_nuovo.columns
+                        ]
+                        df_nuovo.columns = cols_orig
 
-                            mapping_colonne = {}
-                            for c in cols_orig:
-                                if "alimento" in c or "nome" in c:
-                                    mapping_colonne[c] = "Alimento"
-                                elif "grass" in c or c == "g":
-                                    mapping_colonne[c] = "grassi"
-                                elif (
-                                    "gr" in c
-                                    or "quant" in c
-                                    or "peso" in c
-                                    or "numero" in c
-                                ):
-                                    mapping_colonne[c] = "gr/n"
-                                elif "carb" in c:
-                                    mapping_colonne[c] = "carbo"
-                                elif "prot" in c:
-                                    mapping_colonne[c] = "proteine"
-                                elif "kcal" in c or "calorie" in c or "kca" in c:
-                                    mapping_colonne[c] = "kcal"
+                        mapping_colonne = {}
+                        for c in cols_orig:
+                            if "alimento" in c or "nome" in c:
+                                mapping_colonne[c] = "Alimento"
+                            elif "grass" in c or c == "g":
+                                mapping_colonne[c] = "grassi"
+                            elif (
+                                "gr" in c
+                                or "quant" in c
+                                or "peso" in c
+                                or "numero" in c
+                            ):
+                                mapping_colonne[c] = "gr/n"
+                            elif "carb" in c:
+                                mapping_colonne[c] = "carbo"
+                            elif "prot" in c:
+                                mapping_colonne[c] = "proteine"
+                            elif "kcal" in c or "calorie" in c or "kca" in c:
+                                mapping_colonne[c] = "kcal"
 
-                            df_nuovo = df_nuovo.rename(columns=mapping_colonne)
+                        df_nuovo = df_nuovo.rename(columns=mapping_colonne)
+                        df_nuovo = df_nuovo.loc[
+                            :, ~df_nuovo.columns.duplicated()
+                        ]
+
+                        presenti = [
+                            col
+                            for col in colonne_attese
+                            if col in df_nuovo.columns
+                        ]
+                        if len(presenti) < 4 and len(df_nuovo.columns) >= 4:
+                            col_mapping_pos = {}
+                            for idx, col_name in enumerate(df_nuovo.columns):
+                                if idx < len(colonne_attese):
+                                    col_mapping_pos[col_name] = colonne_attese[
+                                        idx
+                                    ]
+                            df_nuovo = df_nuovo.rename(columns=col_mapping_pos)
                             df_nuovo = df_nuovo.loc[
                                 :, ~df_nuovo.columns.duplicated()
                             ]
 
-                            presenti = [
-                                col
-                                for col in colonne_attese
-                                if col in df_nuovo.columns
-                            ]
-                            if len(presenti) < 4 and len(df_nuovo.columns) >= 4:
-                                col_mapping_pos = {}
-                                for idx, col_name in enumerate(df_nuovo.columns):
-                                    if idx < len(colonne_attese):
-                                        col_mapping_pos[col_name] = colonne_attese[
-                                            idx
-                                        ]
-                                df_nuovo = df_nuovo.rename(columns=col_mapping_pos)
-                                df_nuovo = df_nuovo.loc[
-                                    :, ~df_nuovo.columns.duplicated()
-                                ]
-
-                            data_dict = {}
-                            for col in colonne_attese:
-                                if col in df_nuovo.columns:
-                                    data_dict[col] = df_nuovo[col].values
-                                else:
-                                    data_dict[col] = (
-                                        0 if col != "Alimento" else "Sconosciuto"
-                                    )
-
-                            df_finale = pd.DataFrame(data_dict)
-                            df_finale = pulisci_dataframe_banca_dati(df_finale)
-                            df_finale = df_finale.dropna(subset=["Alimento"])
-                            df_finale = df_finale[
-                                df_finale["Alimento"].astype(str).str.strip() != ""
-                            ]
-
-                            # Concatenazione, rimozione duplicati e ordinamento alfabetico rigoroso
-                            st.session_state.banca_dati_df = (
-                                pd.concat(
-                                    [st.session_state.banca_dati_df, df_finale],
-                                    ignore_index=True,
+                        data_dict = {}
+                        for col in colonne_attese:
+                            if col in df_nuovo.columns:
+                                data_dict[col] = df_nuovo[col].values
+                            else:
+                                data_dict[col] = (
+                                    0 if col != "Alimento" else "Sconosciuto"
                                 )
-                                .drop_duplicates(subset=["Alimento"])
-                                .sort_values("Alimento")
-                                .reset_index(drop=True)
+
+                        df_finale = pd.DataFrame(data_dict)
+                        df_finale = pulisci_dataframe_banca_dati(df_finale)
+                        df_finale = df_finale.dropna(subset=["Alimento"])
+                        df_finale = df_finale[
+                            df_finale["Alimento"].astype(str).str.strip() != ""
+                        ]
+
+                        # Concatenazione, rimozione duplicati e ordinamento alfabetico rigoroso
+                        st.session_state.banca_dati_df = (
+                            pd.concat(
+                                [st.session_state.banca_dati_df, df_finale],
+                                ignore_index=True,
                             )
-                            salva_dati_disco()
-                            
-                            # Feedback chiaro e visibile di avvenuto download/importazione e aggiornamento
-                            st.success(
-                                "✅ File CSV elaborato, importato con successo e banca dati ordinata in ordine alfabetico!"
-                            )
-                            st.rerun()
+                            .drop_duplicates(subset=["Alimento"])
+                            .sort_values("Alimento")
+                            .reset_index(drop=True)
+                        )
+                        salva_dati_disco()
+                        
+                        st.success(
+                            "✅ File CSV elaborato, importato con successo e banca dati ordinata in ordine alfabetico!"
+                        )
+                        st.rerun()
                 except Exception as e:
                     st.error(f"Errore durante la lettura del file CSV: {e}")
     else:
@@ -1239,7 +1271,6 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         tot_p_prot,
                         tot_p_grassi,
                     ) = 0.0, 0.0, 0.0, 0.0
-                    dettaglio_periodo = []
 
                     for i in range(delta_giorni):
                         d_corrente = data_inizio + timedelta(days=i)
@@ -1288,11 +1319,6 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                             tot_p_carbo += d_carbo
                             tot_p_prot += d_prot
                             tot_p_grassi += d_grassi
-
-                            if d_kcal > 0 or d_carbo > 0:
-                                dettaglio_periodo.append(
-                                    (d_str, d_kcal, d_carbo, d_prot, d_grassi)
-                                )
 
                     pdf_output = FPDF()
                     pdf_output.add_page()
@@ -1371,7 +1397,7 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     pdf_output.set_font("Arial", "B", 12)
                     pdf_output.set_text_color(0, 0, 0)
                     pdf_output.cell(
-                        0, 10, "Traccia Giornaliera dei Macronutrienti (Tutti i giorni):", ln=True
+                        0, 10, "Traccia Giornaliera dei Macronutrienti:", ln=True
                     )
                     pdf_output.set_font("Arial", "", 10)
 
