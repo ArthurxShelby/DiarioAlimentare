@@ -1,7 +1,8 @@
 import datetime
+import json
 import os
-import pickle
 import pandas as pd
+from supabase import create_client
 import streamlit as st
 
 st.set_page_config(
@@ -22,27 +23,37 @@ if ruolo_utente == "Proprietario / Autorizzato":
     else:
         st.sidebar.error("Password errata. Modalità limitata a Ospite.")
 
-# --- 0. GESTIONE PERSISTENZA DATI SU DISCO ---
-DB_FILE = "database_allenamenti.pkl"
+# --- 0. GESTIONE PERSISTENZA CLOUD (SUPABASE) ---
 
-def salva_database():
-    """Salva lo stato attuale degli allenamenti nel file locale."""
-    try:
-        with open(DB_FILE, "wb") as f:
-            pickle.dump(st.session_state.database_allenamenti, f)
-    except Exception as e:
-        st.error(f"Errore durante il salvataggio dei dati: {e}")
+@st.cache_resource
+def init_supabase():
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
+
+supabase = init_supabase()
 
 def carica_database(db_iniziale):
-    """Carica il database dal file locale se esiste, altrimenti carica quello iniziale."""
-    if os.path.exists(DB_FILE):
-        try:
-            with open(DB_FILE, "rb") as f:
-                return pickle.load(f)
-        except Exception as e:
-            st.error(f"Errore nel caricamento dei dati salvati: {e}")
-            return db_iniziale
+    """Carica il database allenamenti dal cloud di Supabase, altrimenti restituisce quello iniziale."""
+    try:
+        response = supabase.table("app_data").select("payload").eq("id", "database_allenamenti").execute()
+        if response.data and len(response.data) > 0:
+            payload = response.data[0]["payload"]
+            return payload
+    except Exception as e:
+        st.warning(f"Impossibile connettersi al cloud per il caricamento: {e}")
     return db_iniziale
+
+def salva_database(dati=None):
+    """Salva lo stato attuale degli allenamenti nel cloud di Supabase (solo se proprietario)."""
+    if not is_proprietario:
+        return
+    try:
+        if dati is None:
+            dati = st.session_state.database_allenamenti
+        supabase.table("app_data").upsert({"id": "database_allenamenti", "payload": dati}).execute()
+    except Exception as e:
+        st.error(f"Errore durante il salvataggio dei dati sul cloud: {e}")
 
 # --- 1. RIFERIMENTI FTP & SIDEBAR ---
 ftp_atleta = 279
@@ -59,7 +70,7 @@ st.sidebar.markdown("**Cadenza SS:** ~85 RPM")
 
 # --- 2. DATABASE INIZIALE STRUTTURATO ---
 database_iniziale = {
-    2026: {
+    "2026": {
         "Gennaio": {
             "Settimana 1 (Base Invernale)": {
                 "Martedì": {
@@ -88,7 +99,7 @@ elenco_mesi_completo = [
     "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
 ]
 
-# Inizializzazione della memoria persistente
+# Inizializzazione della memoria persistente via Supabase
 if "database_allenamenti" not in st.session_state:
     st.session_state.database_allenamenti = carica_database(database_iniziale)
     if is_proprietario:
@@ -100,9 +111,10 @@ st.title("🏋️ Pianificazione Allenamento per Anno Solare")
 col_anno, col_mese = st.columns(2)
 
 with col_anno:
-    anno_selezionato = st.number_input(
+    anno_selezionato_num = st.number_input(
         "Anno Solare Corrente:", min_value=2020, max_value=2100, value=2026, step=1
     )
+    anno_selezionato = str(anno_selezionato_num)
 
 with col_mese:
     mese_selezionato = st.selectbox("Mese Corrente:", elenco_mesi_completo)
@@ -122,7 +134,10 @@ if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionat
 
 dati_correnti = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
 
-if isinstance(dati_correnti, dict):
+# Conversione dei dati grezzi dal cloud in DataFrame Pandas se necessario
+if isinstance(dati_correnti, list):
+    df_base_mese = pd.DataFrame(dati_correnti)
+elif isinstance(dati_correnti, dict):
     righe_tabella = []
     for settimana, giorni in dati_correnti.items():
         for giorno, dettagli in giorni.items():
@@ -168,7 +183,7 @@ if is_proprietario:
                 if all(col in df_caricato.columns for col in colonne_attese):
                     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_caricato[colonne_attese]
                     salva_database()
-                    st.success(f"File CSV caricato e salvato permanentemente per {mese_selezionato} {anno_selezionato}!")
+                    st.success(f"File CSV caricato e salvato permanentemente su Supabase per {mese_selezionato} {anno_selezionato}!")
                     st.rerun()
                 else:
                     st.error(f"Il file CSV non contiene le colonne corrette: {colonne_attese}")
@@ -225,12 +240,13 @@ if is_proprietario:
                     idx_m_ini = data_inizio_del.month - 1
                     idx_m_fin = data_fine_del.month - 1
 
-                    for anno_target in range(anno_inizio_del, anno_fine_del + 1):
+                    for anno_target_num in range(anno_inizio_del, anno_fine_del + 1):
+                        anno_target = str(anno_target_num)
                         if anno_target not in st.session_state.database_allenamenti:
                             continue
 
-                        start_idx = idx_m_ini if anno_target == anno_inizio_del else 0
-                        end_idx = idx_m_fin if anno_target == anno_fine_del else 11
+                        start_idx = idx_m_ini if anno_target_num == anno_inizio_del else 0
+                        end_idx = idx_m_fin if anno_target_num == anno_fine_del else 11
 
                         mesi_da_pulire = elenco_mesi_completo[start_idx : end_idx + 1]
 
@@ -244,7 +260,7 @@ if is_proprietario:
                                 )
 
                     salva_database()
-                    st.success("Dati svuotati e salvati con successo!")
+                    st.success("Dati svuotati e sincronizzati con successo su Supabase!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
@@ -252,53 +268,64 @@ else:
     with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
         st.warning("⚠️ Funzione riservata esclusivamente al proprietario.")
 
-# --- 7. GESTIONE BACKUP COMPLETO DATABASE (.PKL): ESPORTAZIONE E IMPORTAZIONE ---
+# --- 7. GESTIONE BACKUP CLOUD (ESPORTAZIONE JSON / RIPRISTINO) ---
 st.markdown("---")
-st.subheader("💾 Gestione Backup Database Completo (.pkl)")
+st.subheader("💾 Gestione Backup Cloud Database")
 
 if is_proprietario:
     col_exp, col_imp = st.columns(2)
 
-    # Pulsante di Esportazione
+    # Pulsante di Esportazione JSON dal cloud state
     with col_exp:
-        st.markdown("#### 📥 Esporta Database")
-        # Assicuriamoci che il file esista prima di offrire il download
-        if not os.path.exists(DB_FILE):
-            salva_database()
-            
-        if os.path.exists(DB_FILE):
-            with open(DB_FILE, "rb") as f_db:
-                st.download_button(
-                    label="Scarica backup database (.pkl)",
-                    data=f_db,
-                    file_name=DB_FILE,
-                    mime="application/octet-stream",
-                    key="download_pkl_finale"
-                )
-        else:
-            st.warning("File database non ancora disponibile.")
+        st.markdown("#### 📥 Esporta Database Cloud")
+        db_export = {}
+        for anno, mesi in st.session_state.database_allenamenti.items():
+            db_export[anno] = {}
+            for mese, df_val in mesi.items():
+                if isinstance(df_val, pd.DataFrame):
+                    db_export[anno][mese] = df_val.to_dict(orient="records")
+                else:
+                    db_export[anno][mese] = df_val
 
-    # Sezione di Importazione / Ripristino .pkl
-    with col_imp:
-        st.markdown("#### 📤 Importa / Ripristina Database")
-        file_pkl_caricato = st.file_uploader(
-            "Carica un file .pkl di backup",
-            type=["pkl"],
-            key="uploader_pkl_backup"
+        json_data = json.dumps(db_export, ensure_ascii=False, indent=4)
+        st.download_button(
+            label="Scarica backup database (JSON)",
+            data=json_data,
+            file_name=f"database_allenamenti_backup_{datetime.date.today().strftime('%Y-%m-%d')}.json",
+            mime="application/json",
+            key="download_json_finale"
         )
 
-        if file_pkl_caricato is not None:
-            if st.button("Conferma e Sovrascrivi Database"):
+    # Sezione di Importazione / Ripristino JSON
+    with col_imp:
+        st.markdown("#### 📤 Importa / Ripristina Database")
+        file_json_caricato = st.file_uploader(
+            "Carica un file JSON di backup",
+            type=["json"],
+            key="uploader_json_backup"
+        )
+
+        if file_json_caricato is not None:
+            if st.button("Conferma e Sovrascrivi Database Cloud"):
                 try:
-                    db_ripristinato = pickle.load(file_pkl_caricato)
+                    db_ripristinato = json.load(file_json_caricato)
                     if isinstance(db_ripristinato, dict):
-                        st.session_state.database_allenamenti = db_ripristinato
+                        db_strutturato = {}
+                        for anno, mesi in db_ripristinato.items():
+                            db_strutturato[anno] = {}
+                            for mese, val in mesi.items():
+                                if isinstance(val, list):
+                                    db_strutturato[anno][mese] = pd.DataFrame(val)
+                                else:
+                                    db_strutturato[anno][mese] = val
+
+                        st.session_state.database_allenamenti = db_strutturato
                         salva_database()
-                        st.success("Database ripristinato e salvato con successo!")
+                        st.success("Database ripristinato e sincronizzato con successo su Supabase!")
                         st.rerun()
                     else:
-                        st.error("Il file .pkl caricato non ha una struttura valida.")
+                        st.error("Il file caricato non ha una struttura dizionario valida.")
                 except Exception as e:
-                    st.error(f"Errore durante il caricamento del file .pkl: {e}")
+                    st.error(f"Errore durante il caricamento del file di backup: {e}")
 else:
-    st.info("ℹ️ La gestione del backup completo (.pkl) è riservata esclusivamente al proprietario.")
+    st.info("ℹ️ La gestione del backup completo è riservata esclusivamente al proprietario.")
