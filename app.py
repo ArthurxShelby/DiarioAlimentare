@@ -430,8 +430,9 @@ st.session_state.banca_dati_df = st.session_state.banca_dati_df.dropna(
 st.session_state.banca_dati_df = st.session_state.banca_dati_df[
     st.session_state.banca_dati_df["Alimento"].astype(str).str.strip() != ""
 ]
-# Assicuriamoci che sia ordinata alfabeticamente fin dall'inizio
-st.session_state.banca_dati_df = st.session_state.banca_dati_df.sort_values("Alimento").reset_index(drop=True)
+st.session_state.banca_dati_df = st.session_state.banca_dati_df.sort_values(
+    "Alimento"
+).reset_index(drop=True)
 
 # Inizializzazione Atleti
 if "atleti" not in st.session_state:
@@ -850,7 +851,7 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
         with col_bd2:
             st.markdown("### Integrazione File CSV")
             st.info(
-                "Carica un file CSV. L'ordine atteso per colonna è: Alimento, gr/n, carbo, proteine, grassi, kcal."
+                "Carica un file CSV. Colonne attese: Alimento, gr/n, carbo, proteine, grassi, kcal."
             )
             file_caricato = st.file_uploader(
                 "Carica file CSV", type=["csv"], key="uploader_banca_dati"
@@ -859,23 +860,17 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
             if file_caricato is not None:
                 try:
                     df_nuovo = None
-                    try:
-                        df_nuovo = pd.read_csv(
-                            file_caricato, encoding="utf-8", sep=None, engine="python"
-                        )
-                    except UnicodeDecodeError:
-                        file_caricato.seek(0)
-                        df_nuovo = pd.read_csv(
-                            file_caricato,
-                            encoding="latin-1",
-                            sep=None,
-                            engine="python",
-                        )
-                    except Exception:
-                        file_caricato.seek(0)
-                        df_nuovo = pd.read_csv(
-                            file_caricato, encoding="utf-8", sep=";", engine="python"
-                        )
+                    # Tentativi multipli per robustezza di codifica e separatore
+                    for enc in ["utf-8", "latin-1", "cp1252"]:
+                        try:
+                            file_caricato.seek(0)
+                            df_nuovo = pd.read_csv(
+                                file_caricato, encoding=enc, sep=None, engine="python"
+                            )
+                            if df_nuovo is not None and not df_nuovo.empty:
+                                break
+                        except Exception:
+                            continue
 
                     if df_nuovo is not None and not df_nuovo.empty:
                         st.write("Anteprima dati letti dal file:", df_nuovo.head())
@@ -965,6 +960,8 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                                 "Banca dati caricata, ordinata alfabeticamente e aggiornata con successo dal file CSV!"
                             )
                             st.rerun()
+                    else:
+                        st.error("Il file CSV risulta vuoto o non leggibile.")
                 except Exception as e:
                     st.error(f"Errore durante la lettura del file CSV: {e}")
     else:
