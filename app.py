@@ -1422,3 +1422,60 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     )
             except Exception as e:
                 st.error(f"Errore nella generazione del PDF personalizzato: {e}")
+
+# --- SEZIONE GESTIONE FILE PKL (IN FONDO ALLA PAGINA) ---
+st.markdown("---")
+st.subheader("⚙️ Gestione Avanzata Database (File PKL)")
+
+with st.expander("📂 Backup e Ripristino Database Completo (.pkl)", expanded=False):
+    col_pkl1, col_pkl2 = st.columns(2)
+
+    with col_pkl1:
+        st.markdown("### Esportazione (Backup)")
+        st.info("Scarica l'intero stato dell'applicazione (atleti, diari e banca dati) in un unico file binario.")
+        
+        try:
+            dati_correnti = {
+                "atleti": st.session_state.get("atleti", {}),
+                "banca_dati_df": st.session_state.get("banca_dati_df"),
+                "atleta_corrente": st.session_state.get("atleta_corrente"),
+            }
+            pkl_bytes = pickle.dumps(dati_correnti)
+            st.download_button(
+                label="📥 Scarica Database (.pkl)",
+                data=pkl_bytes,
+                file_name=f"backup_completo_diario_{date.today().strftime('%Y-%m-%d')}.pkl",
+                mime="application/octet-stream",
+            )
+        except Exception as e:
+            st.error(f"Errore nella preparazione del file PKL: {e}")
+
+    with col_pkl2:
+        st.markdown("### Importazione (Ripristino)")
+        st.warning("⚠️ Il ripristino di un file PKL sovrascriverà i dati correnti presenti nella sessione.")
+        
+        file_pkl_caricato = st.file_uploader("Carica file di backup (.pkl)", type=["pkl"], key="uploader_pkl")
+
+        if file_pkl_caricato is not None:
+            if is_proprietario:
+                if st.button("Conferma e Ripristina Database"):
+                    try:
+                        dati_caricati = pickle.load(file_pkl_caricato)
+                        if isinstance(dati_caricati, dict) and "atleti" in dati_caricati:
+                            st.session_state.atleti = dati_caricati["atleti"]
+                            if "banca_dati_df" in dati_caricati and dati_caricati["banca_dati_df"] is not None:
+                                st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(dati_caricati["banca_dati_df"])
+                            if "atleta_corrente" in dati_caricati and dati_caricati["atleta_corrente"] in st.session_state.atleti:
+                                st.session_state.atleta_corrente = dati_caricati["atleta_corrente"]
+                            else:
+                                st.session_state.atleta_corrente = list(st.session_state.atleti.keys())[0]
+                            
+                            salva_dati_disco()
+                            st.success("Database ripristinato con successo da file PKL!")
+                            st.rerun()
+                        else:
+                            st.error("Il file PKL caricato non ha una struttura valida.")
+                    except Exception as e:
+                        st.error(f"Errore durante la lettura del file PKL: {e}")
+            else:
+                st.info("🔒 Il ripristino del database PKL è riservato al proprietario autorizzato.")
