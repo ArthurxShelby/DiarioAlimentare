@@ -728,7 +728,7 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
     banca_dati = st.session_state.banca_dati_df
     st.dataframe(banca_dati, use_container_width=True)
 
-    # Correzione download banca dati in CSV con encoding sicuro per Excel (utf-8-sig)
+    # Download banca dati in CSV con encoding sicuro per Excel (utf-8-sig)
     csv_backup_data = banca_dati.to_csv(index=False).encode("utf-8-sig")
     st.download_button(
         label="📥 Scarica Backup Banca Dati (CSV)",
@@ -851,126 +851,112 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                     st.rerun()
 
         with col_bd2:
-            st.markdown("### Integrazione File CSV")
+            st.markdown("### Integrazione File CSV (Anti-Loop)")
             st.info(
                 "Carica un file CSV. L'ordine atteso per colonna è: Alimento, gr/n, carbo, proteine, grassi, kcal."
             )
             file_caricato = st.file_uploader(
-                "Carica file CSV", type=["csv"], key="uploader_banca_dati"
+                "Carica file CSV", type=["csv"], key="uploader_banca_dati_safe"
             )
 
             if file_caricato is not None:
-                try:
-                    df_nuovo = None
+                file_id = f"{file_caricato.name}_{file_caricato.size}"
+                if st.session_state.get("ultimo_file_csv_processato") != file_id:
                     try:
-                        df_nuovo = pd.read_csv(
-                            file_caricato, encoding="utf-8", sep=None, engine="python"
-                        )
-                    except UnicodeDecodeError:
-                        file_caricato.seek(0)
-                        df_nuovo = pd.read_csv(
-                            file_caricato,
-                            encoding="latin-1",
-                            sep=None,
-                            engine="python",
-                        )
-                    except Exception:
-                        file_caricato.seek(0)
-                        df_nuovo = pd.read_csv(
-                            file_caricato, encoding="utf-8", sep=";", engine="python"
-                        )
+                        df_nuovo = None
+                        try:
+                            df_nuovo = pd.read_csv(
+                                file_caricato, encoding="utf-8", sep=None, engine="python"
+                            )
+                        except UnicodeDecodeError:
+                            file_caricato.seek(0)
+                            df_nuovo = pd.read_csv(
+                                file_caricato,
+                                encoding="latin-1",
+                                sep=None,
+                                engine="python",
+                            )
+                        except Exception:
+                            file_caricato.seek(0)
+                            df_nuovo = pd.read_csv(
+                                file_caricato, encoding="utf-8", sep=";", engine="python"
+                            )
 
-                    if df_nuovo is not None and not df_nuovo.empty:
-                        st.write("Anteprima dati letti dal file:", df_nuovo.head())
-                        colonne_attese = [
-                            "Alimento",
-                            "gr/n",
-                            "carbo",
-                            "proteine",
-                            "grassi",
-                            "kcal",
-                        ]
-                        cols_orig = [
-                            str(c).strip().lower() for c in df_nuovo.columns
-                        ]
-                        df_nuovo.columns = cols_orig
+                        if df_nuovo is not None and not df_nuovo.empty:
+                            colonne_attese = [
+                                "Alimento",
+                                "gr/n",
+                                "carbo",
+                                "proteine",
+                                "grassi",
+                                "kcal",
+                            ]
+                            cols_orig = [
+                                str(c).strip().lower() for c in df_nuovo.columns
+                            ]
+                            df_nuovo.columns = cols_orig
 
-                        mapping_colonne = {}
-                        for c in cols_orig:
-                            if "alimento" in c or "nome" in c:
-                                mapping_colonne[c] = "Alimento"
-                            elif "grass" in c or c == "g":
-                                mapping_colonne[c] = "grassi"
-                            elif (
-                                "gr" in c
-                                or "quant" in c
-                                or "peso" in c
-                                or "numero" in c
-                            ):
-                                mapping_colonne[c] = "gr/n"
-                            elif "carb" in c:
-                                mapping_colonne[c] = "carbo"
-                            elif "prot" in c:
-                                mapping_colonne[c] = "proteine"
-                            elif "kcal" in c or "calorie" in c or "kca" in c:
-                                mapping_colonne[c] = "kcal"
+                            mapping_colonne = {}
+                            for c in cols_orig:
+                                if "alimento" in c or "nome" in c:
+                                    mapping_colonne[c] = "Alimento"
+                                elif "grass" in c or c == "g":
+                                    mapping_colonne[c] = "grassi"
+                                elif (
+                                    "gr" in c
+                                    or "quant" in c
+                                    or "peso" in c
+                                    or "numero" in c
+                                ):
+                                    mapping_colonne[c] = "gr/n"
+                                elif "carb" in c:
+                                    mapping_colonne[c] = "carbo"
+                                elif "prot" in c:
+                                    mapping_colonne[c] = "proteine"
+                                elif "kcal" in c or "calorie" in c or "kca" in c:
+                                    mapping_colonne[c] = "kcal"
 
-                        df_nuovo = df_nuovo.rename(columns=mapping_colonne)
-                        df_nuovo = df_nuovo.loc[
-                            :, ~df_nuovo.columns.duplicated()
-                        ]
-
-                        presenti = [
-                            col
-                            for col in colonne_attese
-                            if col in df_nuovo.columns
-                        ]
-                        if len(presenti) < 4 and len(df_nuovo.columns) >= 4:
-                            col_mapping_pos = {}
-                            for idx, col_name in enumerate(df_nuovo.columns):
-                                if idx < len(colonne_attese):
-                                    col_mapping_pos[col_name] = colonne_attese[
-                                        idx
-                                    ]
-                            df_nuovo = df_nuovo.rename(columns=col_mapping_pos)
+                            df_nuovo = df_nuovo.rename(columns=mapping_colonne)
                             df_nuovo = df_nuovo.loc[
                                 :, ~df_nuovo.columns.duplicated()
                             ]
 
-                        data_dict = {}
-                        for col in colonne_attese:
-                            if col in df_nuovo.columns:
-                                data_dict[col] = df_nuovo[col].values
-                            else:
-                                data_dict[col] = (
-                                    0 if col != "Alimento" else "Sconosciuto"
+                            data_dict = {}
+                            for col in colonne_attese:
+                                if col in df_nuovo.columns:
+                                    data_dict[col] = df_nuovo[col].values
+                                else:
+                                    data_dict[col] = (
+                                        0 if col != "Alimento" else "Sconosciuto"
+                                    )
+
+                            df_finale = pd.DataFrame(data_dict)
+                            df_finale = pulisci_dataframe_banca_dati(df_finale)
+                            df_finale = df_finale.dropna(subset=["Alimento"])
+                            df_finale = df_finale[
+                                df_finale["Alimento"].astype(str).str.strip() != ""
+                            ]
+
+                            st.session_state.banca_dati_df = (
+                                pd.concat(
+                                    [st.session_state.banca_dati_df, df_finale],
+                                    ignore_index=True,
                                 )
-
-                        df_finale = pd.DataFrame(data_dict)
-                        df_finale = pulisci_dataframe_banca_dati(df_finale)
-                        df_finale = df_finale.dropna(subset=["Alimento"])
-                        df_finale = df_finale[
-                            df_finale["Alimento"].astype(str).str.strip() != ""
-                        ]
-
-                        # Concatenazione, rimozione duplicati e ordinamento alfabetico rigoroso
-                        st.session_state.banca_dati_df = (
-                            pd.concat(
-                                [st.session_state.banca_dati_df, df_finale],
-                                ignore_index=True,
+                                .drop_duplicates(subset=["Alimento"])
+                                .sort_values("Alimento")
+                                .reset_index(drop=True)
                             )
-                            .drop_duplicates(subset=["Alimento"])
-                            .sort_values("Alimento")
-                            .reset_index(drop=True)
-                        )
-                        salva_dati_disco()
-                        
-                        st.success(
-                            "✅ File CSV elaborato, importato con successo e banca dati ordinata in ordine alfabetico!"
-                        )
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"Errore durante la lettura del file CSV: {e}")
+                            salva_dati_disco()
+                            st.session_state["ultimo_file_csv_processato"] = file_id
+                            
+                            st.success(
+                                "✅ File CSV elaborato, importato con successo e banca dati ordinata in ordine alfabetico!"
+                            )
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Errore durante la lettura del file CSV: {e}")
+                else:
+                    st.success("File CSV già importato correttamente in questa sessione.")
     else:
         st.info("🔒 Funzionalità di modifica della banca dati riservate al proprietario.")
 
