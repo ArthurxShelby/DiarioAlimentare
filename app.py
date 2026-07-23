@@ -465,62 +465,6 @@ PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
 st.title("Pianificatore Alimentare & Allenamento - Multi-Atleta (Mifflin)")
 
-# --- SEZIONE GESTIONE PERSISTENZA FILE PKL NELLA SIDEBAR ---
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 💾 Gestione File di Salvataggio (.pkl)")
-
-# Assicuriamoci di salvare lo stato corrente su disco se siamo proprietari in modo che il file .pkl sia sempre aggiornato prima del download
-if is_proprietario:
-    salva_dati_disco()
-
-if os.path.exists(FILE_PERSISTENZA):
-    try:
-        with open(FILE_PERSISTENZA, "rb") as f:
-            pkl_bytes = f.read()
-        st.sidebar.download_button(
-            label="📥 Scarica Database (.pkl)",
-            data=pkl_bytes,
-            file_name=FILE_PERSISTENZA,
-            mime="application/octet-stream",
-        )
-    except Exception as e:
-        st.sidebar.error(f"Errore lettura file pkl: {e}")
-else:
-    # Se il file non esiste ancora fisicamente, creiamolo al volo per permettere il download
-    try:
-        dati_iniziali = {
-            "atleti": st.session_state.atleti,
-            "banca_dati_df": st.session_state.banca_dati_df,
-            "atleta_corrente": st.session_state.atleta_corrente,
-        }
-        pkl_bytes = pickle.dumps(dati_iniziali)
-        st.sidebar.download_button(
-            label="📥 Scarica Database (.pkl)",
-            data=pkl_bytes,
-            file_name=FILE_PERSISTENZA,
-            mime="application/octet-stream",
-        )
-    except Exception as e:
-        st.sidebar.error(f"Errore generazione file pkl: {e}")
-
-if is_proprietario:
-    uploaded_pkl = st.sidebar.file_uploader(
-        "Carica file di salvataggio (.pkl)", type=["pkl"], key="uploader_pkl"
-    )
-    if uploaded_pkl is not None:
-        try:
-            dati_caricati_pkl = pickle.load(uploaded_pkl)
-            if isinstance(dati_caricati_pkl, dict) and "atleti" in dati_caricati_pkl:
-                with open(FILE_PERSISTENZA, "wb") as f_out:
-                    uploaded_pkl.seek(0)
-                    f_out.write(uploaded_pkl.read())
-                st.sidebar.success("File .pkl caricato e ripristinato con successo! Ricarico...")
-                st.rerun()
-            else:
-                st.sidebar.error("Il file .pkl caricato non ha una struttura valida.")
-        except Exception as e:
-            st.sidebar.error(f"Errore durante l'importazione del file .pkl: {e}")
-
 # --- SEZIONE GESTIONE ATLETI NELLA SIDEBAR ---
 st.sidebar.markdown("---")
 st.sidebar.header("Gestione Atleti")
@@ -791,6 +735,7 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
         data=csv_backup_data,
         file_name=f"banca_dati_alimentare_backup_{date.today().strftime('%Y-%m-%d')}.csv",
         mime="text/csv",
+        key="btn_download_banca_dati_csv",
     )
 
     if is_proprietario:
@@ -1478,3 +1423,70 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     )
             except Exception as e:
                 st.error(f"Errore nella generazione del PDF personalizzato: {e}")
+
+# --- SEZIONE GESTIONE PERSISTENZA FILE PKL IN FONDO ALLA PAGINA ---
+st.markdown("---")
+st.subheader("💾 Gestione Database e File di Salvataggio (.pkl)")
+st.markdown(
+    "Da qui puoi scaricare il file di salvataggio completo della web app o ripristinarne uno caricandolo dal tuo computer."
+)
+
+if is_proprietario:
+    salva_dati_disco()
+
+col_pkl_1, col_pkl_2 = st.columns(2)
+
+with col_pkl_1:
+    st.markdown("### Scarica Database (.pkl)")
+    if os.path.exists(FILE_PERSISTENZA):
+        try:
+            with open(FILE_PERSISTENZA, "rb") as f:
+                pkl_bytes = f.read()
+            st.download_button(
+                label="📥 Scarica File .pkl",
+                data=pkl_bytes,
+                file_name=FILE_PERSISTENZA,
+                mime="application/octet-stream",
+                key="btn_download_pkl_bottom",
+            )
+        except Exception as e:
+            st.error(f"Errore lettura file pkl: {e}")
+    else:
+        try:
+            dati_iniziali = {
+                "atleti": st.session_state.atleti,
+                "banca_dati_df": st.session_state.banca_dati_df,
+                "atleta_corrente": st.session_state.atleta_corrente,
+            }
+            pkl_bytes = pickle.dumps(dati_iniziali)
+            st.download_button(
+                label="📥 Scarica File .pkl",
+                data=pkl_bytes,
+                file_name=FILE_PERSISTENZA,
+                mime="application/octet-stream",
+                key="btn_download_pkl_bottom",
+            )
+        except Exception as e:
+            st.error(f"Errore generazione file pkl: {e}")
+
+with col_pkl_2:
+    st.markdown("### Ripristina Database (.pkl)")
+    if is_proprietario:
+        uploaded_pkl = st.file_uploader(
+            "Carica file di salvataggio (.pkl)", type=["pkl"], key="uploader_pkl_bottom"
+        )
+        if uploaded_pkl is not None:
+            try:
+                dati_caricati_pkl = pickle.load(uploaded_pkl)
+                if isinstance(dati_caricati_pkl, dict) and "atleti" in dati_caricati_pkl:
+                    with open(FILE_PERSISTENZA, "wb") as f_out:
+                        uploaded_pkl.seek(0)
+                        f_out.write(uploaded_pkl.read())
+                    st.success("File .pkl caricato e ripristinato con successo! Ricarico...")
+                    st.rerun()
+                else:
+                    st.error("Il file .pkl caricato non ha una struttura valida.")
+            except Exception as e:
+                st.error(f"Errore durante l'importazione del file .pkl: {e}")
+    else:
+        st.info("🔒 Ripristino file .pkl riservato al proprietario autenticato.")
