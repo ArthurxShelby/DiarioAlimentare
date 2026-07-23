@@ -9,15 +9,12 @@ st.set_page_config(
 )
 
 # --- 0. GESTIONE AUTENTICAZIONE E RUOLI (BLINDATURA) ---
-# Configura in .streamlit/secrets.toml le password o usa un controllo basilare
-# Esempio in secrets.toml: [auth] proprietario_password = "tua_password"
 st.sidebar.markdown("### 🔐 Accesso e Sicurezza")
 ruolo_utente = st.sidebar.radio("Modalità Utente", ["Ospite (Sola Lettura)", "Proprietario / Autorizzato"])
 
 is_proprietario = False
 if ruolo_utente == "Proprietario / Autorizzato":
     password_inserita = st.sidebar.text_input("Inserisci Password di Controllo", type="password")
-    # Puoi recuperare la password dai secrets o impostarne una di default protetta
     password_corretta = st.secrets.get("auth", {}).get("proprietario_password", "admin123")
     if password_inserita == password_corretta:
         is_proprietario = True
@@ -349,3 +346,55 @@ if is_proprietario:
 else:
     with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
         st.warning("⚠️ Funzione riservata esclusivamente al proprietario o agli utenti autorizzati.")
+
+# --- 7. SEZIONE DEDICATA: GESTIONE ED ESTRAPOLAZIONE FILE .PKL (IN FONDO ALLA PAGINA) ---
+st.markdown("---")
+st.subheader("📦 Gestione ed Estrapolazione Database (.pkl)")
+st.write("Usa questa sezione in fondo alla pagina per scaricare il file di backup pickle (`.pkl`) dei tuoi allenamenti o per caricarne uno esistente.")
+
+col_pkl_down, col_pkl_up = st.columns(2)
+
+with col_pkl_down:
+    st.markdown("### Download Database (.pkl)")
+    try:
+        if os.path.exists(DB_FILE):
+            with open(DB_FILE, "rb") as f:
+                pkl_bytes = f.read()
+            st.download_button(
+                label="📥 Scarica database_allenamenti.pkl",
+                data=pkl_bytes,
+                file_name=DB_FILE,
+                mime="application/octet-stream",
+                key="download_pkl_allenamenti"
+            )
+        else:
+            st.info("Nessun file .pkl trovato sul disco al momento.")
+    except Exception as e:
+        st.error(f"Errore nella preparazione del download del file .pkl: {e}")
+
+with col_pkl_up:
+    st.markdown("### Upload / Ripristino Database (.pkl)")
+    if is_proprietario:
+        file_pkl_caricato = st.file_uploader(
+            "Carica un file .pkl di backup",
+            type=["pkl"],
+            key="uploader_pkl_allenamenti"
+        )
+        if file_pkl_caricato is not None:
+            try:
+                dati_caricati_pkl = pickle.load(file_pkl_caricato)
+                if isinstance(dati_caricati_pkl, dict):
+                    st.session_state.database_allenamenti = dati_caricati_pkl
+                    salva_database()
+                    st.success("Database .pkl caricato e ripristinato con successo!")
+                    st.rerun()
+                else:
+                    st.error("Il file .pkl caricato non ha una struttura valida.")
+            except Exception as e:
+                st.error(f"Errore durante la lettura del file .pkl: {e}")
+    else:
+        st.info("🔒 L'upload del file .pkl è riservato al proprietario.")
+
+---
+
+Dammi conferma quando hai visionato questo blocco, così procediamo subito con calma e uno alla volta al secondo script[cite: 5]!
