@@ -56,12 +56,19 @@ def safe_float(val):
         return 0.0
 
 
-def pulisci_dataframe_banca_dati(df):
-    """Assicura che tutte le colonne numeriche siano float puliti."""
+def pulisci_e_ordina_banca_dati(df):
+    """Pulisce le colonne numeriche, rimuove righe vuote e ordina alfabeticamente per Alimento."""
     colonne_numeriche = ["gr/n", "carbo", "proteine", "grassi", "kcal"]
     for col in colonne_numeriche:
         if col in df.columns:
             df[col] = df[col].apply(safe_float)
+    
+    if "Alimento" in df.columns:
+        df = df.dropna(subset=["Alimento"])
+        df = df[df["Alimento"].astype(str).str.strip() != ""]
+        # Uniforma la formattazione del testo dell'alimento
+        df["Alimento"] = df["Alimento"].astype(str).str.strip().str.lower()
+        df = df.sort_values("Alimento").drop_duplicates(subset=["Alimento"]).reset_index(drop=True)
     return df
 
 
@@ -152,262 +159,6 @@ DEFAULT_BANCA_DATI = [
         "grassi": 0.3,
         "kcal": 89.0,
     },
-    {
-        "Alimento": "carne",
-        "gr/n": 100,
-        "carbo": 0.0,
-        "proteine": 20.0,
-        "grassi": 5.0,
-        "kcal": 125.0,
-    },
-    {
-        "Alimento": "carne gelatina",
-        "gr/n": 212,
-        "carbo": 1.272,
-        "proteine": 23.32,
-        "grassi": 3.18,
-        "kcal": 129.32,
-    },
-    {
-        "Alimento": "ciliege",
-        "gr/n": 100,
-        "carbo": 12.0,
-        "proteine": 1.0,
-        "grassi": 0.2,
-        "kcal": 50.0,
-    },
-    {
-        "Alimento": "crakers tre mulini",
-        "gr/n": 40,
-        "carbo": 30.0,
-        "proteine": 3.6,
-        "grassi": 3.8,
-        "kcal": 97.2,
-    },
-    {
-        "Alimento": "cuscus",
-        "gr/n": 100,
-        "carbo": 75.0,
-        "proteine": 12.0,
-        "grassi": 1.5,
-        "kcal": 376.0,
-    },
-    {
-        "Alimento": "digestive",
-        "gr/n": 100,
-        "carbo": 63.0,
-        "proteine": 7.0,
-        "grassi": 21.0,
-        "kcal": 471.0,
-    },
-    {
-        "Alimento": "fiocchi di latte",
-        "gr/n": 100,
-        "carbo": 3.4,
-        "proteine": 13.0,
-        "grassi": 4.2,
-        "kcal": 98.0,
-    },
-    {
-        "Alimento": "gallette di mais bio",
-        "gr/n": 100,
-        "carbo": 78.0,
-        "proteine": 8.0,
-        "grassi": 2.5,
-        "kcal": 365.0,
-    },
-    {
-        "Alimento": "gallette di riso bio",
-        "gr/n": 2,
-        "carbo": 9.6,
-        "proteine": 1.0,
-        "grassi": 0.16,
-        "kcal": 44.0,
-    },
-    {
-        "Alimento": "hamburgher bovino",
-        "gr/n": 100,
-        "carbo": 0.0,
-        "proteine": 19.0,
-        "grassi": 10.0,
-        "kcal": 165.0,
-    },
-    {
-        "Alimento": "hamburgher vitello",
-        "gr/n": 100,
-        "carbo": 0.0,
-        "proteine": 20.0,
-        "grassi": 6.0,
-        "kcal": 134.0,
-    },
-    {
-        "Alimento": "latte",
-        "gr/n": 160,
-        "carbo": 7.84,
-        "proteine": 5.28,
-        "grassi": 5.76,
-        "kcal": 102.4,
-    },
-    {
-        "Alimento": "merluzzo",
-        "gr/n": 100,
-        "carbo": 0.0,
-        "proteine": 17.0,
-        "grassi": 0.8,
-        "kcal": 75.0,
-    },
-    {
-        "Alimento": "nocciolata",
-        "gr/n": 1,
-        "carbo": 8.3,
-        "proteine": 0.9,
-        "grassi": 4.7,
-        "kcal": 81.0,
-    },
-    {
-        "Alimento": "noci",
-        "gr/n": 100,
-        "carbo": 7.0,
-        "proteine": 14.0,
-        "grassi": 65.0,
-        "kcal": 654.0,
-    },
-    {
-        "Alimento": "olio evo",
-        "gr/n": 1,
-        "carbo": 0.0,
-        "proteine": 0.0,
-        "grassi": 10.0,
-        "kcal": 90.0,
-    },
-    {
-        "Alimento": "pasta",
-        "gr/n": 100,
-        "carbo": 75.0,
-        "proteine": 12.0,
-        "grassi": 1.5,
-        "kcal": 360.0,
-    },
-    {
-        "Alimento": "patate",
-        "gr/n": 100,
-        "carbo": 17.0,
-        "proteine": 2.0,
-        "grassi": 0.1,
-        "kcal": 77.0,
-    },
-    {
-        "Alimento": "patate congelate",
-        "gr/n": 100,
-        "carbo": 22.0,
-        "proteine": 2.5,
-        "grassi": 5.0,
-        "kcal": 140.0,
-    },
-    {
-        "Alimento": "pizza margherita",
-        "gr/n": 100,
-        "carbo": 28.0,
-        "proteine": 11.0,
-        "grassi": 10.0,
-        "kcal": 240.0,
-    },
-    {
-        "Alimento": "pollo",
-        "gr/n": 100,
-        "carbo": 0.0,
-        "proteine": 23.0,
-        "grassi": 1.5,
-        "kcal": 105.0,
-    },
-    {
-        "Alimento": "puccia",
-        "gr/n": 100,
-        "carbo": 55.0,
-        "proteine": 8.0,
-        "grassi": 2.0,
-        "kcal": 270.0,
-    },
-    {
-        "Alimento": "riso basmati",
-        "gr/n": 100,
-        "carbo": 83.0,
-        "proteine": 9.0,
-        "grassi": 1.9,
-        "kcal": 367.0,
-    },
-    {
-        "Alimento": "salmone",
-        "gr/n": 100,
-        "carbo": 1.0,
-        "proteine": 23.5,
-        "grassi": 3.0,
-        "kcal": 107.0,
-    },
-    {
-        "Alimento": "sciroppo d'acero",
-        "gr/n": 1,
-        "carbo": 12.0,
-        "proteine": 0.0,
-        "grassi": 0.0,
-        "kcal": 52.0,
-    },
-    {
-        "Alimento": "semi di chia",
-        "gr/n": 13,
-        "carbo": 5.473,
-        "proteine": 2.145,
-        "grassi": 2.34,
-        "kcal": 63.18,
-    },
-    {
-        "Alimento": "tacchino",
-        "gr/n": 100,
-        "carbo": 0.0,
-        "proteine": 24.0,
-        "grassi": 1.0,
-        "kcal": 106.0,
-    },
-    {
-        "Alimento": "tonno",
-        "gr/n": 100,
-        "carbo": 0.0,
-        "proteine": 25.0,
-        "grassi": 1.0,
-        "kcal": 110.0,
-    },
-    {
-        "Alimento": "uova",
-        "gr/n": 3,
-        "carbo": 0.9,
-        "proteine": 19.5,
-        "grassi": 15.0,
-        "kcal": 210.0,
-    },
-    {
-        "Alimento": "yamamoto caseine",
-        "gr/n": 25,
-        "carbo": 1.425,
-        "proteine": 19.5,
-        "grassi": 0.375,
-        "kcal": 92.5,
-    },
-    {
-        "Alimento": "yogurt greco",
-        "gr/n": 100,
-        "carbo": 4.0,
-        "proteine": 10.0,
-        "grassi": 0.0,
-        "kcal": 51.0,
-    },
-    {
-        "Alimento": "zucca",
-        "gr/n": 100,
-        "carbo": 3.5,
-        "proteine": 1.1,
-        "grassi": 0.1,
-        "kcal": 18.0,
-    },
 ]
 
 # Inizializzazione della Banca Dati
@@ -421,18 +172,9 @@ if "banca_dati_df" not in st.session_state:
     else:
         st.session_state.banca_dati_df = pd.DataFrame(DEFAULT_BANCA_DATI)
 
-st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(
+st.session_state.banca_dati_df = pulisci_e_ordina_banca_dati(
     st.session_state.banca_dati_df
 )
-st.session_state.banca_dati_df = st.session_state.banca_dati_df.dropna(
-    subset=["Alimento"]
-)
-st.session_state.banca_dati_df = st.session_state.banca_dati_df[
-    st.session_state.banca_dati_df["Alimento"].astype(str).str.strip() != ""
-]
-st.session_state.banca_dati_df = st.session_state.banca_dati_df.sort_values(
-    "Alimento"
-).reset_index(drop=True)
 
 # Inizializzazione Atleti
 if "atleti" not in st.session_state:
@@ -785,26 +527,15 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                             }
                         ]
                     )
-                    nuova_riga_df = pulisci_dataframe_banca_dati(nuova_riga_df)
-                    st.session_state.banca_dati_df = (
+                    st.session_state.banca_dati_df = pulisci_e_ordina_banca_dati(
                         pd.concat(
-                            [
-                                st.session_state.banca_dati_df[
-                                    st.session_state.banca_dati_df[
-                                        "Alimento"
-                                    ].astype(str).str.lower()
-                                    != nuovo_nome.strip().lower()
-                                ],
-                                nuova_riga_df,
-                            ],
+                            [st.session_state.banca_dati_df, nuova_riga_df],
                             ignore_index=True,
                         )
-                        .sort_values("Alimento")
-                        .reset_index(drop=True)
                     )
                     salva_dati_disco()
                     st.success(
-                        f"Alimento '{nuovo_nome}' aggiunto/aggiornato con successo nella banca dati!"
+                        f"✅ Alimento '{nuovo_nome.strip().lower()}' aggiunto e banca dati ordinata con successo!"
                     )
                     st.rerun()
 
@@ -824,11 +555,11 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
             with col_del_a:
                 if st.button("Elimina Selezionati"):
                     if alimenti_da_eliminare:
-                        st.session_state.banca_dati_df = banca_dati[
-                            ~banca_dati["Alimento"].isin(alimenti_da_eliminare)
-                        ].sort_values("Alimento").reset_index(drop=True)
+                        st.session_state.banca_dati_df = pulisci_e_ordina_banca_dati(
+                            banca_dati[~banca_dati["Alimento"].isin(alimenti_da_eliminare)]
+                        )
                         salva_dati_disco()
-                        st.success("Alimenti selezionati rimossi con successo!")
+                        st.success("✅ Alimenti selezionati rimossi con successo!")
                         st.rerun()
                     else:
                         st.warning("Nessun alimento selezionato.")
@@ -845,7 +576,7 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                         ]
                     )
                     salva_dati_disco()
-                    st.warning("Banca dati svuotata completamente.")
+                    st.warning("⚠️ Banca dati svuotata completamente.")
                     st.rerun()
 
         with col_bd2:
@@ -860,7 +591,6 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
             if file_caricato is not None:
                 try:
                     df_nuovo = None
-                    # Tentativi multipli per robustezza di codifica e separatore
                     for enc in ["utf-8", "latin-1", "cp1252"]:
                         try:
                             file_caricato.seek(0)
@@ -874,92 +604,50 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
 
                     if df_nuovo is not None and not df_nuovo.empty:
                         st.write("Anteprima dati letti dal file:", df_nuovo.head())
-                        if st.button("Conferma e Aggiungi alla Banca Dati"):
-                            colonne_attese = [
-                                "Alimento",
-                                "gr/n",
-                                "carbo",
-                                "proteine",
-                                "grassi",
-                                "kcal",
-                            ]
-                            cols_orig = [
-                                str(c).strip().lower() for c in df_nuovo.columns
-                            ]
-                            df_nuovo.columns = cols_orig
+                        
+                        # Normalizzazione automatica colonne
+                        cols_orig = [str(c).strip().lower() for c in df_nuovo.columns]
+                        df_nuovo.columns = cols_orig
+                        mapping_colonne = {}
+                        for c in cols_orig:
+                            if "alimento" in c or "nome" in c:
+                                mapping_colonne[c] = "Alimento"
+                            elif "grass" in c or c == "g":
+                                mapping_colonne[c] = "grassi"
+                            elif "gr" in c or "quant" in c or "peso" in c or "numero" in c:
+                                mapping_colonne[c] = "gr/n"
+                            elif "carb" in c:
+                                mapping_colonne[c] = "carbo"
+                            elif "prot" in c:
+                                mapping_colonne[c] = "proteine"
+                            elif "kcal" in c or "calorie" in c or "kca" in c:
+                                mapping_colonne[c] = "kcal"
 
-                            mapping_colonne = {}
-                            for c in cols_orig:
-                                if "alimento" in c or "nome" in c:
-                                    mapping_colonne[c] = "Alimento"
-                                elif "grass" in c or c == "g":
-                                    mapping_colonne[c] = "grassi"
-                                elif (
-                                    "gr" in c
-                                    or "quant" in c
-                                    or "peso" in c
-                                    or "numero" in c
-                                ):
-                                    mapping_colonne[c] = "gr/n"
-                                elif "carb" in c:
-                                    mapping_colonne[c] = "carbo"
-                                elif "prot" in c:
-                                    mapping_colonne[c] = "proteine"
-                                elif "kcal" in c or "calorie" in c or "kca" in c:
-                                    mapping_colonne[c] = "kcal"
+                        df_nuovo = df_nuovo.rename(columns=mapping_colonne)
+                        
+                        colonne_attese = ["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"]
+                        data_dict = {}
+                        for col in colonne_attese:
+                            if col in df_nuovo.columns:
+                                data_dict[col] = df_nuovo[col].values
+                            else:
+                                data_dict[col] = 0 if col != "Alimento" else "sconosciuto"
 
-                            df_nuovo = df_nuovo.rename(columns=mapping_colonne)
-                            df_nuovo = df_nuovo.loc[
-                                :, ~df_nuovo.columns.duplicated()
-                            ]
+                        df_finale = pd.DataFrame(data_dict)
+                        df_finale = pulisci_e_ordina_banca_dati(df_finale)
 
-                            presenti = [
-                                col
-                                for col in colonne_attese
-                                if col in df_nuovo.columns
-                            ]
-                            if len(presenti) < 4 and len(df_nuovo.columns) >= 4:
-                                col_mapping_pos = {}
-                                for idx, col_name in enumerate(df_nuovo.columns):
-                                    if idx < len(colonne_attese):
-                                        col_mapping_pos[col_name] = colonne_attese[
-                                            idx
-                                        ]
-                                df_nuovo = df_nuovo.rename(columns=col_mapping_pos)
-                                df_nuovo = df_nuovo.loc[
-                                    :, ~df_nuovo.columns.duplicated()
-                                ]
-
-                            data_dict = {}
-                            for col in colonne_attese:
-                                if col in df_nuovo.columns:
-                                    data_dict[col] = df_nuovo[col].values
-                                else:
-                                    data_dict[col] = (
-                                        0 if col != "Alimento" else "Sconosciuto"
-                                    )
-
-                            df_finale = pd.DataFrame(data_dict)
-                            df_finale = pulisci_dataframe_banca_dati(df_finale)
-                            df_finale = df_finale.dropna(subset=["Alimento"])
-                            df_finale = df_finale[
-                                df_finale["Alimento"].astype(str).str.strip() != ""
-                            ]
-
-                            st.session_state.banca_dati_df = (
-                                pd.concat(
-                                    [st.session_state.banca_dati_df, df_finale],
-                                    ignore_index=True,
-                                )
-                                .drop_duplicates(subset=["Alimento"])
-                                .sort_values("Alimento")
-                                .reset_index(drop=True)
+                        # Fusione automatica ed ordinamento immediato
+                        st.session_state.banca_dati_df = pulisci_e_ordina_banca_dati(
+                            pd.concat(
+                                [st.session_state.banca_dati_df, df_finale],
+                                ignore_index=True
                             )
-                            salva_dati_disco()
-                            st.success(
-                                "Banca dati caricata, ordinata alfabeticamente e aggiornata con successo dal file CSV!"
-                            )
-                            st.rerun()
+                        )
+                        salva_dati_disco()
+                        st.success(
+                            f"✅ Upload completato! Aggiunti/Aggiornati {len(df_finale)} alimenti. Banca dati ordinata alfabeticamente."
+                        )
+                        st.rerun()
                     else:
                         st.error("Il file CSV risulta vuoto o non leggibile.")
                 except Exception as e:
@@ -1029,6 +717,7 @@ if alimenti_validati:
                 ignore_index=True,
             )
             salva_dati_disco()
+            st.success(f"✅ Aggiunto {alimento_scelto} ({quantita}g) a {pasto_selezionato}!")
             st.rerun()
     else:
         st.button("Aggiungi al pasto selezionato", key="btn_aggiungi_principale", disabled=True)
@@ -1233,7 +922,6 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         tot_p_prot,
                         tot_p_grassi,
                     ) = 0.0, 0.0, 0.0, 0.0
-                    dettaglio_periodo = []
 
                     for i in range(delta_giorni):
                         d_corrente = data_inizio + timedelta(days=i)
@@ -1282,11 +970,6 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                             tot_p_carbo += d_carbo
                             tot_p_prot += d_prot
                             tot_p_grassi += d_grassi
-
-                            if d_kcal > 0 or d_carbo > 0:
-                                dettaglio_periodo.append(
-                                    (d_str, d_kcal, d_carbo, d_prot, d_grassi)
-                                )
 
                     pdf_output = FPDF()
                     pdf_output.add_page()
@@ -1365,7 +1048,7 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     pdf_output.set_font("Arial", "B", 12)
                     pdf_output.set_text_color(0, 0, 0)
                     pdf_output.cell(
-                        0, 10, "Traccia Giornaliera dei Macronutrienti (Tutti i giorni):", ln=True
+                        0, 10, "Traccia Giornaliera dei Macronutrienti:", ln=True
                     )
                     pdf_output.set_font("Arial", "", 10)
 
@@ -1381,31 +1064,7 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                             dg = sum([safe_float(db_diario_atleta[d_str][p]["grassi"].sum()) for p in PASTI if not db_diario_atleta[d_str][p].empty])
 
                         pdf_output.set_text_color(0, 0, 0)
-                        pdf_output.write(6, f" - {d_str} -> ")
-
-                        if dk > obj_kcal:
-                            pdf_output.set_text_color(220, 20, 60)
-                        else:
-                            pdf_output.set_text_color(0, 0, 0)
-                        pdf_output.write(6, f"Kcal: {dk:.1f}")
-
-                        pdf_output.set_text_color(0, 0, 0)
-                        pdf_output.write(6, " | Carbo: ")
-                        if dc > obj_carbo:
-                            pdf_output.set_text_color(220, 20, 60)
-                        pdf_output.write(6, f"{dc:.1f}g")
-
-                        pdf_output.set_text_color(0, 0, 0)
-                        pdf_output.write(6, " | Prot: ")
-                        if dp > obj_prot:
-                            pdf_output.set_text_color(220, 20, 60)
-                        pdf_output.write(6, f"{dp:.1f}g")
-
-                        pdf_output.set_text_color(0, 0, 0)
-                        pdf_output.write(6, " | Grassi: ")
-                        if dg > obj_grassi:
-                            pdf_output.set_text_color(220, 20, 60)
-                        pdf_output.write(6, f"{dg:.1f}g\n")
+                        pdf_output.write(6, f" - {d_str} -> Kcal: {dk:.1f} | Carbo: {dc:.1f}g | Prot: {dp:.1f}g | Grassi: {dg:.1f}g\n")
 
                     raw_output = pdf_output.output()
                     pdf_bytes = (
@@ -1462,16 +1121,16 @@ with col_pkl2:
                     if isinstance(dati_ripristinati, dict) and "atleti" in dati_ripristinati:
                         st.session_state.atleti = dati_ripristinati.get("atleti", {})
                         if "banca_dati_df" in dati_ripristinati and dati_ripristinati["banca_dati_df"] is not None:
-                            st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(
+                            st.session_state.banca_dati_df = pulisci_e_ordina_banca_dati(
                                 dati_ripristinati["banca_dati_df"]
-                            ).sort_values("Alimento").reset_index(drop=True)
+                            )
                         if "atleta_corrente" in dati_ripristinati and dati_ripristinati["atleta_corrente"] in st.session_state.atleti:
                             st.session_state.atleta_corrente = dati_ripristinati["atleta_corrente"]
                         else:
                             st.session_state.atleta_corrente = list(st.session_state.atleti.keys())[0]
                         
                         salva_dati_disco()
-                        st.success("Database ripristinato con successo dal file .pkl!")
+                        st.success("✅ Database ripristinato con successo dal file .pkl!")
                         st.rerun()
                     else:
                         st.error("Il file .pkl caricato non ha una struttura valida.")
