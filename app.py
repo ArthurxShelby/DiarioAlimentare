@@ -958,9 +958,8 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                                 .reset_index(drop=True)
                             )
                             salva_dati_disco()
-                            # Feedback verde di conferma operazione
                             st.success(
-                                "Banca dati aggiornata con successo dal file CSV e letta interamente!"
+                                "Banca dati aggiornata con successo dal file CSV!"
                             )
                             st.rerun()
                 except Exception as e:
