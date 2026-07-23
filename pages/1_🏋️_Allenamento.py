@@ -9,12 +9,15 @@ st.set_page_config(
 )
 
 # --- 0. GESTIONE AUTENTICAZIONE E RUOLI (BLINDATURA) ---
+# Configura in .streamlit/secrets.toml le password o usa un controllo basilare
+# Esempio in secrets.toml: [auth] proprietario_password = "tua_password"
 st.sidebar.markdown("### 🔐 Accesso e Sicurezza")
 ruolo_utente = st.sidebar.radio("Modalità Utente", ["Ospite (Sola Lettura)", "Proprietario / Autorizzato"])
 
 is_proprietario = False
 if ruolo_utente == "Proprietario / Autorizzato":
     password_inserita = st.sidebar.text_input("Inserisci Password di Controllo", type="password")
+    # Puoi recuperare la password dai secrets o impostarne una di default protetta
     password_corretta = st.secrets.get("auth", {}).get("proprietario_password", "admin123")
     if password_inserita == password_corretta:
         is_proprietario = True
@@ -81,6 +84,14 @@ database_iniziale = {
                     "Lavoro_m": 15,
                     "Recupero_m": 5,
                 },
+                "Sabato": {
+                    "Esercizio": "Fondo Lungo Z2",
+                    "Watt": 210,
+                    "RPM": 85,
+                    "Ripetizioni": 1,
+                    "Lavoro_m": 120,
+                    "Recupero_m": 0,
+                },
             }
         },
     }
@@ -101,6 +112,7 @@ elenco_mesi_completo = [
     "Dicembre",
 ]
 
+# Inizializzazione della memoria persistente
 if "database_allenamenti" not in st.session_state:
     st.session_state.database_allenamenti = carica_database(database_iniziale)
 
@@ -119,6 +131,7 @@ with col_mese:
 
 st.markdown("---")
 
+# Assicuriamoci che l'anno e il mese esistano nello state
 if anno_selezionato not in st.session_state.database_allenamenti:
     st.session_state.database_allenamenti[anno_selezionato] = {}
 
@@ -141,6 +154,7 @@ if (
         ]
     )
 
+# Recupera i dati correnti del mese/anno in memoria
 dati_correnti = st.session_state.database_allenamenti[anno_selezionato][
     mese_selezionato
 ]
@@ -170,7 +184,7 @@ if isinstance(dati_correnti, dict):
 else:
     df_base_mese = dati_correnti
 
-# --- 4. SEZIONE IMPORTAZIONE CSV ---
+# --- 4. SEZIONE IMPORTAZIONE CSV (Riservata) ---
 if is_proprietario:
     with st.expander(
         "📂 Integra o carica piano di lavoro tramite file CSV", expanded=False
@@ -216,9 +230,9 @@ if is_proprietario:
             except Exception as e:
                 st.error(f"Errore nella lettura del file CSV: {e}")
 else:
-    st.info("ℹ️ Sezione di importazione CSV riservata al proprietario.")
+    st.info("ℹ️ Sezione di importazione CSV riservata al proprietario (Modalità Ospite: Sola Lettura).")
 
-# --- 5. TABELLA INTERATTIVA DI MODIFICA ---
+# --- 5. TABELLA INTERATTIVA DI MODIFICA (Bloccata per gli ospiti) ---
 st.subheader(
     f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**"
 )
@@ -251,11 +265,11 @@ if is_proprietario:
         salva_database()
 else:
     st.dataframe(df_base_mese, use_container_width=True)
-    st.warning("⚠️ Accesso Ospite: la tabella è in sola lettura.")
+    st.warning("⚠️ Accesso Ospite: la tabella è in sola lettura. Non è possibile modificare o aggiungere righe.")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 6. PANNELLO DI CANCELLAZIONE AVANZATO ---
+# --- 6. PANNELLO DI CANCELLAZIONE AVANZATO (Riservato) ---
 if is_proprietario:
     with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
         st.write(
@@ -278,7 +292,9 @@ if is_proprietario:
 
         if st.button("🚨 Svuota dati per il periodo selezionato"):
             if data_inizio_del > data_fine_del:
-                st.error("La data di inizio non può essere successiva alla data di fine.")
+                st.error(
+                    "La data di inizio non può essere successiva alla data di fine."
+                )
             else:
                 try:
                     anno_inizio_del = data_inizio_del.year
@@ -324,50 +340,12 @@ if is_proprietario:
                                 )
 
                     salva_database()
-                    st.success("Dati svuotati e salvati con successo!")
+                    st.success(
+                        f"Dati svuotati e salvati con successo dal {data_inizio_del.strftime('%d/%m/%Y')} al {data_fine_del.strftime('%d/%m/%Y')}!"
+                    )
                     st.rerun()
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
 else:
     with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
-        st.warning("⚠️ Funzione riservata esclusivamente al proprietario.")
-
-# --- 7. GESTIONE MANUALE DEL FILE .PKL (RISERVATO AL PROPRIETARIO) ---
-st.markdown("---")
-if is_proprietario:
-    st.subheader("📦 Gestione Avanzata File di Database (.pkl)")
-    st.write("Da qui puoi scaricare direttamente il file binario `.pkl` sul tuo Mac per caricarlo su GitHub, oppure caricarne uno esistente per aggiornare l'app.")
-
-    col_pkl1, col_pkl2 = st.columns(2)
-
-    with col_pkl1:
-        st.markdown("#### 📥 Scarica Database (.pkl)")
-        if os.path.exists(DB_FILE):
-            with open(DB_FILE, "rb") as f:
-                pkl_bytes = f.read()
-            st.download_button(
-                label="Scarica database_allenamenti.pkl",
-                data=pkl_bytes,
-                file_name=DB_FILE,
-                mime="application/octet-stream",
-                key="btn_download_pkl_allenamenti"
-            )
-        else:
-            st.info("Nessun file .pkl trovato sul server al momento.")
-
-    with col_pkl2:
-        st.markdown("#### 📤 Carica Database (.pkl)")
-        pkl_caricato = st.file_uploader("Carica un file .pkl di backup", type=["pkl"], key="uploader_pkl_allenamenti")
-        if pkl_caricato is not None:
-            if st.button("Conferma e Sostituisci Database .pkl"):
-                try:
-                    with open(DB_FILE, "wb") as f:
-                        f.write(pkl_caricato.getbuffer())
-                    # Ricarica nello state
-                    st.session_state.database_allenamenti = carica_database(database_iniziale)
-                    st.success("File .pkl caricato e applicato con successo!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Errore durante il caricamento del file .pkl: {e}")
-else:
-    st.info("🔒 Area di gestione file .pkl riservata esclusivamente al proprietario.")
+        st.warning("⚠️ Funzione riservata esclusivamente al proprietario o agli utenti autorizzati.")
