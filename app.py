@@ -430,6 +430,8 @@ st.session_state.banca_dati_df = st.session_state.banca_dati_df.dropna(
 st.session_state.banca_dati_df = st.session_state.banca_dati_df[
     st.session_state.banca_dati_df["Alimento"].astype(str).str.strip() != ""
 ]
+# Assicuriamoci che sia ordinata alfabeticamente fin dall'inizio
+st.session_state.banca_dati_df = st.session_state.banca_dati_df.sort_values("Alimento").reset_index(drop=True)
 
 # Inizializzazione Atleti
 if "atleti" not in st.session_state:
@@ -823,7 +825,7 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                     if alimenti_da_eliminare:
                         st.session_state.banca_dati_df = banca_dati[
                             ~banca_dati["Alimento"].isin(alimenti_da_eliminare)
-                        ].reset_index(drop=True)
+                        ].sort_values("Alimento").reset_index(drop=True)
                         salva_dati_disco()
                         st.success("Alimenti selezionati rimossi con successo!")
                         st.rerun()
@@ -955,11 +957,12 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti (Condivisa)", expanded=F
                                     ignore_index=True,
                                 )
                                 .drop_duplicates(subset=["Alimento"])
+                                .sort_values("Alimento")
                                 .reset_index(drop=True)
                             )
                             salva_dati_disco()
                             st.success(
-                                "Banca dati aggiornata con successo dal file CSV!"
+                                "Banca dati caricata, ordinata alfabeticamente e aggiornata con successo dal file CSV!"
                             )
                             st.rerun()
                 except Exception as e:
@@ -1422,3 +1425,60 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     )
             except Exception as e:
                 st.error(f"Errore nella generazione del PDF personalizzato: {e}")
+
+# --- BACKUP E RIPRISTINO PKL INTERO ---
+st.markdown("---")
+st.subheader("💾 Backup e Ripristino Dati (File .pkl)")
+st.info(
+    "Puoi scaricare l'intero database dell'applicazione (inclusi tutti gli atleti, i diari e la banca dati) "
+    "oppure caricare un file .pkl precedentemente salvato per ripristinare lo stato."
+)
+
+col_pkl1, col_pkl2 = st.columns(2)
+
+with col_pkl1:
+    try:
+        dati_completi_per_salvataggio = {
+            "atleti": st.session_state.get("atleti", {}),
+            "banca_dati_df": st.session_state.get("banca_dati_df"),
+            "atleta_corrente": st.session_state.get("atleta_corrente"),
+        }
+        pkl_bytes = pickle.dumps(dati_completi_per_salvataggio)
+        st.download_button(
+            label="📥 Scarica Intero Database (.pkl)",
+            data=pkl_bytes,
+            file_name=f"diario_alimentare_multi_db_completo_{date.today().strftime('%Y-%m-%d')}.pkl",
+            mime="application/octet-stream",
+        )
+    except Exception as e:
+        st.error(f"Errore nella preparazione del download .pkl: {e}")
+
+with col_pkl2:
+    if is_proprietario:
+        file_pkl_caricato = st.file_uploader(
+            "Carica file .pkl di Backup", type=["pkl"], key="uploader_backup_pkl"
+        )
+        if file_pkl_caricato is not None:
+            if st.button("Conferma e Ripristina Database da .pkl"):
+                try:
+                    dati_ripristinati = pickle.load(file_pkl_caricato)
+                    if isinstance(dati_ripristinati, dict) and "atleti" in dati_ripristinati:
+                        st.session_state.atleti = dati_ripristinati.get("atleti", {})
+                        if "banca_dati_df" in dati_ripristinati and dati_ripristinati["banca_dati_df"] is not None:
+                            st.session_state.banca_dati_df = pulisci_dataframe_banca_dati(
+                                dati_ripristinati["banca_dati_df"]
+                            ).sort_values("Alimento").reset_index(drop=True)
+                        if "atleta_corrente" in dati_ripristinati and dati_ripristinati["atleta_corrente"] in st.session_state.atleti:
+                            st.session_state.atleta_corrente = dati_ripristinati["atleta_corrente"]
+                        else:
+                            st.session_state.atleta_corrente = list(st.session_state.atleti.keys())[0]
+                        
+                        salva_dati_disco()
+                        st.success("Database ripristinato con successo dal file .pkl!")
+                        st.rerun()
+                    else:
+                        st.error("Il file .pkl caricato non ha una struttura valida.")
+                except Exception as e:
+                    st.error(f"Errore durante il ripristino del file .pkl: {e}")
+    else:
+        st.info("🔒 Il ripristino da file .pkl è riservato al proprietario.")
