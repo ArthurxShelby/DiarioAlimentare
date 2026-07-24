@@ -65,33 +65,40 @@ def carica_dati_disco():
 
 
 def salva_dati_disco(dati=None):
-    """Salva lo stato della banca dati, degli atleti e dell'atleta corrente su Supabase (solo se proprietario)."""
+    """Salva lo stato della banca dati e degli atleti su Supabase convertendo i DataFrame in dizionari."""
     if not is_proprietario:
         return
     try:
         if dati is None:
-            # Convertiamo il DataFrame in dizionario per renderlo serializzabile in JSON
+            # Recuperiamo e serializziamo la banca dati se è un DataFrame
             banca_df = st.session_state.get("banca_dati_df")
-            banca_dict = banca_df.to_dict(orient="records") if banca_df is not None else []
+            if hasattr(banca_df, "to_dict"):
+                banca_serializzata = banca_df.to_dict(orient="records")
+            else:
+                banca_serializzata = banca_df
+
+            # Puliamo anche eventuali DataFrame nascosti dentro il dizionario degli atleti
+            atleti_grezzi = st.session_state.get("atleti", {})
+            atleti_puliti = {}
+            for nome_atleta, dati_atleta in atleti_grezzi.items():
+                if isinstance(dati_atleta, dict):
+                    atleti_puliti[nome_atleta] = {
+                        k: (v.to_dict(orient="records") if hasattr(v, "to_dict") else v)
+                        for k, v in dati_atleta.items()
+                    }
+                else:
+                    atleti_puliti[nome_atleta] = dati_atleta
 
             dati = {
-                "atleti": st.session_state.get("atleti", {}),
-                "banca_dati_df": banca_dict,
+                "atleti": atleti_puliti,
+                "banca_dati_df": banca_serializzata,
                 "atleta_corrente": st.session_state.get("atleta_corrente"),
             }
         
-        response = supabase.table("app_data").upsert({"id": 1, "payload": dati}).execute()
+        supabase.table("app_data").upsert({"id": 1, "payload": dati}).execute()
         st.toast("Dati salvati con successo su Supabase!", icon="✅")
     except Exception as e:
         st.error(f"Errore critico durante il salvataggio su Supabase: {e}")
-
-def safe_float(val):
-    try:
-        if val is None:
-            return 0.0
-        return float(str(val).replace(',', '.'))
-    except:
-        return 0.0
 
 def pulisci_dataframe_banca_dati(df):
     """Assicura che tutte le colonne numeriche siano float puliti."""
