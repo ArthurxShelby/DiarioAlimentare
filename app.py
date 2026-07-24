@@ -1120,10 +1120,15 @@ for i, pasto in enumerate(PASTI):
             )
 
             if not df_p.empty:
-                p_kcal = safe_float(df_p["kcal"].sum())
-                p_carb = safe_float(df_p["carbo"].sum())
-                p_prot = safe_float(df_p["proteine"].sum())
-                p_gras = safe_float(df_p["grassi"].sum())
+            # CORREZIONE: Forza l'ordine delle colonne mostrando l'alimento per primo
+            ordine_pasto = ["Alimento", "gr/n", "kcal", "carbo", "grassi", "proteine"]
+            ordine_pasto_esistente = [c for c in ordine_pasto if c in df_p.columns]
+            df_p = df_p[ordine_pasto_esistente]
+
+            p_kcal = safe_float(df_p["kcal"].sum())
+            p_carb = safe_float(df_p["carbo"].sum())
+            p_prot = safe_float(df_p["proteine"].sum())
+            p_gras = safe_float(df_p["grassi"].sum())
                 st.caption(
                     f"Totale: {p_kcal:.1f} kcal | C: {p_carb:.1f}g | P: {p_prot:.1f}g | G: {p_gras:.1f}g"
                 )
