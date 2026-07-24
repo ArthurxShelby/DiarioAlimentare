@@ -64,10 +64,10 @@ def carica_dati_disco():
     return {}
 
 
-# Funzione per salvare i dati sul Cloud di Supabase
 def salva_dati_disco(dati=None):
     """Salva lo stato della banca dati, degli atleti e dell'atleta corrente su Supabase (solo se proprietario)."""
     if not is_proprietario:
+        st.warning("Salvataggio saltato: modalità Proprietario non attiva.")
         return
     try:
         if dati is None:
@@ -76,23 +76,14 @@ def salva_dati_disco(dati=None):
                 "banca_dati_df": st.session_state.get("banca_dati_df"),
                 "atleta_corrente": st.session_state.get("atleta_corrente"),
             }
-        supabase.table("app_data").upsert({"id": 1, "payload": dati}).execute()
+        
+        # Eseguiamo l'upsert e catturiamo la risposta
+        response = supabase.table("app_data").upsert({"id": 1, "payload": dati}).execute()
+        
+        # Stampiamo un messaggio chiaro nell'app per confermare l'invio
+        st.success("Richiesta di salvataggio inviata a Supabase con successo!")
     except Exception as e:
-        st.error(f"Errore durante il salvataggio sul cloud: {e}")
-
-
-def safe_float(val):
-    """Converte in modo sicuro qualsiasi valore in float, gestendo virgole e stringhe."""
-    if pd.isna(val):
-        return 0.0
-    try:
-        if isinstance(val, (int, float)):
-            return float(val)
-        val_str = str(val).strip().replace(",", ".")
-        val_clean = re.sub(r"[^\d.-]", "", val_str)
-        return float(val_clean) if val_clean else 0.0
-    except:
-        return 0.0
+        st.error(f"Errore critico durante il salvataggio su Supabase: {e}")
 
 
 def pulisci_dataframe_banca_dati(df):
