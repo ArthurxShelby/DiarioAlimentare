@@ -34,25 +34,33 @@ def init_supabase():
 supabase = init_supabase()
 
 def carica_database(db_iniziale):
-    """Carica il database allenamenti dal cloud di Supabase, altrimenti restituisce quello iniziale."""
+    """Carica il database allenamenti dal cloud di Supabase, convertendo le liste in DataFrame."""
     try:
         response = supabase.table("app_data").select("payload").eq("id", "database_allenamenti").execute()
         if response.data and len(response.data) > 0:
             payload = response.data[0]["payload"]
-            return payload
+            # Ricostruisce i DataFrame dai dizionari salvati
+            db_ricostruito = {}
+            for anno, mesi in payload.items():
+                db_ricostruito[anno] = {}
+                for mese, val in mesi.items():
+                    if isinstance(val, list):
+                        db_ricostruito[anno][mese] = pd.DataFrame(val)
+                    else:
+                        db_ricostruito[anno][mese] = val
+            return db_ricostruito
     except Exception as e:
         st.warning(f"Impossibile connettersi al cloud per il caricamento: {e}")
     return db_iniziale
 
 def salva_database(dati=None):
-    """Salva lo stato attuale degli allenamenti nel cloud di Supabase (solo se proprietario)."""
+    """Salva lo stato attuale degli allenamenti nel cloud di Supabase convertendo i DataFrame in liste."""
     if not is_proprietario:
         return
     try:
         if dati is None:
             dati = st.session_state.database_allenamenti
             
-        # Converte eventuali DataFrame presenti nella struttura in liste di dizionari per renderli serializzabili in JSON
         dati_serializzabili = {}
         for anno, mesi in dati.items():
             dati_serializzabili[anno] = {}
@@ -145,29 +153,20 @@ if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionat
 
 dati_correnti = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
 
-# Conversione dei dati grezzi dal cloud in DataFrame Pandas se necessario
-if isinstance(dati_correnti, list):
-    df_base_mese = pd.DataFrame(dati_correnti)
-elif isinstance(dati_correnti, dict):
-    righe_tabella = []
-    for settimana, giorni in dati_correnti.items():
-        for giorno, dettagli in giorni.items():
-            righe_tabella.append(
-                {
-                    "Settimana": settimana,
-                    "Giorno": giorno,
-                    "Esercizio / Nome": dettagli.get("Esercizio", ""),
-                    "Watt": int(dettagli.get("Watt", 0)),
-                    "RPM": int(dettagli.get("RPM", 0)),
-                    "Ripetizioni": int(dettagli.get("Ripetizioni", 0)),
-                    "Lavoro (min)": int(dettagli.get("Lavoro_m", 0)),
-                    "Recupero (min)": int(dettagli.get("Recupero_m", 0)),
-                }
-            )
-    df_base_mese = pd.DataFrame(righe_tabella)
+dati_correnti = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
+
+# Assicura che sia sempre un DataFrame pronto all'uso
+if not isinstance(dati_correnti, pd.DataFrame):
+    if isinstance(dati_correnti, list):
+        df_base_mese = pd.DataFrame(dati_correnti)
+    else:
+        df_base_mese = pd.DataFrame(
+            columns=[
+                "Settimana", "Giorno", "Esercizio / Nome", "Watt",
+                "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
+            ]
+        )
     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_base_mese
-    if is_proprietario:
-        salva_database()
 else:
     df_base_mese = dati_correnti
 
