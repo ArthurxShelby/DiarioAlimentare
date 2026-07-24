@@ -6,6 +6,23 @@ import re  # <--- AGGIUNGI QUESTA RIGA
 from supabase import create_client
 import streamlit as st
 
+def safe_float(val):
+    try:
+        if val is None:
+            return 0.0
+        return float(str(val).replace(',', '.'))
+    except:
+        return 0.0
+
+def pulisci_dataframe_banca_dati(df):
+    """Assicura che tutte le colonne numeriche siano float puliti."""
+    colonne_numeriche = ["gr/n", "carbo", "proteine", "grassi", "kcal"]
+    for col in colonne_numeriche:
+        if col in df.columns:
+            df[col] = df[col].apply(safe_float)
+    return df
+
+
 # Configurazione della pagina
 st.set_page_config(
     page_title="Diario Alimentare & Allenamento - Multi-Atleta",
