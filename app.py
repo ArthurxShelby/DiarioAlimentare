@@ -683,15 +683,15 @@ if data_str not in db_diario_atleta:
 tot_carbo = sum(
     [
         db_diario_atleta[data_str][p]["carbo"].sum()
-        for p in PASTI
-        if not db_diario_atleta[data_str][p].empty
+        for p in PASTI 
+        if isinstance(db_diario_atleta.get(data_str, {}).get(p), pd.DataFrame) and not db_diario_atleta[data_str][p].empty
     ]
 )
 tot_prot = sum(
     [
         db_diario_atleta[data_str][p]["proteine"].sum()
-        for p in PASTI
-        if not db_diario_atleta[data_str][p].empty
+        for p in PASTI 
+        if isinstance(db_diario_atleta.get(data_str, {}).get(p), pd.DataFrame) and not db_diario_atleta[data_str][p].empty
     ]
 )
 tot_grassi = sum(
