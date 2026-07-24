@@ -1084,9 +1084,11 @@ for i, pasto in enumerate(PASTI):
     with col_target:
         with st.container(border=True):
             st.markdown(f"### {pasto}")
-            df_p = db_diario_atleta[data_str][pasto]
+           df_p = db_diario_atleta[data_str][p]
+        if not isinstance(df_p, pd.DataFrame):
+            df_p = pd.DataFrame(df_p)
 
-            if not df_p.empty:
+        if not df_p.empty:
                 p_kcal = safe_float(df_p["kcal"].sum())
                 p_carb = safe_float(df_p["carbo"].sum())
                 p_prot = safe_float(df_p["proteine"].sum())
