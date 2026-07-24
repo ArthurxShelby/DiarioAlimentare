@@ -697,15 +697,15 @@ tot_prot = sum(
 tot_grassi = sum(
     [
         db_diario_atleta[data_str][p]["grassi"].sum()
-        for p in PASTI
-        if not db_diario_atleta[data_str][p].empty
+        for p in PASTI 
+        if isinstance(db_diario_atleta.get(data_str, {}).get(p), pd.DataFrame) and not db_diario_atleta[data_str][p].empty
     ]
 )
 tot_kcal = sum(
     [
         db_diario_atleta[data_str][p]["kcal"].sum()
-        for p in PASTI
-        if not db_diario_atleta[data_str][p].empty
+        for p in PASTI 
+        if isinstance(db_diario_atleta.get(data_str, {}).get(p), pd.DataFrame) and not db_diario_atleta[data_str][p].empty
     ]
 )
 
