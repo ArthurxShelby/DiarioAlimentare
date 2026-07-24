@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from fpdf import FPDF
 import pandas as pd
 import pickle
-import re  # <--- AGGIUNGI QUESTA RIGA
+import re
 from supabase import create_client
 import streamlit as st
 
@@ -85,9 +85,19 @@ def carica_dati_disco():
             if "atleti" in payload and isinstance(payload["atleti"], dict):
                 for nome_atleta, dati_atleta in payload["atleti"].items():
                     if isinstance(dati_atleta, dict):
+                        # Controllo sul diario per trasformare liste in DataFrame
+                        if "db_diario" in dati_atleta and isinstance(dati_atleta["db_diario"], dict):
+                            for data_key, pasti_dict in dati_atleta["db_diario"].items():
+                                if isinstance(pasti_dict, dict):
+                                    for pasto_nome, val_pasto in pasti_dict.items():
+                                        if isinstance(val_pasto, list):
+                                            try:
+                                                pasti_dict[pasto_nome] = pd.DataFrame(val_pasto)
+                                            except:
+                                                pass
+                        # Altri campi generali
                         for k, v in dati_atleta.items():
-                            if isinstance(v, list):
-                                # Se la lista contiene dizionari, la trasformiamo in DataFrame
+                            if isinstance(v, list) and k != "db_diario":
                                 try:
                                     if len(v) == 0 or isinstance(v[0], dict):
                                         dati_atleta[k] = pd.DataFrame(v)
@@ -435,7 +445,6 @@ if "banca_dati_df" not in st.session_state:
         and "banca_dati_df" in dati_salvati
         and dati_salvati["banca_dati_df"] is not None
     ):
-        # Se salvato come lista di dizionari o dataframe serializzato
         if isinstance(dati_salvati["banca_dati_df"], list):
             st.session_state.banca_dati_df = pd.DataFrame(
                 dati_salvati["banca_dati_df"]
@@ -1048,8 +1057,16 @@ if alimenti_validati:
                     }
                 ]
             )
+            
+            # Controllo di sicurezza e conversione robusta del dataframe del pasto
+            pasto_corrente_df = db_diario_atleta[data_str][pasto_selezionato]
+            if not isinstance(pasto_corrente_df, pd.DataFrame):
+                pasto_corrente_df = pd.DataFrame(pasto_corrente_df)
+            if pasto_corrente_df.empty:
+                pasto_corrente_df = pd.DataFrame(columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"])
+
             db_diario_atleta[data_str][pasto_selezionato] = pd.concat(
-                [db_diario_atleta[data_str][pasto_selezionato], nuova_riga],
+                [pasto_corrente_df, nuova_riga],
                 ignore_index=True,
             )
             salva_dati_disco()
@@ -1213,6 +1230,8 @@ with st.expander(
                     pdf_output.cell(0, 8, f"Pasto: {pasto}", ln=True)
                     pdf_output.set_font("Arial", "", 10)
                     df_p = db_diario_atleta[data_str][pasto]
+                    if not isinstance(df_p, pd.DataFrame):
+                        df_p = pd.DataFrame(df_p)
                     if not df_p.empty:
                         for _, row in df_p.iterrows():
                             testo_riga = f" - {row['Alimento']}: {row['gr/n']}g | Carbo: {row['carbo']}g | Prot: {row['proteine']}g | Grassi: {row['grassi']}g | {row['kcal']} kcal"
@@ -1276,39 +1295,45 @@ with st.expander(
                             d_kcal = sum(
                                 [
                                     safe_float(
-                                        db_diario_atleta[d_str][p]["kcal"].sum()
+                                        pd.DataFrame(db_diario_atleta[d_str][p])["kcal"].sum()
+                                        if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame)
+                                        else db_diario_atleta[d_str][p]["kcal"].sum()
                                     )
                                     for p in PASTI
-                                    if not db_diario_atleta[d_str][p].empty
+                                    if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty
                                 ]
                             )
                             d_carbo = sum(
                                 [
                                     safe_float(
-                                        db_diario_atleta[d_str][p]["carbo"].sum()
+                                        pd.DataFrame(db_diario_atleta[d_str][p])["carbo"].sum()
+                                        if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame)
+                                        else db_diario_atleta[d_str][p]["carbo"].sum()
                                     )
                                     for p in PASTI
-                                    if not db_diario_atleta[d_str][p].empty
+                                    if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty
                                 ]
                             )
                             d_prot = sum(
                                 [
                                     safe_float(
-                                        db_diario_atleta[d_str][p][
-                                            "proteine"
-                                        ].sum()
+                                        pd.DataFrame(db_diario_atleta[d_str][p])["proteine"].sum()
+                                        if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame)
+                                        else db_diario_atleta[d_str][p]["proteine"].sum()
                                     )
                                     for p in PASTI
-                                    if not db_diario_atleta[d_str][p].empty
+                                    if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty
                                 ]
                             )
                             d_grassi = sum(
                                 [
                                     safe_float(
-                                        db_diario_atleta[d_str][p]["grassi"].sum()
+                                        pd.DataFrame(db_diario_atleta[d_str][p])["grassi"].sum()
+                                        if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame)
+                                        else db_diario_atleta[d_str][p]["grassi"].sum()
                                     )
                                     for p in PASTI
-                                    if not db_diario_atleta[d_str][p].empty
+                                    if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty
                                 ]
                             )
 
@@ -1415,39 +1440,45 @@ with st.expander(
                             dk = sum(
                                 [
                                     safe_float(
-                                        db_diario_atleta[d_str][p]["kcal"].sum()
+                                        pd.DataFrame(db_diario_atleta[d_str][p])["kcal"].sum()
+                                        if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame)
+                                        else db_diario_atleta[d_str][p]["kcal"].sum()
                                     )
                                     for p in PASTI
-                                    if not db_diario_atleta[d_str][p].empty
+                                    if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty
                                 ]
                             )
                             dc = sum(
                                 [
                                     safe_float(
-                                        db_diario_atleta[d_str][p]["carbo"].sum()
+                                        pd.DataFrame(db_diario_atleta[d_str][p])["carbo"].sum()
+                                        if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame)
+                                        else db_diario_atleta[d_str][p]["carbo"].sum()
                                     )
                                     for p in PASTI
-                                    if not db_diario_atleta[d_str][p].empty
+                                    if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty
                                 ]
                             )
                             dp = sum(
                                 [
                                     safe_float(
-                                        db_diario_atleta[d_str][p][
-                                            "proteine"
-                                        ].sum()
+                                        pd.DataFrame(db_diario_atleta[d_str][p])["proteine"].sum()
+                                        if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame)
+                                        else db_diario_atleta[d_str][p]["proteine"].sum()
                                     )
                                     for p in PASTI
-                                    if not db_diario_atleta[d_str][p].empty
+                                    if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty
                                 ]
                             )
                             dg = sum(
                                 [
                                     safe_float(
-                                        db_diario_atleta[d_str][p]["grassi"].sum()
+                                        pd.DataFrame(db_diario_atleta[d_str][p])["grassi"].sum()
+                                        if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame)
+                                        else db_diario_atleta[d_str][p]["grassi"].sum()
                                     )
                                     for p in PASTI
-                                    if not db_diario_atleta[d_str][p].empty
+                                    if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty
                                 ]
                             )
 
