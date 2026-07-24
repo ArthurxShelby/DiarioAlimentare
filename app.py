@@ -67,21 +67,21 @@ def carica_dati_disco():
 def salva_dati_disco(dati=None):
     """Salva lo stato della banca dati, degli atleti e dell'atleta corrente su Supabase (solo se proprietario)."""
     if not is_proprietario:
-        st.warning("Salvataggio saltato: modalità Proprietario non attiva.")
         return
     try:
         if dati is None:
+            # Convertiamo il DataFrame in dizionario per renderlo serializzabile in JSON
+            banca_df = st.session_state.get("banca_dati_df")
+            banca_dict = banca_df.to_dict(orient="records") if banca_df is not None else []
+
             dati = {
                 "atleti": st.session_state.get("atleti", {}),
-                "banca_dati_df": st.session_state.get("banca_dati_df"),
+                "banca_dati_df": banca_dict,
                 "atleta_corrente": st.session_state.get("atleta_corrente"),
             }
         
-        # Eseguiamo l'upsert e catturiamo la risposta
         response = supabase.table("app_data").upsert({"id": 1, "payload": dati}).execute()
-        
-        # Stampiamo un messaggio chiaro nell'app per confermare l'invio
-        st.success("Richiesta di salvataggio inviata a Supabase con successo!")
+        st.toast("Dati salvati con successo su Supabase!", icon="✅")
     except Exception as e:
         st.error(f"Errore critico durante il salvataggio su Supabase: {e}")
 
