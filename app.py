@@ -75,7 +75,27 @@ def carica_dati_disco():
             supabase.table("app_data").select("payload").eq("id", 1).execute()
         )
         if response.data and len(response.data) > 0:
-            return response.data[0]["payload"]
+            payload = response.data[0]["payload"]
+            
+            # 1. Riconvertiamo la banca dati da lista a DataFrame di Pandas se esiste
+            if "banca_dati_df" in payload and isinstance(payload["banca_dati_df"], list):
+                payload["banca_dati_df"] = pd.DataFrame(payload["banca_dati_df"])
+                
+            # 2. Riconvertiamo eventuali tabelle/DataFrame salvate dentro i dati degli atleti
+            if "atleti" in payload and isinstance(payload["atleti"], dict):
+                for nome_atleta, dati_atleta in payload["atleti"].items():
+                    if isinstance(dati_atleta, dict):
+                        for k, v in dati_atleta.items():
+                            if isinstance(v, list):
+                                # Se la lista contiene dizionari, la trasformiamo in DataFrame
+                                try:
+                                    if len(v) == 0 or isinstance(v[0], dict):
+                                        dati_atleta[k] = pd.DataFrame(v)
+                                except:
+                                    pass
+
+            return payload
+            
     except Exception as e:
         st.warning(f"Impossibile connettersi al cloud: {e}")
     return {}
