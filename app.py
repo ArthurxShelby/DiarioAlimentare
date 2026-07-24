@@ -1086,6 +1086,8 @@ for i, pasto in enumerate(PASTI):
             st.markdown(f"### {pasto}")
         df_p = pd.DataFrame(db_diario_atleta[data_str][p]) if not isinstance(db_diario_atleta[data_str][p], pd.DataFrame) else db_diario_atleta[data_str][p]
 
+    df_p = pd.DataFrame(db_diario_atleta[data_str][p]) if not isinstance(db_diario_atleta[data_str][p], pd.DataFrame) else db_diario_atleta[data_str][p]
+
     if not df_p.empty:
         p_kcal = safe_float(df_p["kcal"].sum())
         p_carb = safe_float(df_p["carbo"].sum())
@@ -1094,7 +1096,7 @@ for i, pasto in enumerate(PASTI):
         st.caption(
             f"Totale: {p_kcal:.1f} kcal | C: {p_carb:.1f}g | P: {p_prot:.1f}g | G: {p_gras:.1f}g"
         )
-                st.dataframe(df_p, use_container_width=True)
+        st.dataframe(df_p, use_container_width=True)
 
                 if is_proprietario:
                     mostra_gestione_voci = st.toggle(
