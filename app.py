@@ -1084,7 +1084,7 @@ for i, pasto in enumerate(PASTI):
     with col_target:
         with st.container(border=True):
             st.markdown(f"### {pasto}")
-          df_p = db_diario_atleta[data_str][p]
+         df_p = db_diario_atleta[data_str][p]
         if not isinstance(df_p, pd.DataFrame):
             df_p = pd.DataFrame(df_p)
 
