@@ -85,6 +85,13 @@ def salva_dati_disco(dati=None):
     except Exception as e:
         st.error(f"Errore critico durante il salvataggio su Supabase: {e}")
 
+def safe_float(val):
+    try:
+        if val is None:
+            return 0.0
+        return float(str(val).replace(',', '.'))
+    except:
+        return 0.0
 
 def pulisci_dataframe_banca_dati(df):
     """Assicura che tutte le colonne numeriche siano float puliti."""
