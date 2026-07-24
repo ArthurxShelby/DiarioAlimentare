@@ -82,36 +82,32 @@ def carica_dati_disco():
 
 
 def salva_dati_disco(dati=None):
-    """Salva lo stato della banca dati e degli atleti su Supabase convertendo i DataFrame in dizionari."""
+    """Salva lo stato convertendo ricorsivamente qualsiasi DataFrame in dizionario JSON-compatibile."""
     if not is_proprietario:
         return
     try:
         if dati is None:
-            # Recuperiamo e serializziamo la banca dati se è un DataFrame
-            banca_df = st.session_state.get("banca_dati_df")
-            if hasattr(banca_df, "to_dict"):
-                banca_serializzata = banca_df.to_dict(orient="records")
-            else:
-                banca_serializzata = banca_df
+            # Funzione di supporto interna per serializzare in modo sicuro i DataFrame
+            def serializza_oggetti(obj):
+                if hasattr(obj, "to_dict"):
+                    return obj.to_dict(orient="records")
+                elif isinstance(obj, dict):
+                    return {k: serializza_oggetti(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [serializza_oggetti(item) for item in obj]
+                return obj
 
-            # Puliamo anche eventuali DataFrame nascosti dentro il dizionario degli atleti
-            atleti_grezzi = st.session_state.get("atleti", {})
-            atleti_puliti = {}
-            for nome_atleta, dati_atleta in atleti_grezzi.items():
-                if isinstance(dati_atleta, dict):
-                    atleti_puliti[nome_atleta] = {
-                        k: (v.to_dict(orient="records") if hasattr(v, "to_dict") else v)
-                        for k, v in dati_atleta.items()
-                    }
-                else:
-                    atleti_puliti[nome_atleta] = dati_atleta
-
-            dati = {
-                "atleti": atleti_puliti,
-                "banca_dati_df": banca_serializzata,
+            # Prepariamo lo stato grezzo
+            stato_grezzo = {
+                "atleti": st.session_state.get("atleti", {}),
+                "banca_dati_df": st.session_state.get("banca_dati_df"),
                 "atleta_corrente": st.session_state.get("atleta_corrente"),
             }
+            
+            # Serializziamo l'intero dizionario ripulendolo da ogni DataFrame
+            dati = serializza_oggetti(stato_grezzo)
         
+        # Invio a Supabase
         supabase.table("app_data").upsert({"id": 1, "payload": dati}).execute()
         st.toast("Dati salvati con successo su Supabase!", icon="✅")
     except Exception as e:
