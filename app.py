@@ -15,11 +15,17 @@ def safe_float(val):
         return 0.0
 
 def pulisci_dataframe_banca_dati(df):
-    """Assicura che tutte le colonne numeriche siano float puliti."""
+    """Assicura che tutte le colonne numeriche siano float puliti e riordina le colonne."""
     colonne_numeriche = ["gr/n", "carbo", "proteine", "grassi", "kcal"]
     for col in colonne_numeriche:
         if col in df.columns:
             df[col] = df[col].apply(safe_float)
+            
+    # FORZA L'ORDINE CORRETTO DELLE COLONNE
+    ordine_desiderato = ["Alimento", "gr/n", "kcal", "carbo", "grassi", "proteine"]
+    ordine_esistente = [c for c in ordine_desiderato if c in df.columns]
+    df = df[ordine_esistente]
+    
     return df
 
 
