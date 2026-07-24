@@ -133,14 +133,6 @@ def salva_dati_disco(dati=None):
     except Exception as e:
         st.error(f"Errore critico durante il salvataggio su Supabase: {e}")
 
-def pulisci_dataframe_banca_dati(df):
-    """Assicura che tutte le colonne numeriche siano float puliti."""
-    colonne_numeriche = ["gr/n", "carbo", "proteine", "grassi", "kcal"]
-    for col in colonne_numeriche:
-        if col in df.columns:
-            df[col] = df[col].apply(safe_float)
-    return df
-
 
 dati_salvati = carica_dati_disco()
 
@@ -1084,19 +1076,21 @@ for i, pasto in enumerate(PASTI):
     with col_target:
         with st.container(border=True):
             st.markdown(f"### {pasto}")
-        df_p = pd.DataFrame(db_diario_atleta[data_str][p]) if not isinstance(db_diario_atleta[data_str][p], pd.DataFrame) else db_diario_atleta[data_str][p]
+            df_p = (
+                pd.DataFrame(db_diario_atleta[data_str][pasto])
+                if not isinstance(db_diario_atleta[data_str][pasto], pd.DataFrame)
+                else db_diario_atleta[data_str][pasto]
+            )
 
-    df_p = pd.DataFrame(db_diario_atleta[data_str][p]) if not isinstance(db_diario_atleta[data_str][p], pd.DataFrame) else db_diario_atleta[data_str][p]
-
-    if not df_p.empty:
-        p_kcal = safe_float(df_p["kcal"].sum())
-        p_carb = safe_float(df_p["carbo"].sum())
-        p_prot = safe_float(df_p["proteine"].sum())
-        p_gras = safe_float(df_p["grassi"].sum())
-        st.caption(
-            f"Totale: {p_kcal:.1f} kcal | C: {p_carb:.1f}g | P: {p_prot:.1f}g | G: {p_gras:.1f}g"
-        )
-        st.dataframe(df_p, use_container_width=True)
+            if not df_p.empty:
+                p_kcal = safe_float(df_p["kcal"].sum())
+                p_carb = safe_float(df_p["carbo"].sum())
+                p_prot = safe_float(df_p["proteine"].sum())
+                p_gras = safe_float(df_p["grassi"].sum())
+                st.caption(
+                    f"Totale: {p_kcal:.1f} kcal | C: {p_carb:.1f}g | P: {p_prot:.1f}g | G: {p_gras:.1f}g"
+                )
+                st.dataframe(df_p, use_container_width=True)
 
                 if is_proprietario:
                     mostra_gestione_voci = st.toggle(
