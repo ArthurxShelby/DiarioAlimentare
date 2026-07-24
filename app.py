@@ -178,6 +178,14 @@ DEFAULT_BANCA_DATI = [
         "grassi": 0.3,
         "kcal": 89.0,
     },
+     {
+        "Alimento": "biscotti gocciole",
+        "gr/n": 1,
+        "carbo": 7.7,
+        "proteine": 0.8,
+        "grassi": 2.6,
+        "kcal": 59,
+    },
     {
         "Alimento": "carne",
         "gr/n": 100,
@@ -385,6 +393,14 @@ DEFAULT_BANCA_DATI = [
         "proteine": 2.145,
         "grassi": 2.34,
         "kcal": 63.18,
+    },
+    {
+        "Alimento": "semi di zucca",
+        "gr/n": 13,
+        "carbo": 1.43,
+        "proteine": 3.9,
+        "grassi": 6.37,
+        "kcal": 72.67,
     },
     {
         "Alimento": "tacchino",
