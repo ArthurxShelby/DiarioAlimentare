@@ -36,7 +36,7 @@ supabase = init_supabase()
 def carica_database(db_iniziale):
     """Carica il database allenamenti dal cloud di Supabase, convertendo le liste in DataFrame."""
     try:
-        response = supabase.table("app_data").select("payload").eq("id", "database_allenamenti").execute()
+        response = supabase.table("app_data").select("payload").eq("id", 1).execute()
         if response.data and len(response.data) > 0:
             payload = response.data[0]["payload"]
             # Ricostruisce i DataFrame dai dizionari salvati
@@ -70,7 +70,7 @@ def salva_database(dati=None):
                 else:
                     dati_serializzabili[anno][mese] = df_val
                     
-        supabase.table("app_data").upsert({"id": "database_allenamenti", "payload": dati_serializzabili}).execute()
+        supabase.table("app_data").upsert({"id": 1, "payload": dati_serializzabili}).execute()
     except Exception as e:
         st.error(f"Errore durante il salvataggio dei dati sul cloud: {e}")
 
