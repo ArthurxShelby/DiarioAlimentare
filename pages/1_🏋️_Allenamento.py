@@ -51,7 +51,18 @@ def salva_database(dati=None):
     try:
         if dati is None:
             dati = st.session_state.database_allenamenti
-        supabase.table("app_data").upsert({"id": "database_allenamenti", "payload": dati}).execute()
+            
+        # Converte eventuali DataFrame presenti nella struttura in liste di dizionari per renderli serializzabili in JSON
+        dati_serializzabili = {}
+        for anno, mesi in dati.items():
+            dati_serializzabili[anno] = {}
+            for mese, df_val in mesi.items():
+                if isinstance(df_val, pd.DataFrame):
+                    dati_serializzabili[anno][mese] = df_val.to_dict(orient="records")
+                else:
+                    dati_serializzabili[anno][mese] = df_val
+                    
+        supabase.table("app_data").upsert({"id": "database_allenamenti", "payload": dati_serializzabili}).execute()
     except Exception as e:
         st.error(f"Errore durante il salvataggio dei dati sul cloud: {e}")
 
