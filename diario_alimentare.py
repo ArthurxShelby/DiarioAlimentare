@@ -51,7 +51,7 @@ supabase = init_supabase()
 
 def carica_dati_disco():
     try:
-        response = supabase.table("diario_test").select("payload").eq("id", 1).execute()
+        response = supabase.table("app_data_diario").select("payload").eq("id", 1).execute()
         if response.data and len(response.data) > 0:
             payload = response.data[0]["payload"]
             
