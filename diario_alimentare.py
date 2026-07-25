@@ -1,3 +1,78 @@
+import streamlit as st
+
+# Inseriamo del codice HTML e CSS personalizzato per gestire il posizionamento assoluto
+st.markdown(
+    """
+    <style>
+    /* Contenitore relativo attorno al bottone */
+    .account-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+    
+    /* Stile e posizionamento del pop-up sotto il bottone */
+    .custom-popup {
+        display: none; /* Di base nascosto */
+        position: absolute;
+        top: 100%;
+        left: 0;
+        margin-top: 8px;
+        background-color: #ffffff;
+        color: #31333F;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 999;
+        min-width: 250px;
+        border: 1px solid #e0e0e0;
+    }
+    
+    /* Classe per mostrare il pop-up */
+    .custom-popup.visible {
+        display: block;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Gestione dello stato per mostrare/nascondere il pop-up
+if "show_popup" not in st.session_state:
+    st.session_state.show_popup = False
+
+# Callback per invertire lo stato al click del bottone
+def toggle_popup():
+    st.session_state.show_popup = not st.session_state.show_popup
+
+# Titolo della pagina
+st.subheader("Registrazione")
+
+# Determiniamo la classe CSS attiva in base allo stato
+popup_class = "custom-popup visible" if st.session_state.show_popup else "custom-popup"
+
+# Struttura HTML con il bottone e il pop-up posizionato sotto
+st.markdown(
+    f"""
+    <div class="account-wrapper">
+        <!-- Nota: in Streamlit un vero <button HTML> non attiva direttamente callback Python senza componenti custom, 
+             ma usiamo la struttura per il posizionamento grafico con Streamlit nativo sotto -->
+        <div id="popup-box" class="{popup_class}">
+            <strong>Profilo Atleta</strong>
+            <p style="margin: 5px 0 0 0; font-size: 14px;">Compila i campi sottostanti per completare la creazione dell'account.</p>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Bottone nativo di Streamlit per gestire la logica e l'apertura del pop-up
+if st.button("crea account e profilo atleta", on_click=toggle_popup):
+    pass
+
+# Se il pop-up è attivo, puoi anche inserire componenti nativi Streamlit subito sotto se preferisci coerenza
+if st.session_state.show_popup:
+    st.info("Pop-up attivato con successo sotto il comando.")    
+
 from datetime import date, timedelta
 from fpdf import FPDF
 import pandas as pd
@@ -987,8 +1062,8 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         if d_str in db_diario_atleta:
                             dk = sum([safe_float(pd.DataFrame(db_diario_atleta[d_str][p])["kcal"].sum() if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]["kcal"].sum()) for p in PASTI if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty])
                             dc = sum([safe_float(pd.DataFrame(db_diario_atleta[d_str][p])["carbo"].sum() if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]["carbo"].sum()) for p in PASTI if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty])
-                            dp = sum([safe_float(db_diario_atleta[d_str][p]["proteine"].sum() if isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else pd.DataFrame(db_diario_atleta[d_str][p])["proteine"].sum()) for p in PASTI if not (db_diario_atleta[d_str][p] if isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else pd.DataFrame(db_diario_atleta[d_str][p])).empty])
-                            dg = sum([safe_float(db_diario_atleta[d_str][p]["grassi"].sum() if isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else pd.DataFrame(db_diario_atleta[d_str][p])["grassi"].sum()) for p in PASTI if not (db_diario_atleta[d_str][p] if isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else pd.DataFrame(db_diario_atleta[d_str][p])).empty])
+                            dp = sum([safe_float(pd.DataFrame(db_diario_atleta[d_str][p])["proteine"].sum() if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]["proteine"].sum()) for p in PASTI if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty])
+                            dg = sum([safe_float(pd.DataFrame(db_diario_atleta[d_str][p])["grassi"].sum() if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]["grassi"].sum()) for p in PASTI if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty])
 
                         pdf_output.set_text_color(0, 0, 0)
                         pdf_output.write(6, f" - {d_str} -> ")
@@ -1000,7 +1075,7 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         pdf_output.write(6, f"Kcal: {dk:.1f}")
 
                         pdf_output.set_text_color(0, 0, 0)
-                        pdf_output.write(6, " | Carbo: ")
+                        pdf_output.write(6, " | Carbo: >")
                         if dc > obj_carbo:
                             pdf_output.set_text_color(220, 20, 60)
                         pdf_output.write(6, f"{dc:.1f}g")
