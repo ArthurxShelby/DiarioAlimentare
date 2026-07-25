@@ -137,15 +137,15 @@ if st.session_state.utente_loggato is None:
             pwd_h = hash_password(password_input)
             
             try:
-                res_admin = supabase.table("utenti").select("*").eq("username", "proprietario").execute()
+                res_admin = supabase.table("utenti").select("*").eq("username", "Valerio").execute()
                 admin_pswd_stored = res_admin.data[0].get("pswd") if res_admin.data else None
             except:
                 admin_pswd_stored = None
                 
             pwd_segreta = st.secrets.get("auth", {}).get("proprietario_password", "admin123")
             
-            if username_input == "proprietario" and (password_input == pwd_segreta or pwd_h == admin_pswd_stored or (admin_pswd_stored and password_input == admin_pswd_stored)):
-                st.session_state.utente_loggato = "proprietario"
+            if username_input == "Valerio" and (password_input == pwd_segreta or pwd_h == admin_pswd_stored or (admin_pswd_stored and password_input == admin_pswd_stored)):
+                st.session_state.utente_loggato = "Valerio"
                 st.session_state.ruolo_corrente = "Proprietario"
                 st.success("Accesso effettuato come Proprietario!")
                 st.rerun()
@@ -274,7 +274,7 @@ if is_proprietario:
                     pwd_h_admin = hash_password(nuova_pass_admin.strip())
                     try:
                         supabase.table("utenti").upsert({
-                            "username": "proprietario",
+                            "username": "Valerio",
                             "pswd": pwd_h_admin
                         }).execute()
                         st.session_state.custom_admin_password = pwd_h_admin
@@ -295,7 +295,7 @@ if is_proprietario:
                 if btn_crea_user:
                     if not nuovo_user or not nuova_pass.strip():
                         st.error("Compila tutti i campi.")
-                    elif nuovo_user == "proprietario":
+                    elif nuovo_user == "Valerio":
                         st.warning("Username non consentito.")
                     else:
                         try:
@@ -330,7 +330,7 @@ if is_proprietario:
             try:
                 res_utenti = supabase.table("utenti").select("username").execute()
                 if res_utenti.data:
-                    lista_utenti_supabase = [row["username"] for row in res_utenti.data if row["username"] != "proprietario"]
+                    lista_utenti_supabase = [row["username"] for row in res_utenti.data if row["username"] != "Valerio"]
                     
                     if lista_utenti_supabase:
                         utente_da_eliminare = st.selectbox(
@@ -991,7 +991,7 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                             pdf_output.set_text_color(0, 0, 0)
                         pdf_output.write(6, f"Kcal: {dk:.1f}")
 
-                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.set_text_color(0, 0, sia_pass := 0)
                         pdf_output.write(6, " | Carbo: >")
                         if dc > obj_carbo:
                             pdf_output.set_text_color(220, 20, 60)
