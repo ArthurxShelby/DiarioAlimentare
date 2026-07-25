@@ -39,6 +39,12 @@ st.set_page_config(
     layout="wide",
 )
 
+# --- Gestione Toast persistente ---
+if "notifica_toast" in st.session_state and st.session_state.notifica_toast:
+    st.toast(st.session_state.notifica_toast, icon="✅")
+    # Resettiamo la variabile per evitare che compaia a ogni singolo click futuro
+    st.session_state.notifica_toast = None
+
 # --- 0. GESTIONE PERSISTENZA CLOUD (SUPABASE) ---
 
 @st.cache_resource
@@ -553,12 +559,8 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti", expanded=False):
                         .reset_index(drop=True)
                     )
                     salva_dati_disco()
-                    st.session_state.banner_alimento_inserito = f"Alimento '{nuovo_nome.strip()}' aggiunto/aggiornato con successo nella banca dati!"
+                    st.session_state.notifica_toast = f"Alimento '{nuovo_nome.strip()}' aggiunto/aggiornato con successo nella banca dati!"
                     st.rerun()
-
-        if "banner_alimento_inserito" in st.session_state:
-            st.success(st.session_state.banner_alimento_inserito)
-            del st.session_state.banner_alimento_inserito
 
         st.markdown("---")
         col_bd1, col_bd2 = st.columns(2)
@@ -580,7 +582,7 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti", expanded=False):
                             ~banca_dati["Alimento"].isin(alimenti_da_eliminare)
                         ].reset_index(drop=True)
                         salva_dati_disco()
-                        st.success("Alimenti selezionati rimossi con successo!")
+                        st.session_state.notifica_toast = "Alimenti selezionati rimossi con successo!"
                         st.rerun()
                     else:
                         st.warning("Nessun alimento selezionato.")
@@ -590,7 +592,7 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti", expanded=False):
                         columns=["Alimento", "gr/n", "carbo", "proteine", "grassi", "kcal"]
                     )
                     salva_dati_disco()
-                    st.warning("Banca dati svuotata completamente.")
+                    st.session_state.notifica_toast = "Banca dati svuotata completamente."
                     st.rerun()
 
         with col_bd2:
@@ -662,8 +664,8 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti", expanded=False):
                                 .reset_index(drop=True)
                             )
                             salva_dati_disco()
-                            st.success("Banca dati aggiornata con successo dal file CSV!")
-                            st.success("🎉 Operazione completata con successo! L'aggiornamento della banca dati alimentare è avvenuto correttamente.")
+                            st.session_state.notifica_toast = "Banca dati aggiornata con successo dal file CSV!"
+                            st.rerun()
                 except Exception as e:
                     st.error(f"Errore durante la lettura del file CSV: {e}")
     else:
@@ -673,14 +675,6 @@ st.markdown("---")
 
 st.subheader("Inserimento Alimenti nei Pasti")
 pasto_selezionato = st.selectbox("Seleziona il pasto a cui aggiungere l'alimento:", PASTI)
-
-# Mostra il banner di successo se presente
-if "banner_pasto_inserito" in st.session_state and st.session_state.banner_pasto_inserito:
-    st.success(st.session_state.banner_pasto_inserito)
-    st.session_state.banner_pasto_inserito = None
-
-banca_dati_corrente = st.session_state.banca_dati_df
-
 
 banca_dati_corrente = st.session_state.banca_dati_df
 alimenti_validi = []
@@ -731,11 +725,9 @@ if alimenti_validati:
             ignore_index=True,
         )
         salva_dati_disco()
-        st.session_state.banner_pasto_inserito = f"Alimento '{alimento_scelto}' aggiunto con successo al pasto '{pasto_selezionato}'!"
+        st.session_state.notifica_toast = f"Alimento '{alimento_scelto}' aggiunto con successo al pasto '{pasto_selezionato}'!"
         st.rerun()
 else:
-    # Invece di mostrare un avviso bloccante ogni volta che si cambia atleta,
-    # usiamo st.empty() o un feedback non invasivo finché i dati non sono sincronizzati
     st.empty()
 
 st.markdown("---")
