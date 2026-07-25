@@ -118,6 +118,9 @@ if "utente_loggato" not in st.session_state:
 if "ruolo_corrente" not in st.session_state:
     st.session_state.ruolo_corrente = None
 
+if "ultimo_utente_creato" not in st.session_state:
+    st.session_state.ultimo_utente_creato = None
+
 st.sidebar.markdown("### 🔐 Autenticazione Accesso")
 
 if st.session_state.utente_loggato is None:
@@ -311,7 +314,7 @@ if is_proprietario:
                                 }
                             salva_dati_disco()
                             
-                            st.toast(f"Account '{nuovo_user}' creato con successo!", icon="✅")
+                            st.session_state.ultimo_utente_creato = nuovo_user
                             st.rerun()
                         except Exception as e:
                             st.error(f"Errore durante la creazione su Supabase: {e}")
@@ -734,8 +737,6 @@ if alimenti_validati:
         st.session_state.banner_pasto_inserito = f"Alimento '{alimento_scelto}' aggiunto con successo al pasto '{pasto_selezionato}'!"
         st.rerun()
 else:
-    # Invece di mostrare un avviso bloccante ogni volta che si cambia atleta,
-    # usiamo st.empty() o un feedback non invasivo finché i dati non sono sincronizzati
     st.empty()
 
 st.markdown("---")
