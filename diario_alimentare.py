@@ -731,8 +731,7 @@ if alimenti_validati:
             ignore_index=True,
         )
         salva_dati_disco()
-        # Usa st.toast per mostrare una notifica in basso a destra che scompare da sola
-        st.toast(f"Alimento '{alimento_scelto}' aggiunto con successo al pasto '{pasto_selezionato}'!", icon="✅")
+        st.session_state.banner_pasto_inserito = f"Alimento '{alimento_scelto}' aggiunto con successo al pasto '{pasto_selezionato}'!"
         st.rerun()
 else:
     # Invece di mostrare un avviso bloccante ogni volta che si cambia atleta,
