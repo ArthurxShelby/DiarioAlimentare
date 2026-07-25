@@ -991,8 +991,8 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                             pdf_output.set_text_color(0, 0, 0)
                         pdf_output.write(6, f"Kcal: {dk:.1f}")
 
-                        pdf_output.set_text_color(0, 0, sia_pass := 0)
-                        pdf_output.write(6, " | Carbo: >")
+                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.write(6, " | Carbo: ")
                         if dc > obj_carbo:
                             pdf_output.set_text_color(220, 20, 60)
                         pdf_output.write(6, f"{dc:.1f}g")
