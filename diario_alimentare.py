@@ -279,7 +279,6 @@ if is_proprietario:
                         }).execute()
                         st.session_state.custom_admin_password = pwd_h_admin
                         st.toast("Password admin aggiornata e salvata su Supabase!", icon="✅")
-                        st.rerun()
                     except Exception as e:
                         st.error(f"Errore durante il salvataggio su Supabase: {e}")
                 else:
