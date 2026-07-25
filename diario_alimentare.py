@@ -987,8 +987,8 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         if d_str in db_diario_atleta:
                             dk = sum([safe_float(pd.DataFrame(db_diario_atleta[d_str][p])["kcal"].sum() if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]["kcal"].sum()) for p in PASTI if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty])
                             dc = sum([safe_float(pd.DataFrame(db_diario_atleta[d_str][p])["carbo"].sum() if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]["carbo"].sum()) for p in PASTI if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty])
-                            dp = sum([safe_float(pd.DataFrame(db_diario_atleta[d_str][p])["proteine"].sum() if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]["proteine"].sum()) for p in PASTI if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty])
-                            dg = sum([safe_float(pd.DataFrame(db_diario_atleta[d_str][p])["grassi"].sum() if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]["grassi"].sum()) for p in PASTI if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty])
+                            dp = sum([safe_float(db_diario_atleta[d_str][p]["proteine"].sum() if isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else pd.DataFrame(db_diario_atleta[d_str][p])["proteine"].sum()) for p in PASTI if not (db_diario_atleta[d_str][p] if isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else pd.DataFrame(db_diario_atleta[d_str][p])).empty])
+                            dg = sum([safe_float(db_diario_atleta[d_str][p]["grassi"].sum() if isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else pd.DataFrame(db_diario_atleta[d_str][p])["grassi"].sum()) for p in PASTI if not (db_diario_atleta[d_str][p] if isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else pd.DataFrame(db_diario_atleta[d_str][p])).empty])
 
                         pdf_output.set_text_color(0, 0, 0)
                         pdf_output.write(6, f" - {d_str} -> ")
@@ -1000,7 +1000,7 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         pdf_output.write(6, f"Kcal: {dk:.1f}")
 
                         pdf_output.set_text_color(0, 0, 0)
-                        pdf_output.write(6, " | Carbo: >")
+                        pdf_output.write(6, " | Carbo: ")
                         if dc > obj_carbo:
                             pdf_output.set_text_color(220, 20, 60)
                         pdf_output.write(6, f"{dc:.1f}g")
