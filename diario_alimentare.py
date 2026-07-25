@@ -103,7 +103,7 @@ def salva_dati_disco(dati=None):
             }
             dati = serializza_oggetti(stato_grezzo)
         
-        supabase.table("diario_test").upsert({"id": 1, "payload": dati}).execute()
+        supabase.table("app_data_diario").upsert({"id": 1, "payload": dati}).execute()
         st.toast("Dati salvati con successo su Supabase!", icon="✅")
     except Exception as e:
         st.error(f"Errore critico durante il salvataggio su Supabase: {e}")
