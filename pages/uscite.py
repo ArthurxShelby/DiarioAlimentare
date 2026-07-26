@@ -68,14 +68,12 @@ if activities:
         avg_watts = act.get("average_watts") or act.get("icu_average_watts") or act.get("device_watts")
         norm_watts = act.get("icu_weighted_avg_watts") or act.get("normalized_watts")
         
-        # Calcoliamo la forma (TSB) come differenza tra Fitness (CTL) e Fatica (ATL) se presenti
         ctl = act.get("icu_ctl")
         atl = act.get("icu_atl")
         form_val = None
         if ctl is not None and atl is not None:
             form_val = int(round(float(ctl) - float(atl)))
         else:
-            # Fallback su eventuali chiavi dirette se l'API le fornisce
             form_val = act.get("form") or act.get("icu_form") or act.get("icu_tsb")
         
         parsed_data.append({
@@ -94,11 +92,44 @@ if activities:
         
     df_activities = pd.DataFrame(parsed_data)
     
-    # Mostriamo la tabella interattiva
-    st.dataframe(df_activities, use_container_width=True)
+    # --- AGGREGAZIONI E STATISTICHE ---
+    # Convertiamo la colonna data in formato datetime per estrarre Anno e Mese
+    df_activities["data_dt"] = pd.to_datetime(df_activities["data"])
+    df_activities["anno"] = df_activities["data_dt"].dt.year
+    df_activities["mese"] = df_activities["data_dt"].dt.strftime("%Y-%m") # es. "2025-11"
+    
+    st.markdown("---")
+    st.subheader("📊 Riepilogo e Statistiche Generali")
+    
+    # 1. Totale Generale
+    tot_km = round(df_activities["distanza"].sum(), 2)
+    tot_dislivello = int(df_activities["dislivello"].fillna(0).sum())
+    
+    col1, col2 = st.columns(2)
+    col1.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
+    col2.metric("Dislivello Totale (Raccolta)", f"{tot_dislivello:,} m")
+    
+    # 2. Raggruppamento per Anno
+    st.markdown("### 📅 Totali per Anno")
+    df_anno = df_activities.groupby("anno")[["distanza", "dislivello"]].sum().reset_index()
+    df_anno.columns = ["Anno", "Km Totali", "Dislivello Totale (m)"]
+    st.dataframe(df_anno, use_container_width=True, hide_index=True)
+    
+    # 3. Raggruppamento per Mese
+    st.markdown("### 📆 Totali per Mese")
+    df_mese = df_activities.groupby("mese")[["distanza", "dislivello"]].sum().reset_index()
+    df_mese.columns = ["Mese", "Km Totali", "Dislivello Totale (m)"]
+    # Ordinati cronologicamente dal più vecchio al più recente (o viceversa invertendo ascending)
+    df_mese = df_mese.sort_values("Mese", ascending=False)
+    st.dataframe(df_mese, use_container_width=True, hide_index=True)
+    
+    st.markdown("---")
+    st.subheader("📋 Dettaglio Completo Attività")
+    # Mostriamo la tabella interattiva escludendo le colonne di servizio temporanee
+    st.dataframe(df_activities.drop(columns=["data_dt", "anno", "mese"]), use_container_width=True)
     
     # Pulsante per salvare le attività su Supabase
-    if st.button("💾 Salva le uscite su Supabase", key="btn_salva_uscite_supabase_finale", use_container_width=True):
+    if st.button("💾 Salva le uscite su Supabase", key="btn_salva_uscite_supabase_aggregata", use_container_width=True):
         from supabase import create_client, Client
         
         supabase_url = st.secrets["supabase"]["url"]
@@ -115,7 +146,7 @@ if activities:
                     st.warning(f"Errore nel salvataggio dell'attività {row['activity_id']}: {ex}")
                     
         if success_count == len(parsed_data):
-            st.success(f"Tutte le {success_count} attività sono state salvate/aggiornate con successo su Supabase con tutti i campi popolati!")
+            st.success(f"Tutte le {success_count} attività sono state salvate/aggiornate con successo su Supabase!")
         else:
             st.warning(f"Salvata/aggiornata con successo solo {success_count} su {len(parsed_data)} attività.")
 
