@@ -208,7 +208,6 @@ if is_proprietario:
             key=f"uploader_{anno_selezionato}_{mese_selezionato}_{st.session_state.version_editor}",
         )
 
-        # Se viene caricato un nuovo file, aggiorniamo subito i dati sorgente in sessione
         if file_caricato is not None:
             try:
                 df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
@@ -221,7 +220,6 @@ if is_proprietario:
 
                 if all(col in df_caricato.columns for col in colonne_attese):
                     df_filtrato = df_caricato[colonne_attese].copy()
-                    # Aggiorniamo la sessione con i nuovi dati del CSV
                     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_filtrato
                     salva_database()
                     st.toast(f"File CSV caricato e salvato per {mese_selezionato} {anno_selezionato}!", icon="✅")
@@ -230,7 +228,6 @@ if is_proprietario:
             except Exception as e:
                 st.error(f"Errore nella lettura del file CSV: {e}")
 
-# Recuperiamo i dati aggiornati (sia che provengano dal CSV appena caricato, sia dal database)
 dati_aggiornati = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
 
 if isinstance(dati_aggiornati, pd.DataFrame):
@@ -246,12 +243,11 @@ else:
     )
 
 if is_proprietario:
-    # Usiamo una chiave pulita legata solo a anno e mese, senza sbalzi di versione
     df_modificato = st.data_editor(
         df_da_mostrare,
         num_rows="dynamic",
         use_container_width=True,
-        key=f"editor_finale_{anno_selezionato}_{mese_selezionato}",
+        key=f"editor_finale_{anno_selezionato}_{mese_selezionato}_{st.session_state.version_editor}",
         column_config={
             "Watt": st.column_config.NumberColumn(min_value=50, max_value=500, step=1),
             "RPM": st.column_config.NumberColumn(min_value=60, max_value=120, step=1),
@@ -261,10 +257,11 @@ if is_proprietario:
         },
     )
 
-    # Salvataggio automatico se l'utente modifica la tabella manualmente
     if not df_modificato.equals(df_da_mostrare):
         st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato
         salva_database()
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 6. PANNELLO DI CANCELLAZIONE AVANZATO (Riservato) ---
 if is_proprietario:
@@ -277,7 +274,7 @@ if is_proprietario:
         with col_d2:
             data_fine_del = st.date_input("Data Fine Periodo", value=datetime.date(2026, 12, 31), key="data_fin_del")
 
-       if st.button("🚨 Svuota dati per il periodo selezionato"):
+        if st.button("🚨 Svuota dati per il periodo selezionato"):
             if data_inizio_del > data_fine_del:
                 st.error("La data di inizio non può essere successiva alla data di fine.")
             else:
@@ -307,10 +304,7 @@ if is_proprietario:
                                 )
 
                     salva_database()
-                    
-                    # Incrementa la versione per distruggere sia la tabella che il file uploader residuo
                     st.session_state.version_editor += 1
-                    
                     st.toast("Dati svuotati e sincronizzati con successo!", icon="🗑️")
                     st.rerun()
                 except Exception as e:
