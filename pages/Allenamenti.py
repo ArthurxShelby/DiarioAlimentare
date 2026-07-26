@@ -67,25 +67,16 @@ def salva_database(dati=None):
     except Exception as e:
         st.error(f"Errore durante il salvataggio dei dati sul cloud: {e}")
 
-# --- 1. RIFERIMENTI FTP & SIDEBAR (CON MENU A TENDINA E PARAMETRI MODIFICABILI) ---
+# --- 1. RIFERIMENTI FTP & SIDEBAR ---
 ftp_atleta = 279
 
 st.sidebar.markdown(f"## Riferimenti FTP ({ftp_atleta}W)")
-
-with st.sidebar.expander("⚙️ Personalizza Percentuali e Wattaggi"):
-    ss_min_pct = st.slider("Sweet Spot Min (%)", 80, 95, 88) / 100.0
-    ss_max_pct = st.slider("Sweet Spot Max (%)", 85, 100, 93) / 100.0
-    
-    z4_min_pct = st.slider("Soglia Z4 Min (%)", 85, 100, 91) / 100.0
-    z4_max_pct = st.slider("Soglia Z4 Max (%)", 95, 115, 105) / 100.0
-
-ss_min_w = int(ftp_atleta * ss_min_pct)
-ss_max_w = int(ftp_atleta * ss_max_pct)
-z4_min_w = int(ftp_atleta * z4_min_pct)
-z4_max_w = int(ftp_atleta * z4_max_pct)
-
-st.sidebar.markdown(f"**Sweet Spot (SS):** {ss_min_w}-{ss_max_w}W")
-st.sidebar.markdown(f"**Soglia Z4:** {z4_min_w}-{z4_max_w}W")
+st.sidebar.markdown(
+    f"**Sweet Spot (SS):** {int(ftp_atleta * 0.88)}-{int(ftp_atleta * 0.93)}W"
+)
+st.sidebar.markdown(
+    f"**Soglia Z4:** {int(ftp_atleta * 0.91)}-{int(ftp_atleta * 1.05)}W"
+)
 st.sidebar.markdown("**Cadenza Soglia:** ~90 RPM")
 st.sidebar.markdown("**Cadenza SS:** ~85 RPM")
 
