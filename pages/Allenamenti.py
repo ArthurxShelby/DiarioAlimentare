@@ -15,7 +15,7 @@ is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
 
 if not is_proprietario:
     st.error("🚨 Accesso Negato: questa sezione è riservata esclusivamente al proprietario.")
-    st.info("Torna alla pagina principale del Diario Alimentare ed effettua il login con le credenziali da amministratore.")
+    st.info("Torna alla pagina principale ed effettua il login con le credenziali da amministratore.")
     st.stop()
 
 # --- 0. GESTIONE PERSISTENZA CLOUD (SUPABASE) ---
@@ -138,7 +138,6 @@ if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionat
 
 struttura_mese = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
 if not isinstance(struttura_mese, dict):
-    # Retrocompatibilità se era un DataFrame singolo
     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = {
         "principale": struttura_mese if isinstance(struttura_mese, pd.DataFrame) else pd.DataFrame(),
         "cicli": pd.DataFrame(columns=["Settimana", "Giorno", "Esercizio / Nome", "Watt", "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)"])
@@ -170,7 +169,7 @@ st.sidebar.markdown(f"**Cadenza SS:** {cadenza_ss}")
 
 st.sidebar.markdown("---")
 
-# --- 1.1 MENU A DISCESA NELLA SIDEBAR PER CICLI ALLENAMENTI ---
+# --- 1.1 MENU A DISCESA NELLA SIDEBAR PER CICLI ALLENAMENTI (PERMANENTE) ---
 st.sidebar.markdown("## Inserimento Cicli Allenamenti")
 opzioni_cicli = [
     "Soglia Avanzata", 
@@ -215,8 +214,10 @@ if st.sidebar.button("Conferma e Inserisci in Tabella"):
     
     df_cicli_attuale = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"]
     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"] = pd.concat([df_cicli_attuale, nuova_riga], ignore_index=True)
+    
+    # Salvataggio immediato e permanente nel Cloud Supabase
     salva_database()
-    st.sidebar.success(f"✅ Ciclo inserito in {mese_selezionato} {anno_selezionato}!")
+    st.sidebar.success(f"✅ Ciclo inserito e salvato in modo permanente per {mese_selezionato} {anno_selezionato}!")
     st.rerun()
 
 
@@ -244,9 +245,9 @@ if is_proprietario:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 4.1 SECONDA TABELLA: CICLI ALLENAMENTI (Alimentata dalla Sidebar) ---
+# --- 4.1 SECONDA TABELLA: CICLI ALLENAMENTI (Permanente e Sincronizzata) ---
 st.subheader(f"⚙️ Cicli Allenamenti Aggiuntivi: **{mese_selezionato} {anno_selezionato}**")
-st.write("Tabella dedicata ai cicli selezionati e inseriti dal menu laterale:")
+st.write("Tabella dedicata ai cicli inseriti tramite il menu laterale (salvataggio permanente Cloud):")
 
 if is_proprietario:
     df_cicli_modificato = st.data_editor(
@@ -269,7 +270,7 @@ if is_proprietario:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 5. FUNZIONE E BOTTONE PER DOWNLOAD IN PDF (Unisce entrambe le tabelle) ---
+# --- 5. FUNZIONE E BOTTONE PER DOWNLOAD IN PDF ---
 def genera_pdf(df_princ, df_cicli, mese, anno):
     pdf = FPDF()
     pdf.add_page()
@@ -280,7 +281,6 @@ def genera_pdf(df_princ, df_cicli, mese, anno):
     col_widths = [25, 22, 45, 15, 15, 20, 25, 23]
     headers = ["Settimana", "Giorno", "Esercizio", "Watt", "RPM", "Rip.", "Lavoro", "Rec."]
     
-    # Sezione Principale
     if not df_princ.empty:
         pdf.set_font("Arial", "B", 12)
         pdf.cell(0, 8, "Pianificazione Principale", 0, 1, "L")
@@ -302,7 +302,6 @@ def genera_pdf(df_princ, df_cicli, mese, anno):
             pdf.ln()
         pdf.ln(5)
 
-    # Sezione Cicli Aggiuntivi
     if not df_cicli.empty:
         pdf.set_font("Arial", "B", 12)
         pdf.cell(0, 8, "Cicli Allenamenti Aggiuntivi", 0, 1, "L")
