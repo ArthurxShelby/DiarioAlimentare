@@ -82,7 +82,18 @@ def salva_database(dati=None):
     except Exception as e:
         st.error(f"Errore durante il salvataggio dei dati sul cloud: {e}")
 
-# --- 2. DATABASE INIZIALE & STATO ---
+# --- 2. DATABASE INIZIALE & STATO CON CICLI PERMANENTI PRECOMPILATI ---
+cicli_permanenti_default = [
+    {"Settimana": "Settimana 1", "Giorno": "Martedì", "Esercizio / Nome": "Soglia Avanzata", "Watt": 285, "RPM": 90, "Ripetizioni": 4, "Lavoro (min)": 8, "Recupero (min)": 4},
+    {"Settimana": "Settimana 1", "Giorno": "Giovedì", "Esercizio / Nome": "Rilancio Aerobico", "Watt": 250, "RPM": 95, "Ripetizioni": 5, "Lavoro (min)": 3, "Recupero (min)": 2},
+    {"Settimana": "Settimana 2", "Giorno": "Martedì", "Esercizio / Nome": "Blocco Solido di Sweet Spot", "Watt": 255, "RPM": 88, "Ripetizioni": 3, "Lavoro (min)": 12, "Recupero (min)": 5},
+    {"Settimana": "Settimana 2", "Giorno": "Giovedì", "Esercizio / Nome": "Intervalli Lineari", "Watt": 265, "RPM": 90, "Ripetizioni": 4, "Lavoro (min)": 6, "Recupero (min)": 3},
+    {"Settimana": "Settimana 3", "Giorno": "Martedì", "Esercizio / Nome": "VO2Max", "Watt": 310, "RPM": 100, "Ripetizioni": 5, "Lavoro (min)": 3, "Recupero (min)": 3},
+    {"Settimana": "Settimana 3", "Giorno": "Giovedì", "Esercizio / Nome": "Estensione Moderata", "Watt": 240, "RPM": 92, "Ripetizioni": 2, "Lavoro (min)": 20, "Recupero (min)": 6},
+    {"Settimana": "Settimana 4", "Giorno": "Martedì", "Esercizio / Nome": "Richiami", "Watt": 270, "RPM": 90, "Ripetizioni": 3, "Lavoro (min)": 4, "Recupero (min)": 2},
+    {"Settimana": "Settimana 4", "Giorno": "Giovedì", "Esercizio / Nome": "Scarico", "Watt": 190, "RPM": 95, "Ripetizioni": 1, "Lavoro (min)": 45, "Recupero (min)": 0}
+]
+
 database_iniziale = {
     "2026": {
         "Gennaio": {
@@ -96,7 +107,7 @@ database_iniziale = {
                 {"Settimana": "Settimana 4 (Scarico e Test Ricalibrazione)", "Giorno": "Martedì", "Esercizio / Nome": "Scioltezza e Agilità Z1-Z2", "Watt": 190, "RPM": 95, "Ripetizioni": 1, "Lavoro (min)": 45, "Recupero (min)": 0},
                 {"Settimana": "Settimana 4 (Scarico e Test Ricalibrazione)", "Giorno": "Giovedì", "Esercizio / Nome": "Test FTP 20 min di Verifica", "Watt": 270, "RPM": 92, "Ripetizioni": 1, "Lavoro (min)": 20, "Recupero (min)": 0}
             ]),
-            "cicli": pd.DataFrame(columns=["Settimana", "Giorno", "Esercizio / Nome", "Watt", "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)"])
+            "cicli": pd.DataFrame(cicli_permanenti_default)
         }
     }
 }
@@ -133,15 +144,19 @@ if anno_selezionato not in st.session_state.database_allenamenti:
 if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionato]:
     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = {
         "principale": pd.DataFrame(columns=["Settimana", "Giorno", "Esercizio / Nome", "Watt", "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)"]),
-        "cicli": pd.DataFrame(columns=["Settimana", "Giorno", "Esercizio / Nome", "Watt", "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)"])
+        "cicli": pd.DataFrame(cicli_permanenti_default)
     }
 
 struttura_mese = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
 if not isinstance(struttura_mese, dict):
     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = {
         "principale": struttura_mese if isinstance(struttura_mese, pd.DataFrame) else pd.DataFrame(),
-        "cicli": pd.DataFrame(columns=["Settimana", "Giorno", "Esercizio / Nome", "Watt", "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)"])
+        "cicli": pd.DataFrame(cicli_permanenti_default)
     }
+
+# Se la tabella cicli dovesse essere vuota, ricarica i default permanenti
+if st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"].empty:
+    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"] = pd.DataFrame(cicli_permanenti_default)
 
 df_base_mese = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["principale"]
 df_cicli_mese = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"]
@@ -169,7 +184,7 @@ st.sidebar.markdown(f"**Cadenza SS:** {cadenza_ss}")
 
 st.sidebar.markdown("---")
 
-# --- 1.1 MENU A DISCESA NELLA SIDEBAR PER CICLI ALLENAMENTI (PERMANENTE) ---
+# --- 1.1 MENU A DISCESA NELLA SIDEBAR PER CICLI ALLENAMENTI ---
 st.sidebar.markdown("## Inserimento Cicli Allenamenti")
 opzioni_cicli = [
     "Soglia Avanzata", 
@@ -198,7 +213,7 @@ if st.sidebar.button("Conferma e Inserisci in Tabella"):
     if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionato]:
         st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = {
             "principale": pd.DataFrame(),
-            "cicli": pd.DataFrame(columns=["Settimana", "Giorno", "Esercizio / Nome", "Watt", "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)"])
+            "cicli": pd.DataFrame(cicli_permanenti_default)
         }
         
     nuova_riga = pd.DataFrame([{
@@ -213,9 +228,8 @@ if st.sidebar.button("Conferma e Inserisci in Tabella"):
     }])
     
     df_cicli_attuale = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"]
-    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"] = pd.concat([df_cicli_attuale, nuova_riga], ignore_index=True)
+    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"] = pd.concat([df_cicli_attuale, nueva_riga] if 'nueva_riga' in locals() else [df_cicli_attuale, nuova_riga], ignore_index=True)
     
-    # Salvataggio immediato e permanente nel Cloud Supabase
     salva_database()
     st.sidebar.success(f"✅ Ciclo inserito e salvato in modo permanente per {mese_selezionato} {anno_selezionato}!")
     st.rerun()
@@ -245,9 +259,9 @@ if is_proprietario:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 4.1 SECONDA TABELLA: CICLI ALLENAMENTI (Permanente e Sincronizzata) ---
-st.subheader(f"⚙️ Cicli Allenamenti Aggiuntivi: **{mese_selezionato} {anno_selezionato}**")
-st.write("Tabella dedicata ai cicli inseriti tramite il menu laterale (salvataggio permanente Cloud):")
+# --- 4.1 SECONDA TABELLA: CICLI ALLENAMENTI (Permanente e Identica al Modello) ---
+st.subheader(f"⚙️ Tabella Cicli Allenamenti: **{mese_selezionato} {anno_selezionato}**")
+st.write("Tabella permanente precompilata con i cicli strutturati e sincronizzata con il Cloud:")
 
 if is_proprietario:
     df_cicli_modificato = st.data_editor(
@@ -304,7 +318,7 @@ def genera_pdf(df_princ, df_cicli, mese, anno):
 
     if not df_cicli.empty:
         pdf.set_font("Arial", "B", 12)
-        pdf.cell(0, 8, "Cicli Allenamenti Aggiuntivi", 0, 1, "L")
+        pdf.cell(0, 8, "Tabella Cicli Allenamenti", 0, 1, "L")
         pdf.set_font("Arial", "B", 10)
         for i, h in enumerate(headers):
             pdf.cell(col_widths[i], 8, h, 1, 0, "C")
