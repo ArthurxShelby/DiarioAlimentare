@@ -322,7 +322,7 @@ if is_proprietario:
 st.subheader("📋 Programmazione Cicli di Allenamento")
 st.write("Modifica o compila i dati direttamente nelle celle sottostanti.")
 
-# Selezione del Macrociclo (Mese e Anno di riferimento)
+# Selezione del Macrociclo (Mese a tendina, Anno con tasti +/-)
 col_macro1, col_macro2 = st.columns(2)
 with col_macro1:
     mese_riferimento = st.selectbox(
@@ -331,9 +331,12 @@ with col_macro1:
         key="macro_mese"
     )
 with col_macro2:
-    anno_riferimento = st.selectbox(
+    anno_riferimento = st.number_input(
         "Anno di Riferimento", 
-        [str(y) for y in range(2025, 2031)],
+        min_value=2020, 
+        max_value=2050, 
+        value=2026, 
+        step=1,
         key="macro_anno"
     )
 
@@ -392,7 +395,7 @@ with col_btn1:
         
         pdf.set_font("Helvetica", "I", 11)
         pdf.set_text_color(80, 80, 80)
-        pdf.cell(0, 6, f"Macrociclo: {mese_riferimento} {anno_riferimento}", ln=True, align="L")
+        pdf.cell(0, 6, f"Macrociclo: {mese_riferimento} {int(anno_riferimento)}", ln=True, align="L")
         pdf.ln(4)
 
         # Intestazioni tabella
@@ -431,7 +434,7 @@ with col_btn1:
             st.download_button(
                 label="⬇️ Clicca qui per scaricare il PDF",
                 data=pdf_file,
-                file_name=f"cicli_allenamento_{mese_riferimento}_{anno_riferimento}.pdf",
+                file_name=f"cicli_allenamento_{mese_riferimento}_{int(anno_riferimento)}.pdf",
                 mime="application/pdf",
                 use_container_width=True
             )
