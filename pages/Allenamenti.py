@@ -210,10 +210,12 @@ def aggiorna_e_salva_allenamenti():
     if editor_key in st.session_state:
         val_edit = st.session_state[editor_key]
         if isinstance(val_edit, list):
-            st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = pd.DataFrame(val_edit)
+            df_aggiornato = pd.DataFrame(val_edit)
         else:
-            st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = val_edit
+            df_aggiornato = val_edit
+        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_aggiornato
         salva_database()
+        st.rerun()
 
 if is_proprietario:
     st.data_editor(
