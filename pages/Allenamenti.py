@@ -357,21 +357,75 @@ if not df_cicli_modificato.equals(st.session_state.df_cicli_allenamento_v2):
     st.session_state.df_cicli_allenamento_v2 = df_cicli_modificato.copy()
     st.rerun()
 
-# --- BOTTONI DI AZIONE (ESPORTAZIONE CSV & CANCELLAZIONE) ---
+# --- BOTTONI DI AZIONE (ESPORTAZIONE PDF & CANCELLAZIONE) ---
 col_btn1, col_btn2 = st.columns(2)
 
 with col_btn1:
-    # Esportazione in CSV (perfettamente compatibile con Excel e senza errori di librerie esterne)
-    df_export = st.session_state.df_cicli_allenamento_v2.fillna("")
-    csv_data = df_export.to_csv(index=False).encode('utf-8')
-    
-    st.download_button(
-        label="📥 Esporta Tabella in CSV/Excel",
-        data=csv_data,
-        file_name="cicli_allenamento.csv",
-        mime="text/csv",
-        use_container_width=True
-    )
+    if st.button("📥 Esporta Tabella in PDF", use_container_width=True):
+        import tempfile
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib import colors
+
+        # Creazione del file PDF temporaneo tramite ReportLab
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+            pdf_path = tmp_pdf.name
+
+        doc = SimpleDocTemplate(pdf_path, pagesize=A4, rightMargin=25, leftMargin=25, topMargin=30, bottomMargin=30)
+        elements = []
+
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'TitleStyle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            textColor=colors.HexColor('#1a365d'),
+            spaceAfter=15
+        )
+
+        elements.append(Paragraph("Programmazione Cicli di Allenamento", title_style))
+        elements.append(Spacer(1, 10))
+
+        # Intestazione tabella
+        table_data = [["Cicli", "Allenamento", "Tipo", "Serie", "Ripetizioni", "Watt", "Recupero"]]
+        
+        df_export = st.session_state.df_cicli_allenamento_v2.fillna("")
+        for _, row in df_export.iterrows():
+            table_data.append([
+                str(row['Cicli']), str(row['Allenamento']), str(row['Tipo']),
+                str(row['Serie']), str(row['Ripetizioni']), str(row['Watt']), str(row['Recupero'])
+            ])
+
+        # Dimensioni colonne ottimizzate per il formato A4
+        t = Table(table_data, colWidths=[55, 110, 150, 45, 60, 45, 65])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2b6cb0')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),
+            ('BOTTOMPADDING', (0,0), (-1,0), 6),
+            ('TOPPADDING', (0,0), (-1,0), 6),
+            ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f7fafc')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e0')),
+            ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+            ('FONTSIZE', (0,1), (-1,-1), 9),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ]))
+
+        elements.append(t)
+        doc.build(elements)
+
+        # Pulsante di download per il PDF generato
+        with open(pdf_path, "rb") as pdf_file:
+            st.download_button(
+                label="⬇️ Clicca qui per scaricare il file PDF",
+                data=pdf_file,
+                file_name="cicli_allenamento.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+        st.success("PDF pronto per il download!")
 
 with col_btn2:
     if st.button("🗑️ Cancella Dati Inseriti", use_container_width=True):
