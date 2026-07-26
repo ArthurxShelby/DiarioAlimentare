@@ -4,6 +4,7 @@ import os
 import pandas as pd
 from supabase import create_client
 import streamlit as st
+from fpdf import FPDF  # Necessario per generare il PDF (assicurati di avere fpdf2 installato)
 
 st.set_page_config(
     page_title="Pianificazione Allenamento", page_icon="🏋️", layout="wide"
@@ -79,7 +80,6 @@ ss_max = int(ftp_atleta * 0.93)
 soglia_min = int(ftp_atleta * 0.91)
 soglia_max = int(ftp_atleta * 1.05)
 
-# Cadenze dinamiche orientate al ciclismo moderno (cadenza di passista/scalatore)
 cadenza_soglia = "~90 RPM"
 cadenza_ss = "~85 RPM"
 
@@ -89,25 +89,81 @@ st.sidebar.markdown(f"**Soglia Z4:** {soglia_min}-{soglia_max}W")
 st.sidebar.markdown(f"**Cadenza Soglia:** {cadenza_soglia}")
 st.sidebar.markdown(f"**Cadenza SS:** {cadenza_ss}")
 
+st.sidebar.markdown("---")
+
+# --- 1.1 MENU A DISCESA NELLA SIDEBAR PER CICLI ALLENAMENTI ---
+st.sidebar.markdown("## Inserimento Cicli Allenamenti")
+opzioni_cicli = [
+    "Soglia Avanzata", 
+    "Rilancio Aerobico", 
+    "Mantenimento", 
+    "Blocco Solido di Sweet Spot", 
+    "Intervalli Lineari", 
+    "VO2Max", 
+    "Estensione Moderata", 
+    "Richiami", 
+    "2 Serie Ripetizioni", 
+    "Scarico"
+]
+ciclo_selezionato_sidebar = st.sidebar.selectbox("Seleziona Ciclo da Inserire:", opzioni_cicli)
+settimana_input = st.sidebar.text_input("Settimana di Riferimento", value="Settimana 1")
+giorno_input = st.sidebar.selectbox("Giorno", ["Martedì", "Giovedì", "Sabato", "Domenica", "Lunedì", "Mercoledì", "Venerdì"])
+watt_input = st.sidebar.number_input("Watt Target", min_value=50, max_value=500, value=250, step=1)
+rpm_input = st.sidebar.number_input("Cadenza (RPM)", min_value=50, max_value=130, value=90, step=1)
+ripetizioni_input = st.sidebar.number_input("Ripetizioni", min_value=1, max_value=20, value=3, step=1)
+lavoro_input = st.sidebar.number_input("Lavoro (min)", min_value=1, max_value=180, value=15, step=1)
+recupero_input = st.sidebar.number_input("Recupero (min)", min_value=0, max_value=60, value=5, step=1)
+
+if st.sidebar.button("Conferma e Inserisci in Tabella"):
+    # Recupera l'anno e mese correnti per associare il dato
+    anno_corrente_str = str(datetime.date.today().year)
+    mese_corrente_str = "Luglio"  # Mese di default o basato sulla selezione principale
+    
+    # Assicura che la struttura esista
+    if anno_corrente_str not in st.session_state.get("database_allenamenti", {}):
+        st.session_state.database_allenamenti[anno_corrente_str] = {}
+    if "Luglio" not in st.session_state.database_allenamenti[anno_corrente_str]:
+        st.session_state.database_allenamenti[anno_corrente_str]["Luglio"] = pd.DataFrame(
+            columns=["Settimana", "Giorno", "Esercizio / Nome", "Watt", "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)"]
+        )
+        
+    nuova_riga = pd.DataFrame([{
+        "Settimana": settimana_input,
+        "Giorno": giorno_input,
+        "Esercizio / Nome": ciclo_selezionato_sidebar,
+        "Watt": watt_input,
+        "RPM": rpm_input,
+        "Ripetizioni": ripetizioni_input,
+        "Lavoro (min)": lavoro_input,
+        "Recupero (min)": recupero_input
+    }])
+    
+    df_attuale = st.session_state.database_allenamenti[anno_corrente_str]["Luglio"]
+    st.session_state.database_allenamenti[anno_corrente_str]["Luglio"] = pd.concat([df_attuale, nuova_riga], ignore_index=True)
+    salva_database()
+    
+    # Pop-up di avvenuto inserimento
+    st.sidebar.success(f"✅ Inserimento effettuato con successo per '{ciclo_selezionato_sidebar}'!")
+
 # --- 2. DATABASE INIZIALE STRUTTURATO ---
 database_iniziale = {
     "2026": {
-        "Gennaio": {
-            "Settimana 1 (Base Invernale)": {
+        "Luglio": {
+            "Settimana 1": {
                 "Martedì": {
-                    "Esercizio": "Fondo Medio Z3: 3 x 15 min",
-                    "Watt": 230,
+                    "Esercizio": "Soglia Avanzata",
+                    "Watt": 275,
                     "RPM": 90,
                     "Ripetizioni": 3,
                     "Lavoro_m": 15,
                     "Recupero_m": 5,
                 },
                 "Giovedì": {
-                    "Esercizio": "Sweet Spot: 2 x 15 min",
-                    "Watt": 245,
+                    "Esercizio": "Blocco Solido di Sweet Spot",
+                    "Watt": 250,
                     "RPM": 85,
                     "Ripetizioni": 2,
-                    "Lavoro_m": 15,
+                    "Lavoro_m": 20,
                     "Recupero_m": 5,
                 },
             }
@@ -120,7 +176,6 @@ elenco_mesi_completo = [
     "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
 ]
 
-# Inizializzazione della memoria persistente via Supabase
 if "database_allenamenti" not in st.session_state:
     st.session_state.database_allenamenti = carica_database(database_iniziale)
     if is_proprietario:
@@ -155,7 +210,6 @@ if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionat
 
 dati_correnti = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
 
-# Assicura che sia sempre un DataFrame pronto all'uso
 if not isinstance(dati_correnti, pd.DataFrame):
     if isinstance(dati_correnti, list):
         df_base_mese = pd.DataFrame(dati_correnti)
@@ -170,45 +224,16 @@ if not isinstance(dati_correnti, pd.DataFrame):
 else:
     df_base_mese = dati_correnti
 
-# --- 4. SEZIONE IMPORTAZIONE CSV (Riservata) ---
-if is_proprietario:
-    with st.expander("📂 Integra o carica piano di lavoro tramite file CSV", expanded=False):
-        st.write(f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**.")
-        file_caricato = st.file_uploader(
-            "Seleziona il file CSV",
-            type=["csv"],
-            key=f"uploader_{anno_selezionato}_{mese_selezionato}",
-        )
-
-        if file_caricato is not None:
-            try:
-                df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
-                df_caricato.columns = df_caricato.columns.str.strip()
-
-                colonne_attese = [
-                    "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                    "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
-                ]
-
-                if all(col in df_caricato.columns for col in colonne_attese):
-                    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_caricato[colonne_attese]
-                    salva_database()
-                    st.success(f"File CSV caricato e salvato permanentemente su Supabase per {mese_selezionato} {anno_selezionato}!")
-                    st.rerun()
-                else:
-                    st.error(f"Il file CSV non contiene le colonne corrette: {colonne_attese}")
-            except Exception as e:
-                st.error(f"Errore nella lettura del file CSV: {e}")
-
-# --- 5. TABELLA INTERATTIVA DI MODIFICA ---
-st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
+# --- 4. TABELLA PRINCIPALE: CICLI ALLENAMENTI (Con Modifiche e Cancellazioni) ---
+st.subheader(f"📋 Cicli Allenamenti: **{mese_selezionato} {anno_selezionato}**")
+st.write("Le voci sottostanti possono essere modificate direttamente o cancellate (selezionando e rimuovendo le righe).")
 
 if is_proprietario:
     df_modificato = st.data_editor(
         df_base_mese,
         num_rows="dynamic",
         use_container_width=True,
-        key=f"editor_{anno_selezionato}_{mese_selezionato}",
+        key=f"editor_cicli_{anno_selezionato}_{mese_selezionato}",
         column_config={
             "Watt": st.column_config.NumberColumn(min_value=50, max_value=500, step=1),
             "RPM": st.column_config.NumberColumn(min_value=60, max_value=120, step=1),
@@ -224,48 +249,43 @@ if is_proprietario:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 6. PANNELLO DI CANCELLAZIONE AVANZATO (Riservato) ---
-if is_proprietario:
-    with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
-        st.write("Seleziona un intervallo esatto basato su date specifiche per svuotare i dati.")
+# --- 5. FUNZIONE E BOTTONE PER DOWNLOAD IN PDF ---
+def genera_pdf(df, mese, anno):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, f"Cicli Allenamenti - {mese} {anno}", 0, 1, "C")
+    pdf.ln(10)
+    
+    pdf.set_font("Arial", "B", 10)
+    col_widths = [25, 22, 45, 15, 15, 20, 25, 23]
+    headers = ["Settimana", "Giorno", "Esercizio", "Watt", "RPM", "Rip.", "Lavoro", "Rec."]
+    
+    for i, h in enumerate(headers):
+        pdf.cell(col_widths[i], 8, h, 1, 0, "C")
+    pdf.ln()
+    
+    pdf.set_font("Arial", "", 9)
+    for _, row in df.iterrows():
+        pdf.cell(col_widths[0], 7, str(row.get("Settimana", "")), 1)
+        pdf.cell(col_widths[1], 7, str(row.get("Giorno", "")), 1)
+        pdf.cell(col_widths[2], 7, str(row.get("Esercizio / Nome", "")), 1)
+        pdf.cell(col_widths[3], 7, str(row.get("Watt", "")), 1, 0, "C")
+        pdf.cell(col_widths[4], 7, str(row.get("RPM", "")), 1, 0, "C")
+        pdf.cell(col_widths[5], 7, str(row.get("Ripetizioni", "")), 1, 0, "C")
+        pdf.cell(col_widths[6], 7, str(row.get("Lavoro (min)", "")), 1, 0, "C")
+        pdf.cell(col_widths[7], 7, str(row.get("Recupero (min)", "")), 1, 0, "C")
+        pdf.ln()
+        
+    return pdf.output(dest="S").encode("latin1")
 
-        col_d1, col_d2 = st.columns(2)
-        with col_d1:
-            data_inizio_del = st.date_input("Data Inizio Periodo", value=datetime.date(2026, 1, 1), key="data_ini_del")
-        with col_d2:
-            data_fine_del = st.date_input("Data Fine Periodo", value=datetime.date(2026, 12, 31), key="data_fin_del")
-
-        if st.button("🚨 Svuota dati per il periodo selezionato"):
-            if data_inizio_del > data_fine_del:
-                st.error("La data di inizio non può essere successiva alla data di fine.")
-            else:
-                try:
-                    anno_inizio_del = data_inizio_del.year
-                    anno_fine_del = data_fine_del.year
-                    idx_m_ini = data_inizio_del.month - 1
-                    idx_m_fin = data_fine_del.month - 1
-
-                    for anno_target_num in range(anno_inizio_del, anno_fine_del + 1):
-                        anno_target = str(anno_target_num)
-                        if anno_target not in st.session_state.database_allenamenti:
-                            continue
-
-                        start_idx = idx_m_ini if anno_target_num == anno_inizio_del else 0
-                        end_idx = idx_m_fin if anno_target_num == anno_fine_del else 11
-
-                        mesi_da_pulire = elenco_mesi_completo[start_idx : end_idx + 1]
-
-                        for m in mesi_da_pulire:
-                            if m in st.session_state.database_allenamenti[anno_target]:
-                                st.session_state.database_allenamenti[anno_target][m] = pd.DataFrame(
-                                    columns=[
-                                        "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                                        "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
-                                    ]
-                                )
-
-                    salva_database()
-                    st.success("Dati svuotati e sincronizzati con successo su Supabase!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Errore durante la pulizia: {e}")
+if not df_base_mese.empty:
+    pdf_data = genera_pdf(df_base_mese, mese_selezionato, anno_selezionato)
+    st.download_button(
+        label="📥 Scarica Tabella in PDF",
+        data=pdf_data,
+        file_name=f"Cicli_Allenamenti_{mese_selezionato}_{anno_selezionato}.pdf",
+        mime="application/pdf"
+    )
+else:
+    st.info("Nessun dato presente nella tabella per abilitare il download in PDF.")
