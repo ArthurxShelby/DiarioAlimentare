@@ -29,7 +29,8 @@ def fetch_intervals_activities(athlete_id, api_key):
         "newest": oggi
     }
     
-    auth = ("API", api_key.strip())
+    # Modificato l'username da "API" a "API_KEY" come richiesto da Intervals.icu
+    auth = ("API_KEY", api_key.strip())
     
     response = requests.get(url, auth=auth, params=params)
     
@@ -38,6 +39,7 @@ def fetch_intervals_activities(athlete_id, api_key):
     else:
         st.error(f"Errore nella chiamata API a Intervals: {response.status_code} - {response.text}")
         return []
+        
 # Caricamento dati
 with st.spinner("Scaricamento delle attività da Intervals.icu in corso..."):
     activities = fetch_intervals_activities(ATHLETE_ID, API_KEY)
