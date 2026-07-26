@@ -320,36 +320,41 @@ if is_proprietario:
 
 # --- NUOVA TABELLA: CICLI ALLENAMENTI ---
 st.subheader("📋 Programmazione Cicli di Allenamento")
-st.write("Inserisci e compila i dati digitando direttamente nelle celle sottostanti.")
+st.write("Modifica o compila i dati direttamente nelle celle sottostanti.")
 
-# Inizializziamo lo stato per questa nuova tabella se non esiste
+# Inizializziamo lo stato con i dati esatti presenti nel documento PDF
 if "df_cicli_allenamento" not in st.session_state:
-    # Creiamo un DataFrame vuoto con le colonne esatte richieste dal documento
-    st.session_state.df_cicli_allenamento = pd.DataFrame(
-        columns=["Cicli", "Allenamento", "Tipo", "Serie", "Ripetizioni", "Watt", "Recupero"]
-    )
+    st.session_state.df_cicli_allenamento = pd.DataFrame([
+        {"Cicli": "1°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
+        {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
+        {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
+        {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
+    ])
 
-# Editor interattivo per la nuova tabella
+# Editor interattivo per la tabella identica al PDF
 df_cicli_modificato = st.data_editor(
     st.session_state.df_cicli_allenamento,
     num_rows="dynamic",
     use_container_width=True,
     key="editor_cicli_locali",
     column_config={
-        "Cicli": st.column_config.TextColumn("Cicli", required=True),
+        "Cicli": st.column_config.TextColumn("Cicli", required=False),
         "Allenamento": st.column_config.TextColumn("Allenamento", required=True),
         "Tipo": st.column_config.TextColumn("Tipo", required=True),
         "Serie": st.column_config.NumberColumn("Serie", min_value=0, max_value=50, step=1, format="%d"),
         "Ripetizioni": st.column_config.NumberColumn("Ripetizioni", min_value=0, max_value=100, step=1, format="%d"),
         "Watt": st.column_config.NumberColumn("Watt", min_value=0, max_value=1000, step=1, format="%d"),
-        "Recupero": st.column_config.TextColumn("Recupero", required=False), # Può contenere indicazioni testuali o numeriche
+        "Recupero": st.column_config.TextColumn("Recupero", required=False),
     },
 )
 
-# Sincronizzazione e salvataggio automatico al primo colpo senza loop o bottoni
+# Sincronizzazione e salvataggio automatico al primo colpo
 if not df_cicli_modificato.equals(st.session_state.df_cicli_allenamento):
     st.session_state.df_cicli_allenamento = df_cicli_modificato.copy()
-    # Eventuale chiamata di salvataggio dedicata, es. salva_database_cicli() se usi Supabase anche qui
     st.rerun()
 
 st.markdown("<br>", unsafe_allow_html=True)
