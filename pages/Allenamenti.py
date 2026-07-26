@@ -29,14 +29,23 @@ def init_supabase():
 supabase = init_supabase()
 
 def carica_database(db_iniziale):
-    """Carica il database allenamenti dal cloud di Supabase, convertendo le liste in DataFrame."""
+    """Carica il database allenamenti e la tabella cicli dal cloud di Supabase."""
     try:
         response = supabase.table("app_data").select("payload").eq("id", 1).execute()
         if response.data and len(response.data) > 0:
             payload = response.data[0]["payload"]
-            # Ricostruisce i DataFrame dai dizionari salvati
+            
+            # Gestione struttura payload (supporto nuovo e vecchio formato)
+            if isinstance(payload, dict) and "allenamenti" in payload:
+                raw_allenamenti = payload["allenamenti"]
+                if "tabella_cicli" in payload and payload["tabella_cicli"]:
+                    st.session_state.tabella_cicli = pd.DataFrame(payload["tabella_cicli"])
+            else:
+                raw_allenamenti = payload
+
+            # Ricostruisce i DataFrame dei mesi
             db_ricostruito = {}
-            for anno, mesi in payload.items():
+            for anno, mesi in raw_allenamenti.items():
                 db_ricostruito[anno] = {}
                 for mese, val in mesi.items():
                     if isinstance(val, list):
@@ -49,7 +58,7 @@ def carica_database(db_iniziale):
     return db_iniziale
 
 def salva_database(dati=None):
-    """Salva lo stato attuale degli allenamenti nel cloud di Supabase convertendo i DataFrame in liste."""
+    """Salva lo stato attuale degli allenamenti e dei cicli nel cloud di Supabase."""
     if not is_proprietario:
         return
     try:
@@ -65,7 +74,12 @@ def salva_database(dati=None):
                 else:
                     dati_serializzabili[anno][mese] = df_val
                     
-        supabase.table("app_data").upsert({"id": 1, "payload": dati_serializzabili}).execute()
+        payload_completo = {
+            "allenamenti": dati_serializzabili,
+            "tabella_cicli": st.session_state.tabella_cicli.to_dict(orient="records")
+        }
+                    
+        supabase.table("app_data").upsert({"id": 1, "payload": payload_completo}).execute()
     except Exception as e:
         st.error(f"Errore durante il salvataggio dei dati sul cloud: {e}")
 
@@ -122,13 +136,7 @@ elenco_mesi_completo = [
     "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
 ]
 
-# Inizializzazione della memoria persistente via Supabase
-if "database_allenamenti" not in st.session_state:
-    st.session_state.database_allenamenti = carica_database(database_iniziale)
-    if is_proprietario:
-        salva_database()
-
-# Inizializzazione della tabella cicli editabile nella sessione
+# Inizializzazione della tabella cicli editabile nella sessione prima di caricare il DB
 if "tabella_cicli" not in st.session_state:
     st.session_state.tabella_cicli = pd.DataFrame([
         {"Cicli": "1°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
@@ -140,6 +148,12 @@ if "tabella_cicli" not in st.session_state:
         {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
         {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""}
     ])
+
+# Inizializzazione della memoria persistente via Supabase
+if "database_allenamenti" not in st.session_state:
+    st.session_state.database_allenamenti = carica_database(database_iniziale)
+    if is_proprietario:
+        salva_database()
 
 st.title("🏋️ Pianificazione Allenamento per Anno Solare")
 
@@ -233,9 +247,11 @@ if is_proprietario:
         },
     )
 
-    if not df_modificato.equals(df_base_mese):
+    if st.button("💾 Salva Modifiche Allenamenti"):
         st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato
         salva_database()
+        st.success("Modifiche salvate e sincronizzate su Supabase con successo!")
+        st.rerun()
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -285,11 +301,17 @@ if is_proprietario:
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
 
-    # Tabella cicli allenamenti editabile (aggiunta sotto il pannello di pulizia)
+    # Tabella cicli allenamenti editabile con pulsante di salvataggio dedicato
     st.markdown("### Tabella Cicli di Allenamento")
-    st.session_state.tabella_cicli = st.data_editor(
+    df_cicli_modificato = st.data_editor(
         st.session_state.tabella_cicli,
         num_rows="dynamic",
         use_container_width=True,
         key="editor_cicli_allenamento"
     )
+    
+    if st.button("💾 Salva Tabella Cicli"):
+        st.session_state.tabella_cicli = df_cicli_modificato
+        salva_database()
+        st.success("Tabella cicli salvata e sincronizzata su Supabase con successo!")
+        st.rerun()
