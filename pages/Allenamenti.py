@@ -89,29 +89,83 @@ st.sidebar.markdown(f"**Soglia Z4:** {soglia_min}-{soglia_max}W")
 st.sidebar.markdown(f"**Cadenza Soglia:** {cadenza_soglia}")
 st.sidebar.markdown(f"**Cadenza SS:** {cadenza_ss}")
 
-# --- 2. DATABASE INIZIALE STRUTTURATO ---
+# --- 2. DATABASE INIZIALE STRUTTURATO (Basato sul PDF) ---[cite: 2]
 database_iniziale = {
     "2026": {
-        "Gennaio": {
-            "Settimana 1 (Base Invernale)": {
-                "Martedì": {
-                    "Esercizio": "Fondo Medio Z3: 3 x 15 min",
-                    "Watt": 230,
-                    "RPM": 90,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 15,
-                    "Recupero_m": 5,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: 2 x 15 min",
-                    "Watt": 245,
-                    "RPM": 85,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 15,
-                    "Recupero_m": 5,
-                },
+        "Gennaio": pd.DataFrame([
+            {
+                "Cicli": "1°",
+                "Allenamento": "Soglia",
+                "Tipo": "Soglia Avanzata",
+                "Serie": "",
+                "Ripetizioni": "",
+                "Watt": "",
+                "Recupero": ""
+            },
+            {
+                "Cicli": "1°",
+                "Allenamento": "Mantenimento",
+                "Tipo": "Rilancio Aerobico",
+                "Serie": "",
+                "Ripetizioni": "",
+                "Watt": "",
+                "Recupero": ""
+            },
+            {
+                "Cicli": "II°",
+                "Allenamento": "Soglia",
+                "Tipo": "Blocco Solido di Soglia",
+                "Serie": "",
+                "Ripetizioni": "",
+                "Watt": "",
+                "Recupero": ""
+            },
+            {
+                "Cicli": "II°",
+                "Allenamento": "Mantenimento",
+                "Tipo": "Estensione Moderata",
+                "Serie": "",
+                "Ripetizioni": "",
+                "Watt": "",
+                "Recupero": ""
+            },
+            {
+                "Cicli": "III°",
+                "Allenamento": "Soglia",
+                "Tipo": "Intervalli Lineari VO2Max",
+                "Serie": "",
+                "Ripetizioni": "",
+                "Watt": "",
+                "Recupero": ""
+            },
+            {
+                "Cicli": "III°",
+                "Allenamento": "Mantenimento",
+                "Tipo": "Blocco di tenuta",
+                "Serie": "",
+                "Ripetizioni": "",
+                "Watt": "",
+                "Recupero": ""
+            },
+            {
+                "Cicli": "IV°",
+                "Allenamento": "Richiami Soglia",
+                "Tipo": "Scarico",
+                "Serie": "",
+                "Ripetizioni": "",
+                "Watt": "",
+                "Recupero": ""
+            },
+            {
+                "Cicli": "IV°",
+                "Allenamento": "Richiami Mantenimento",
+                "Tipo": "Scarico",
+                "Serie": "",
+                "Ripetizioni": "",
+                "Watt": "",
+                "Recupero": ""
             }
-        },
+        ])
     }
 }
 
@@ -145,12 +199,11 @@ st.markdown("---")
 if anno_selezionato not in st.session_state.database_allenamenti:
     st.session_state.database_allenamenti[anno_selezionato] = {}
 
+colonne_struttura = ["Cicli", "Allenamento", "Tipo", "Serie", "Ripetizioni", "Watt", "Recupero"]
+
 if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionato]:
     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = pd.DataFrame(
-        columns=[
-            "Settimana", "Giorno", "Esercizio / Nome", "Watt", "RPM",
-            "Ripetizioni", "Lavoro (min)", "Recupero (min)",
-        ]
+        columns=colonne_struttura
     )
 
 dati_correnti = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
@@ -160,12 +213,7 @@ if not isinstance(dati_correnti, pd.DataFrame):
     if isinstance(dati_correnti, list):
         df_base_mese = pd.DataFrame(dati_correnti)
     else:
-        df_base_mese = pd.DataFrame(
-            columns=[
-                "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
-            ]
-        )
+        df_base_mese = pd.DataFrame(columns=colonne_struttura)
     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_base_mese
 else:
     df_base_mese = dati_correnti
@@ -185,18 +233,13 @@ if is_proprietario:
                 df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
                 df_caricato.columns = df_caricato.columns.str.strip()
 
-                colonne_attese = [
-                    "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                    "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
-                ]
-
-                if all(col in df_caricato.columns for col in colonne_attese):
-                    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_caricato[colonne_attese]
+                if all(col in df_caricato.columns for col in colonne_struttura):
+                    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_caricato[colonne_struttura]
                     salva_database()
                     st.success(f"File CSV caricato e salvato permanentemente su Supabase per {mese_selezionato} {anno_selezionato}!")
                     st.rerun()
                 else:
-                    st.error(f"Il file CSV non contiene le colonne corrette: {colonne_attese}")
+                    st.error(f"Il file CSV non contiene le colonne corrette: {colonne_struttura}")
             except Exception as e:
                 st.error(f"Errore nella lettura del file CSV: {e}")
 
@@ -211,10 +254,7 @@ if is_proprietario:
         key=f"editor_{anno_selezionato}_{mese_selezionato}",
         column_config={
             "Watt": st.column_config.NumberColumn(min_value=50, max_value=500, step=1),
-            "RPM": st.column_config.NumberColumn(min_value=60, max_value=120, step=1),
             "Ripetizioni": st.column_config.NumberColumn(min_value=1, max_value=20, step=1),
-            "Lavoro (min)": st.column_config.NumberColumn(min_value=1, max_value=180, step=1),
-            "Recupero (min)": st.column_config.NumberColumn(min_value=0, max_value=60, step=1),
         },
     )
 
@@ -258,10 +298,7 @@ if is_proprietario:
                         for m in mesi_da_pulire:
                             if m in st.session_state.database_allenamenti[anno_target]:
                                 st.session_state.database_allenamenti[anno_target][m] = pd.DataFrame(
-                                    columns=[
-                                        "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                                        "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
-                                    ]
+                                    columns=colonne_struttura
                                 )
 
                     salva_database()
