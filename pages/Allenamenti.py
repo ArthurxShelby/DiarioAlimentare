@@ -127,6 +127,8 @@ if "database_allenamenti" not in st.session_state:
     st.session_state.database_allenamenti = carica_database(database_iniziale)
     if is_proprietario:
         salva_database()
+if "version_editor" not in st.session_state:
+    st.session_state.version_editor = 0
 
 # Inizializzazione contatore di versione per forzare il refresh visivo del data_editor
 if "version_editor" not in st.session_state:
@@ -215,13 +217,18 @@ if is_proprietario:
                 ]
 
                 if all(col in df_caricato.columns for col in colonne_attese):
-                    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_caricato[colonne_attese]
+                    # Assegna direttamente il DataFrame pulito al database di sessione
+                    df_filtrato = df_caricato[colonne_attese].copy()
+                    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_filtrato
+                    
+                    # Salva permanentemente su Supabase
                     salva_database()
                     
-                    # Incrementa la versione per forzare la rigenerazione del widget della tabella
+                    # Incrementa il contatore di versione per distruggere e ricreare il data_editor
                     st.session_state.version_editor += 1
                     
-                    st.success(f"File CSV caricato e salvato permanentemente su Supabase per {mese_selezionato} {anno_selezionato}!")
+                    # Messaggio di successo e riavvio pulito
+                    st.success(f"File CSV caricato e salvato per {mese_selezionato} {anno_selezionato}!")
                     st.rerun()
                 else:
                     st.error(f"Il file CSV non contiene le colonne corrette: {colonne_attese}")
