@@ -159,6 +159,24 @@ if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionat
         ]
     )
 
+# --- FORZATURA LETTURA DATI AGGIORNATI ---
+dati_correnti = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
+
+if isinstance(dati_correnti, pd.DataFrame):
+    df_base_mese = dati_correnti.copy()
+elif isinstance(dati_correnti, list):
+    df_base_mese = pd.DataFrame(dati_correnti)
+else:
+    df_base_mese = pd.DataFrame(
+        columns=[
+            "Settimana", "Giorno", "Esercizio / Nome", "Watt",
+            "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
+        ]
+    )
+
+# Assicuriamo che la sessione rifletta esattamente il dataframe pronto
+st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_base_mese
+
 dati_correnti = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
 
 # Assicura che sia sempre un DataFrame pronto all'uso
