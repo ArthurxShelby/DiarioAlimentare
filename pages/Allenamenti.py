@@ -182,6 +182,7 @@ if is_proprietario:
             key=f"uploader_{anno_selezionato}_{mese_selezionato}",
         )
 
+        # <--- INSERISCI / SOSTITUISCI DA QUI ---
         if file_caricato is not None:
             try:
                 df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
@@ -211,6 +212,7 @@ if is_proprietario:
                     st.error(f"Il file CSV non contiene le colonne corrette: {colonne_attese}")
             except Exception as e:
                 st.error(f"Errore nella lettura del file CSV: {e}")
+        # --- FINO A QUI ---
 
 # --- 5. TABELLA INTERATTIVA DI MODIFICA ---
 st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
