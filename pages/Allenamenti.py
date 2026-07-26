@@ -196,7 +196,9 @@ if not isinstance(dati_correnti, pd.DataFrame):
 else:
     df_base_mese = dati_correnti
 
-# --- 4. SEZIONE IMPORTAZIONE CSV (Riservata) ---
+# --- 4. & 5. SEZIONE IMPORTAZIONE CSV E TABELLA INTERATTIVA ---
+st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
+
 if is_proprietario:
     with st.expander("📂 Integra o carica piano di lavoro tramite file CSV", expanded=False):
         st.write(f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**.")
@@ -206,6 +208,7 @@ if is_proprietario:
             key=f"uploader_{anno_selezionato}_{mese_selezionato}",
         )
 
+        # Se viene caricato un nuovo file, aggiorniamo subito i dati sorgente in sessione
         if file_caricato is not None:
             try:
                 df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
@@ -217,33 +220,38 @@ if is_proprietario:
                 ]
 
                 if all(col in df_caricato.columns for col in colonne_attese):
-                    # Assegna direttamente il DataFrame pulito al database di sessione
                     df_filtrato = df_caricato[colonne_attese].copy()
+                    # Aggiorniamo la sessione con i nuovi dati del CSV
                     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_filtrato
-                    
-                    # Salva permanentemente su Supabase
                     salva_database()
-                    
-                    # Incrementa il contatore di versione per distruggere e ricreare il data_editor
-                    st.session_state.version_editor += 1
-                    
-                    # Messaggio di successo e riavvio pulito
                     st.success(f"File CSV caricato e salvato per {mese_selezionato} {anno_selezionato}!")
-                    st.rerun()
                 else:
                     st.error(f"Il file CSV non contiene le colonne corrette: {colonne_attese}")
             except Exception as e:
                 st.error(f"Errore nella lettura del file CSV: {e}")
 
-# --- 5. TABELLA INTERATTIVA DI MODIFICA ---
-st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
+# Recuperiamo i dati aggiornati (sia che provengano dal CSV appena caricato, sia dal database)
+dati_aggiornati = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
+
+if isinstance(dati_aggiornati, pd.DataFrame):
+    df_da_mostrare = dati_aggiornati
+elif isinstance(dati_aggiornati, list):
+    df_da_mostrare = pd.DataFrame(dati_aggiornati)
+else:
+    df_da_mostrare = pd.DataFrame(
+        columns=[
+            "Settimana", "Giorno", "Esercizio / Nome", "Watt",
+            "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
+        ]
+    )
 
 if is_proprietario:
+    # Usiamo una chiave pulita legata solo a anno e mese, senza sbalzi di versione
     df_modificato = st.data_editor(
-        df_base_mese,
+        df_da_mostrare,
         num_rows="dynamic",
         use_container_width=True,
-        key=f"editor_{anno_selezionato}_{mese_selezionato}_{st.session_state.version_editor}",
+        key=f"editor_finale_{anno_selezionato}_{mese_selezionato}",
         column_config={
             "Watt": st.column_config.NumberColumn(min_value=50, max_value=500, step=1),
             "RPM": st.column_config.NumberColumn(min_value=60, max_value=120, step=1),
@@ -253,11 +261,10 @@ if is_proprietario:
         },
     )
 
-    if not df_modificato.equals(df_base_mese):
+    # Salvataggio automatico se l'utente modifica la tabella manualmente
+    if not df_modificato.equals(df_da_mostrare):
         st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato
         salva_database()
-
-st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 6. PANNELLO DI CANCELLAZIONE AVANZATO (Riservato) ---
 if is_proprietario:
