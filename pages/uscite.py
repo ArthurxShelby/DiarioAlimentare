@@ -77,10 +77,10 @@ if activities:
     parsed_data = []
     
     for act in activities:
-        # Tentiamo di recuperare la potenza media, gestendo le varie chiavi di Intervals
+        # Tentativi multipli per intercettare i nomi corretti da Intervals.icu
         avg_watts = act.get("average_watts") or act.get("icu_weighted_avg_watts")
-        norm_watts = act.get("normalized_watts")
-        form_val = act.get("form") or act.get("icu_form")
+        norm_watts = act.get("normalized_watts") or act.get("icu_normalized_watts")
+        form_val = act.get("form") or act.get("icu_form") or act.get("atl") # o varianti simili
         
         parsed_data.append({
             "activity_id": str(act.get("id")),
