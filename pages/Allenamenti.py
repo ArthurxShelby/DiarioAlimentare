@@ -205,7 +205,7 @@ if is_proprietario:
         file_caricato = st.file_uploader(
             "Seleziona il file CSV",
             type=["csv"],
-            key=f"uploader_{anno_selezionato}_{mese_selezionato}",
+            key=f"uploader_{anno_selezionato}_{mese_selezionato}_{st.session_state.version_editor}",
         )
 
         # Se viene caricato un nuovo file, aggiorniamo subito i dati sorgente in sessione
@@ -277,7 +277,7 @@ if is_proprietario:
         with col_d2:
             data_fine_del = st.date_input("Data Fine Periodo", value=datetime.date(2026, 12, 31), key="data_fin_del")
 
-        if st.button("🚨 Svuota dati per il periodo selezionato"):
+       if st.button("🚨 Svuota dati per il periodo selezionato"):
             if data_inizio_del > data_fine_del:
                 st.error("La data di inizio non può essere successiva alla data di fine.")
             else:
@@ -308,7 +308,9 @@ if is_proprietario:
 
                     salva_database()
                     
-                    # Mostra un popup di conferma e forza il ricaricamento immediato della vista
+                    # Incrementa la versione per distruggere sia la tabella che il file uploader residuo
+                    st.session_state.version_editor += 1
+                    
                     st.toast("Dati svuotati e sincronizzati con successo!", icon="🗑️")
                     st.rerun()
                 except Exception as e:
