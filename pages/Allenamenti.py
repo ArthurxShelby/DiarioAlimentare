@@ -10,13 +10,12 @@ st.set_page_config(
 )
 
 # --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
-# Verifica se l'utente ha effettuato il login come proprietario nella pagina principale
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
 
 if not is_proprietario:
     st.error("🚨 Accesso Negato: questa sezione è riservata esclusivamente al proprietario.")
     st.info("Torna alla pagina principale del Diario Alimentare ed effettua il login con le credenziali da amministratore.")
-    st.stop()  # Interrompe l'esecuzione del resto della pagina per i non autorizzati
+    st.stop()
 
 # --- 0. GESTIONE PERSISTENZA CLOUD (SUPABASE) ---
 
@@ -34,7 +33,6 @@ def carica_database(db_iniziale):
         response = supabase.table("app_data").select("payload").eq("id", 1).execute()
         if response.data and len(response.data) > 0:
             payload = response.data[0]["payload"]
-            # Ricostruisce i DataFrame dai dizionari salvati
             db_ricostruito = {}
             for anno, mesi in payload.items():
                 db_ricostruito[anno] = {}
@@ -69,18 +67,27 @@ def salva_database(dati=None):
     except Exception as e:
         st.error(f"Errore durante il salvataggio dei dati sul cloud: {e}")
 
-# --- 1. RIFERIMENTI FTP & SIDEBAR ---
-ftp_atleta = 279
+# --- 1. RIFERIMENTI FTP DINAMICI & SIDEBAR ---
+st.sidebar.markdown("## Parametri Atleta & FTP")
+ftp_atleta = st.sidebar.number_input(
+    "FTP Corrente (Watt):", min_value=100, max_value=500, value=279, step=1
+)
 
-st.sidebar.markdown(f"## Riferimenti FTP ({ftp_atleta}W)")
-st.sidebar.markdown(
-    f"**Sweet Spot (SS):** {int(ftp_atleta * 0.88)}-{int(ftp_atleta * 0.93)}W"
-)
-st.sidebar.markdown(
-    f"**Soglia Z4:** {int(ftp_atleta * 0.91)}-{int(ftp_atleta * 1.05)}W"
-)
-st.sidebar.markdown("**Cadenza Soglia:** ~90 RPM")
-st.sidebar.markdown("**Cadenza SS:** ~85 RPM")
+# Calcoli matematici dinamici basati sul ciclismo moderno
+ss_min = int(ftp_atleta * 0.88)
+ss_max = int(ftp_atleta * 0.93)
+soglia_min = int(ftp_atleta * 0.91)
+soglia_max = int(ftp_atleta * 1.05)
+
+# Cadenze dinamiche orientate al ciclismo moderno (cadenza di passista/scalatore)
+cadenza_soglia = "~90 RPM"
+cadenza_ss = "~85 RPM"
+
+st.sidebar.markdown(f"### Riferimenti FTP ({ftp_atleta}W)")
+st.sidebar.markdown(f"**Sweet Spot (SS):** {ss_min}-{ss_max}W")
+st.sidebar.markdown(f"**Soglia Z4:** {soglia_min}-{soglia_max}W")
+st.sidebar.markdown(f"**Cadenza Soglia:** {cadenza_soglia}")
+st.sidebar.markdown(f"**Cadenza SS:** {cadenza_ss}")
 
 # --- 2. DATABASE INIZIALE STRUTTURATO ---
 database_iniziale = {
