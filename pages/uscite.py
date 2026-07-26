@@ -65,7 +65,7 @@ if activities:
     parsed_data = []
     
     for act in activities:
-        # Estrazione precisa basata sulle chiavi reali di Intervals.icu
+        # Estrazione corretta e mirata per ogni singola metrica
         avg_watts = act.get("average_watts")
         norm_watts = act.get("icu_weighted_avg_watts") or act.get("normalized_watts")
         form_val = act.get("icu_ctl") or act.get("form") or act.get("icu_form")
