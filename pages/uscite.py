@@ -65,10 +65,11 @@ if activities:
     parsed_data = []
     
     for act in activities:
-        # Usiamo le chiavi alternative per intercettare la potenza media reale
         avg_watts = act.get("average_watts") or act.get("icu_average_watts") or act.get("device_watts")
         norm_watts = act.get("icu_weighted_avg_watts") or act.get("normalized_watts")
-        form_val = act.get("icu_ctl") or act.get("form") or act.get("icu_form")
+        
+        # Cerchiamo la forma reale (evitando di prendere ctl o atl)
+        form_val = act.get("form") or act.get("icu_form")
         
         parsed_data.append({
             "activity_id": str(act.get("id")),
