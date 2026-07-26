@@ -78,7 +78,7 @@ for act in activities:
     st.dataframe(df_activities, use_container_width=True)
     
     # Pulsante per salvare le attività su Supabase
-    if st.button("💾 Salva le uscite su Supabase", use_container_width=True):
+    if st.button("💾 Salva le uscite su Supabase", key="salva_supabase", use_container_width=True):
         from supabase import create_client, Client
         
         # Connessione a Supabase usando i secrets esistenti
