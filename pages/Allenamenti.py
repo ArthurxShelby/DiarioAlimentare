@@ -182,7 +182,6 @@ if is_proprietario:
             key=f"uploader_{anno_selezionato}_{mese_selezionato}",
         )
 
-        # <--- INSERISCI / SOSTITUISCI DA QUI ---
         if file_caricato is not None:
             try:
                 df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
@@ -194,25 +193,14 @@ if is_proprietario:
                 ]
 
                 if all(col in df_caricato.columns for col in colonne_attese):
-                    # Assegna i dati al database di sessione
-                    df_filtrato = df_caricato[colonne_attese]
-                    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_filtrato
-                    
-                    # Salva su Supabase
+                    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_caricato[colonne_attese]
                     salva_database()
-                    
-                    # Pulisci lo stato del data_editor per forzare il refresh visivo immediato
-                    editor_key = f"editor_{anno_selezionato}_{mese_selezionato}"
-                    if editor_key in st.session_state:
-                        del st.session_state[editor_key]
-                        
                     st.success(f"File CSV caricato e salvato permanentemente su Supabase per {mese_selezionato} {anno_selezionato}!")
                     st.rerun()
                 else:
                     st.error(f"Il file CSV non contiene le colonne corrette: {colonne_attese}")
             except Exception as e:
                 st.error(f"Errore nella lettura del file CSV: {e}")
-        # --- FINO A QUI ---
 
 # --- 5. TABELLA INTERATTIVA DI MODIFICA ---
 st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
