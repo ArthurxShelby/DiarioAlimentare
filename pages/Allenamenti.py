@@ -193,8 +193,18 @@ if is_proprietario:
                 ]
 
                 if all(col in df_caricato.columns for col in colonne_attese):
-                    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_caricato[colonne_attese]
+                    # Assegna i dati al database di sessione
+                    df_filtrato = df_caricato[colonne_attese]
+                    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_filtrato
+                    
+                    # Salva su Supabase
                     salva_database()
+                    
+                    # Pulisci lo stato del data_editor per forzare il refresh visivo immediato
+                    editor_key = f"editor_{anno_selezionato}_{mese_selezionato}"
+                    if editor_key in st.session_state:
+                        del st.session_state[editor_key]
+                        
                     st.success(f"File CSV caricato e salvato permanentemente su Supabase per {mese_selezionato} {anno_selezionato}!")
                     st.rerun()
                 else:
