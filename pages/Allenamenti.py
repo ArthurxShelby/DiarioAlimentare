@@ -205,12 +205,23 @@ if is_proprietario:
 # --- 5. TABELLA INTERATTIVA DI MODIFICA ---
 st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
 
+def aggiorna_e_salva_allenamenti():
+    editor_key = f"editor_{anno_selezionato}_{mese_selezionato}"
+    if editor_key in st.session_state:
+        val_edit = st.session_state[editor_key]
+        if isinstance(val_edit, list):
+            st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = pd.DataFrame(val_edit)
+        else:
+            st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = val_edit
+        salva_database()
+
 if is_proprietario:
-    df_modificato = st.data_editor(
+    st.data_editor(
         df_base_mese,
         num_rows="dynamic",
         use_container_width=True,
         key=f"editor_{anno_selezionato}_{mese_selezionato}",
+        on_change=aggiorna_e_salva_allenamenti,
         column_config={
             "Watt": st.column_config.NumberColumn(min_value=50, max_value=500, step=1),
             "RPM": st.column_config.NumberColumn(min_value=60, max_value=120, step=1),
@@ -219,10 +230,6 @@ if is_proprietario:
             "Recupero (min)": st.column_config.NumberColumn(min_value=0, max_value=60, step=1),
         },
     )
-
-    if not df_modificato.equals(df_base_mese):
-        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato
-        salva_database()
 
 st.markdown("<br>", unsafe_allow_html=True)
 
