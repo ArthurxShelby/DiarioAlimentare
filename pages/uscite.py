@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 
 st.title("🚴 Gestione Uscite da Intervals.icu")
@@ -16,11 +16,18 @@ except Exception as e:
 # 2. Funzione per scaricare le attività da Intervals.icu
 @st.cache_data(ttl=600)
 def fetch_intervals_activities(athlete_id, api_key):
-    url = f"https://intervals.icu/api/v1/athlete/{athlete_id}/activities"
-    # L'API di Intervals usa "API" come username e la chiave API come password
-    auth = ("API", api_key)
+    oggi = datetime.today().strftime('%Y-%m-%d')
+    novanta_giorni_fa = (datetime.today() - timedelta(days=90)).strftime('%Y-%m-%d')
     
-    response = requests.get(url, auth=auth)
+    url = f"https://intervals.icu/api/v1/athlete/{athlete_id}/activities"
+    params = {
+        "oldest": novanta_giorni_fa,
+        "newest": oggi
+    }
+    
+    auth = ("API", api_key)
+    response = requests.get(url, auth=auth, params=params)
+    
     if response.status_code == 200:
         return response.json()
     else:
