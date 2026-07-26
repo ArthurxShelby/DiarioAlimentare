@@ -264,7 +264,7 @@ if is_proprietario:
         st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato.copy()
         salva_database()
         st.toast("Modifiche salvate con successo!", icon="💾")
-        st.rerun()
+        
 
 st.markdown("<br>", unsafe_allow_html=True)
 
