@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 from datetime import datetime, timedelta
 import pandas as pd
+import base64
 
 st.title("🚴 Gestione Uscite da Intervals.icu")
 
@@ -25,8 +26,15 @@ def fetch_intervals_activities(athlete_id, api_key):
         "newest": oggi
     }
     
-    auth = ("API", api_key)
-    response = requests.get(url, auth=auth, params=params)
+    # Prepariamo la codifica Base64 per l'autenticazione HTTP (user: API, password: la tua api_key)
+    credentials = f"API:{api_key}"
+    encoded_credentials = base64.b64encode(credentials.encode()).decode()
+    
+    headers = {
+        "Authorization": f"Basic {encoded_credentials}"
+    }
+    
+    response = requests.get(url, headers=headers, params=params)
     
     if response.status_code == 200:
         return response.json()
