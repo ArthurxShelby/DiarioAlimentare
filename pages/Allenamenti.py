@@ -29,27 +29,14 @@ def init_supabase():
 supabase = init_supabase()
 
 def carica_database(db_iniziale):
-    """Carica il database allenamenti e la tabella cicli dal cloud di Supabase."""
+    """Carica il database allenamenti dal cloud di Supabase, convertendo le liste in DataFrame."""
     try:
         response = supabase.table("app_data").select("payload").eq("id", 1).execute()
         if response.data and len(response.data) > 0:
             payload = response.data[0]["payload"]
-            
-            # Gestione struttura payload (supporto nuovo e vecchio formato)
-            if isinstance(payload, dict) and "allenamenti" in payload:
-                raw_allenamenti = payload["allenamenti"]
-                if "tabella_cicli" in payload and payload["tabella_cicli"]:
-                    val_cicli = payload["tabella_cicli"]
-                    if isinstance(val_cicli, list) and len(val_cicli) > 0:
-                        st.session_state.tabella_cicli = pd.DataFrame(val_cicli)
-                    elif isinstance(val_cicli, pd.DataFrame):
-                        st.session_state.tabella_cicli = val_cicli
-            else:
-                raw_allenamenti = payload
-
-            # Ricostruisce i DataFrame dei mesi
+            # Ricostruisce i DataFrame dai dizionari salvati
             db_ricostruito = {}
-            for anno, mesi in raw_allenamenti.items():
+            for anno, mesi in payload.items():
                 db_ricostruito[anno] = {}
                 for mese, val in mesi.items():
                     if isinstance(val, list):
@@ -62,7 +49,7 @@ def carica_database(db_iniziale):
     return db_iniziale
 
 def salva_database(dati=None):
-    """Salva lo stato attuale degli allenamenti e dei cicli nel cloud di Supabase in modo sicuro."""
+    """Salva lo stato attuale degli allenamenti nel cloud di Supabase convertendo i DataFrame in liste."""
     if not is_proprietario:
         return
     try:
@@ -77,22 +64,8 @@ def salva_database(dati=None):
                     dati_serializzabili[anno][mese] = df_val.to_dict(orient="records")
                 else:
                     dati_serializzabili[anno][mese] = df_val
-
-        # Serializzazione sicura della tabella cicli
-        cicli_correnti = st.session_state.get("tabella_cicli")
-        if isinstance(cicli_correnti, pd.DataFrame):
-            cicli_serializzabili = cicli_correnti.to_dict(orient="records")
-        elif isinstance(cicli_correnti, list):
-            cicli_serializzabili = cicli_correnti
-        else:
-            cicli_serializzabili = []
                     
-        payload_completo = {
-            "allenamenti": dati_serializzabili,
-            "tabella_cicli": cicli_serializzabili
-        }
-                    
-        supabase.table("app_data").upsert({"id": 1, "payload": payload_completo}).execute()
+        supabase.table("app_data").upsert({"id": 1, "payload": dati_serializzabili}).execute()
     except Exception as e:
         st.error(f"Errore durante il salvataggio dei dati sul cloud: {e}")
 
@@ -148,19 +121,6 @@ elenco_mesi_completo = [
     "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
     "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
 ]
-
-# Inizializzazione sicura della tabella cicli nella sessione
-if "tabella_cicli" not in st.session_state or not isinstance(st.session_state.tabella_cicli, (pd.DataFrame, list)):
-    st.session_state.tabella_cicli = pd.DataFrame([
-        {"Cicli": "1°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""}
-    ])
 
 # Inizializzazione della memoria persistente via Supabase
 if "database_allenamenti" not in st.session_state:
@@ -245,19 +205,12 @@ if is_proprietario:
 # --- 5. TABELLA INTERATTIVA DI MODIFICA ---
 st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
 
-def aggiorna_e_salva_allenamenti():
-    editor_key = f"editor_{anno_selezionato}_{mese_selezionato}"
-    if editor_key in st.session_state:
-        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = st.session_state[editor_key]
-        salva_database()
-
 if is_proprietario:
-    st.data_editor(
+    df_modificato = st.data_editor(
         df_base_mese,
         num_rows="dynamic",
         use_container_width=True,
         key=f"editor_{anno_selezionato}_{mese_selezionato}",
-        on_change=aggiorna_e_salva_allenamenti,
         column_config={
             "Watt": st.column_config.NumberColumn(min_value=50, max_value=500, step=1),
             "RPM": st.column_config.NumberColumn(min_value=60, max_value=120, step=1),
@@ -266,6 +219,10 @@ if is_proprietario:
             "Recupero (min)": st.column_config.NumberColumn(min_value=0, max_value=60, step=1),
         },
     )
+
+    if not df_modificato.equals(df_base_mese):
+        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato
+        salva_database()
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -314,39 +271,3 @@ if is_proprietario:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
-
-    # Tabella cicli allenamenti editabile con salvataggio automatico tramite callback
-    st.markdown("### Tabella Cicli di Allenamento")
-    
-    def aggiorna_e_salva_cicli():
-        if "editor_cicli_allenamento" in st.session_state:
-            val_edit = st.session_state["editor_cicli_allenamento"]
-            if isinstance(val_edit, list):
-                st.session_state.tabella_cicli = pd.DataFrame(val_edit)
-            else:
-                st.session_state.tabella_cicli = val_edit
-            salva_database()
-
-    # Conversione sicura in DataFrame per evitare errori di tipo
-    df_cicli_input = st.session_state.tabella_cicli
-    if isinstance(df_cicli_input, list):
-        df_cicli_input = pd.DataFrame(df_cicli_input)
-    elif not isinstance(df_cicli_input, pd.DataFrame):
-        df_cicli_input = pd.DataFrame([
-            {"Cicli": "1°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""}
-        ])
-
-    st.data_editor(
-        df_cicli_input,
-        num_rows="dynamic",
-        use_container_width=True,
-        key="editor_cicli_allenamento",
-        on_change=aggiorna_e_salva_cicli
-    )
