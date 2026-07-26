@@ -14,8 +14,6 @@ except Exception as e:
     st.error("Errore: Configura le credenziali di Intervals nei secrets (sezione [intervals]).")
     st.stop()
 
-st.write("DEBUG - Athlete ID letto:", ATHLETE_ID)
-st.write("DEBUG - API Key presente:", bool(API_KEY), "Lunghezza:", len(API_KEY) if API_KEY else 0)
 
 # 2. Funzione per scaricare le attività da Intervals.icu
 
