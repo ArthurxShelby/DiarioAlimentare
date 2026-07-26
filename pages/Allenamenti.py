@@ -308,10 +308,8 @@ if is_proprietario:
 
                     salva_database()
                     
-                    # Incrementa la versione per pulire l'editor anche qui
-                    st.session_state.version_editor += 1
-                    
-                    st.success("Dati svuotati e sincronizzati con successo su Supabase!")
+                    # Mostra un popup di conferma e forza il ricaricamento immediato della vista
+                    st.toast("Dati svuotati e sincronizzati con successo!", icon="🗑️")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
