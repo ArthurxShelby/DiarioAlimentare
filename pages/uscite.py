@@ -77,10 +77,10 @@ if activities:
     parsed_data = []
     
     for act in activities:
-        # Tentativi multipli per intercettare i nomi corretti da Intervals.icu
+        # Ricerca estesa per coprire tutte le varianti di chiavi di Intervals.icu
         avg_watts = act.get("average_watts") or act.get("icu_weighted_avg_watts")
-        norm_watts = act.get("normalized_watts") or act.get("icu_normalized_watts")
-        form_val = act.get("form") or act.get("icu_form") or act.get("atl") # o varianti simili
+        norm_watts = act.get("normalized_watts") or act.get("icu_normalized_watts") or act.get("weighted_average_watts")
+        form_val = act.get("form") or act.get("icu_form") or act.get("ctl_ats") or act.get("tsb")
         
         parsed_data.append({
             "activity_id": str(act.get("id")),
