@@ -10,12 +10,13 @@ st.set_page_config(
 )
 
 # --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
+# Verifica se l'utente ha effettuato il login come proprietario nella pagina principale
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
 
 if not is_proprietario:
     st.error("🚨 Accesso Negato: questa sezione è riservata esclusivamente al proprietario.")
     st.info("Torna alla pagina principale del Diario Alimentare ed effettua il login con le credenziali da amministratore.")
-    st.stop()
+    st.stop()  # Interrompe l'esecuzione del resto della pagina per i non autorizzati
 
 # --- 0. GESTIONE PERSISTENZA CLOUD (SUPABASE) ---
 
@@ -33,6 +34,7 @@ def carica_database(db_iniziale):
         response = supabase.table("app_data").select("payload").eq("id", 1).execute()
         if response.data and len(response.data) > 0:
             payload = response.data[0]["payload"]
+            # Ricostruisce i DataFrame dai dizionari salvati
             db_ricostruito = {}
             for anno, mesi in payload.items():
                 db_ricostruito[anno] = {}
@@ -73,11 +75,13 @@ ftp_atleta = st.sidebar.number_input(
     "FTP Corrente (Watt):", min_value=100, max_value=500, value=279, step=1
 )
 
+# Calcoli matematici dinamici basati sul ciclismo moderno
 ss_min = int(ftp_atleta * 0.88)
 ss_max = int(ftp_atleta * 0.93)
 soglia_min = int(ftp_atleta * 0.91)
 soglia_max = int(ftp_atleta * 1.05)
 
+# Cadenze dinamiche orientate al ciclismo moderno (cadenza di passista/scalatore)
 cadenza_soglia = "~90 RPM"
 cadenza_ss = "~85 RPM"
 
@@ -118,6 +122,7 @@ elenco_mesi_completo = [
     "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
 ]
 
+# Inizializzazione della memoria persistente via Supabase
 if "database_allenamenti" not in st.session_state:
     st.session_state.database_allenamenti = carica_database(database_iniziale)
     if is_proprietario:
@@ -152,6 +157,7 @@ if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionat
 
 dati_correnti = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
 
+# Assicura che sia sempre un DataFrame pronto all'uso
 if not isinstance(dati_correnti, pd.DataFrame):
     if isinstance(dati_correnti, list):
         df_base_mese = pd.DataFrame(dati_correnti)
@@ -196,11 +202,10 @@ if is_proprietario:
             except Exception as e:
                 st.error(f"Errore nella lettura del file CSV: {e}")
 
-# --- 5. TABELLA INTERATTIVA DI MODIFICA E SALVATAGGIO ---
+# --- 5. TABELLA INTERATTIVA DI MODIFICA ---
 st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
 
 if is_proprietario:
-    # L'editor cattura le modifiche senza interferire con la digitazione sulle celle esistenti
     df_modificato = st.data_editor(
         df_base_mese,
         num_rows="dynamic",
@@ -215,15 +220,9 @@ if is_proprietario:
         },
     )
 
-    col_salva, col_info = st.columns([1, 4])
-    with col_salva:
-        if st.button("💾 Salva Modifiche", type="primary"):
-            st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato
-            salva_database()
-            st.success("Modifiche salvate e sincronizzate con successo su Supabase!")
-            st.rerun()
-    with col_info:
-        st.info("Digita o modifica i dati direttamente nella tabella sopra e premi il pulsante **Salva Modifiche** per renderli permanenti.")
+    if not df_modificato.equals(df_base_mese):
+        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato
+        salva_database()
 
 st.markdown("<br>", unsafe_allow_html=True)
 
