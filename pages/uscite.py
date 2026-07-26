@@ -18,6 +18,15 @@ st.write("DEBUG - Athlete ID letto:", ATHLETE_ID)
 st.write("DEBUG - API Key presente:", bool(API_KEY), "Lunghezza:", len(API_KEY) if API_KEY else 0)
 
 # 2. Funzione per scaricare le attività da Intervals.icu
+
+def timedelta_to_str(seconds):
+    if not seconds:
+        return "00:00:00"
+    ore = int(seconds // 3600)
+    minuti = int((seconds % 3600) // 60)
+    secondi = int(seconds % 60)
+    return f"{ore:02d}:{minuti:02d}:{secondi:02d}"
+
 @st.cache_data(ttl=1)
 def fetch_intervals_activities(athlete_id, api_key):
     oggi = datetime.today().strftime('%Y-%m-%d')
