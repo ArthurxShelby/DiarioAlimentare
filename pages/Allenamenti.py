@@ -4,7 +4,7 @@ import os
 import pandas as pd
 from supabase import create_client
 import streamlit as st
-from fpdf import FPDF  # Necessario per generare il PDF (assicurati di avere fpdf2 installato)
+from fpdf import FPDF
 
 st.set_page_config(
     page_title="Pianificazione Allenamento", page_icon="🏋️", layout="wide"
@@ -74,7 +74,6 @@ ftp_atleta = st.sidebar.number_input(
     "FTP Corrente (Watt):", min_value=100, max_value=500, value=279, step=1
 )
 
-# Calcoli matematici dinamici basati sul ciclismo moderno
 ss_min = int(ftp_atleta * 0.88)
 ss_max = int(ftp_atleta * 0.93)
 soglia_min = int(ftp_atleta * 0.91)
@@ -115,15 +114,13 @@ lavoro_input = st.sidebar.number_input("Lavoro (min)", min_value=1, max_value=18
 recupero_input = st.sidebar.number_input("Recupero (min)", min_value=0, max_value=60, value=5, step=1)
 
 if st.sidebar.button("Conferma e Inserisci in Tabella"):
-    # Recupera l'anno e mese correnti per associare il dato
     anno_corrente_str = str(datetime.date.today().year)
-    mese_corrente_str = "Luglio"  # Mese di default o basato sulla selezione principale
+    mese_corrente_str = "Luglio"
     
-    # Assicura che la struttura esista
     if anno_corrente_str not in st.session_state.get("database_allenamenti", {}):
         st.session_state.database_allenamenti[anno_corrente_str] = {}
-    if "Luglio" not in st.session_state.database_allenamenti[anno_corrente_str]:
-        st.session_state.database_allenamenti[anno_corrente_str]["Luglio"] = pd.DataFrame(
+    if mese_corrente_str not in st.session_state.database_allenamenti[anno_corrente_str]:
+        st.session_state.database_allenamenti[anno_corrente_str][mese_corrente_str] = pd.DataFrame(
             columns=["Settimana", "Giorno", "Esercizio / Nome", "Watt", "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)"]
         )
         
@@ -138,11 +135,9 @@ if st.sidebar.button("Conferma e Inserisci in Tabella"):
         "Recupero (min)": recupero_input
     }])
     
-    df_attuale = st.session_state.database_allenamenti[anno_corrente_str]["Luglio"]
-    st.session_state.database_allenamenti[anno_corrente_str]["Luglio"] = pd.concat([df_attuale, nuova_riga], ignore_index=True)
+    df_attuale = st.session_state.database_allenamenti[anno_corrente_str][mese_corrente_str]
+    st.session_state.database_allenamenti[anno_corrente_str][mese_corrente_str] = pd.concat([df_attuale, nuova_riga], ignore_index=True)
     salva_database()
-    
-    # Pop-up di avvenuto inserimento
     st.sidebar.success(f"✅ Inserimento effettuato con successo per '{ciclo_selezionato_sidebar}'!")
 
 # --- 2. DATABASE INIZIALE STRUTTURATO ---
@@ -224,9 +219,9 @@ if not isinstance(dati_correnti, pd.DataFrame):
 else:
     df_base_mese = dati_correnti
 
-# --- 4. TABELLA PRINCIPALE: CICLI ALLENAMENTI (Con Modifiche e Cancellazioni) ---
+# --- 4. TABELLA PRINCIPALE: CICLI ALLENAMENTI ---
 st.subheader(f"📋 Cicli Allenamenti: **{mese_selezionato} {anno_selezionato}**")
-st.write("Le voci sottostanti possono essere modificate direttamente o cancellate (selezionando e rimuovendo le righe).")
+st.write("Gestisci le modifiche direttamente in tabella o rimuovi le righe desiderate:")
 
 if is_proprietario:
     df_modificato = st.data_editor(
@@ -277,7 +272,6 @@ def genera_pdf(df, mese, anno):
         pdf.cell(col_widths[7], 7, str(row.get("Recupero (min)", "")), 1, 0, "C")
         pdf.ln()
         
-    # Forza la generazione in bytes compatibile con Streamlit
     output = pdf.output()
     if isinstance(output, str):
         return output.encode("latin1")
