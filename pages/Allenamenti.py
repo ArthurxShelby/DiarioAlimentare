@@ -357,43 +357,62 @@ if not df_cicli_modificato.equals(st.session_state.df_cicli_allenamento_v2):
     st.session_state.df_cicli_allenamento_v2 = df_cicli_modificato.copy()
     st.rerun()
 
-# --- BOTTONI DI AZIONE (STAMPA/PDF & CANCELLAZIONE) ---
+# --- BOTTONI DI AZIONE (ESPORTAZIONE PDF & CANCELLAZIONE) ---
 col_btn1, col_btn2 = st.columns(2)
 
 with col_btn1:
-    if st.button("📥 Esporta Tabella in PDF (Stampa)", use_container_width=True):
-        # Generiamo una vista HTML pulita della tabella e richiamiamo la funzione di stampa del browser (Salva come PDF)
+    if st.button("📥 Esporta Tabella in PDF", use_container_width=True):
+        from fpdf import FPDF
+        import tempfile
+
+        # Creazione del PDF con fpdf2
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Helvetica", "B", 16)
+        pdf.cell(0, 10, "Programmazione Cicli di Allenamento", ln=True, align="L")
+        pdf.ln(5)
+
+        # Intestazioni tabella
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_fill_color(43, 108, 176) # Blu coordinato
+        pdf.set_text_color(255, 255, 255)
+        
+        headers = ["Cicli", "Allenamento", "Tipo", "Serie", "Rip", "Watt", "Recupero"]
+        widths = [20, 35, 55, 15, 18, 18, 30]
+        
+        for i, h in enumerate(headers):
+            pdf.cell(widths[i], 8, h, border=1, fill=True, align="C")
+        pdf.ln()
+
+        # Dati della tabella
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(0, 0, 0)
+        
         df_export = st.session_state.df_cicli_allenamento_v2.fillna("")
-        
-        html_table = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: Helvetica, Arial, sans-serif; color: #2d3748; padding: 20px; }}
-            h2 {{ color: #1a365d; margin-bottom: 15px; }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; background-color: white; }}
-            th {{ background-color: #2b6cb0; color: white; padding: 10px; font-size: 10pt; text-align: left; border: 1px solid #2b6cb0; }}
-            td {{ padding: 8px 10px; border: 1px solid #cbd5e0; font-size: 10pt; }}
-            tr:nth-child(even) {{ background-color: #f7fafc; }}
-        </style>
-        </head>
-        <body>
-            <h2>Programmazione Cicli di Allenamento</h2>
-            {df_export.to_html(index=False, classes='table', border=0)}
-            <script>
-                window.onload = function() {{
-                    window.print();
-                }};
-            </script>
-        </body>
-        </html>
-        """
-        
-        import streamlit.components.v1 as components
-        components.html(html_table, height=0)
-        st.success("Finestra di stampa aperta: seleziona 'Salva come PDF' tra le opzioni della stampante.")
+        for _, row in df_export.iterrows():
+            pdf.cell(widths[0], 7, str(row['Cicli']), border=1, align="C")
+            pdf.cell(widths[1], 7, str(row['Allenamento']), border=1, align="L")
+            pdf.cell(widths[2], 7, str(row['Tipo']), border=1, align="L")
+            pdf.cell(widths[3], 7, str(row['Serie']), border=1, align="C")
+            pdf.cell(widths[4], 7, str(row['Ripetizioni']), border=1, align="C")
+            pdf.cell(widths[5], 7, str(row['Watt']), border=1, align="C")
+            pdf.cell(widths[6], 7, str(row['Recupero']), border=1, align="C")
+            pdf.ln()
+
+        # Salvataggio in un file temporaneo e download diretto
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+            pdf_path = tmp_pdf.name
+            pdf.output(pdf_path)
+
+        with open(pdf_path, "rb") as pdf_file:
+            st.download_button(
+                label="⬇️ Clicca qui per scaricare il PDF",
+                data=pdf_file,
+                file_name="cicli_allenamento.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+        st.success("PDF generato con successo! Clicca sopra per scaricarlo.")
 
 with col_btn2:
     if st.button("🗑️ Cancella Dati Inseriti", use_container_width=True):
