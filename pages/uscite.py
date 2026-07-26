@@ -28,15 +28,14 @@ def timedelta_to_str(seconds):
 @st.cache_data(ttl=1)
 def fetch_intervals_activities(athlete_id, api_key):
     oggi = datetime.today().strftime('%Y-%m-%d')
-    novanta_giorni_fa = (datetime.today() - timedelta(days=90)).strftime('%Y-%m-%d')
+    data_inizio = "2025-11-15"  # <-- Fissata al 15 novembre 2025 compreso
     
     url = f"https://intervals.icu/api/v1/athlete/{athlete_id}/activities"
     params = {
-        "oldest": novanta_giorni_fa,
+        "oldest": data_inizio,
         "newest": oggi
     }
     
-    # Modificato l'username da "API" a "API_KEY" come richiesto da Intervals.icu
     auth = ("API_KEY", api_key.strip())
     
     response = requests.get(url, auth=auth, params=params)
