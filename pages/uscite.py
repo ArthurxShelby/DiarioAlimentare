@@ -68,8 +68,8 @@ if activities:
         avg_watts = act.get("average_watts") or act.get("icu_average_watts") or act.get("device_watts")
         norm_watts = act.get("icu_weighted_avg_watts") or act.get("normalized_watts")
         
-        # Cerchiamo la forma reale (evitando di prendere ctl o atl)
-        form_val = act.get("form") or act.get("icu_form")
+        # Cerchiamo la forma provando tutte le varianti possibili (TSB / Form)
+        form_val = act.get("form") or act.get("icu_form") or act.get("icu_tsb") or act.get("tsb")
         
         parsed_data.append({
             "activity_id": str(act.get("id")),
