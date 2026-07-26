@@ -53,20 +53,27 @@ if activities:
     st.success(f"Trovate {len(activities)} attività recenti!")
     
     # Elaboriamo i dati per mostrarli in un DataFrame pulito
-    parsed_data = []
+   parsed_data = []
     for act in activities:
+        # Funzione di supporto sicura per convertire in intero evitando errori con None
+        def safe_int(val):
+            try:
+                return int(float(val)) if val is not None else None
+            except (ValueError, TypeError):
+                return None
+
         parsed_data.append({
             "activity_id": str(act.get("id")),
             "data": act.get("start_date_local", "").split("T")[0],
             "titolo": act.get("name", "Uscita senza titolo"),
             "distanza": round(act.get("distance", 0) / 1000, 2),
             "tempo": str(timedelta_to_str(act.get("moving_time", 0))),
-            "potenza_media": act.get("average_watts"),
-            "potenza_normalizzata": act.get("normalized_watts"),
-            "fc_media": act.get("average_heartrate"),
-            "tss": act.get("icu_training_load"),
-            "dislivello": act.get("total_elevation_gain"),
-            "forma": act.get("form")
+            "potenza_media": safe_int(act.get("average_watts")),
+            "potenza_normalizzata": safe_int(act.get("normalized_watts")),
+            "fc_media": safe_int(act.get("average_heartrate")),
+            "tss": safe_int(act.get("icu_training_load")),
+            "dislivello": safe_int(act.get("total_elevation_gain")),
+            "forma": safe_int(act.get("form"))
         })
         
     df_activities = pd.DataFrame(parsed_data)
