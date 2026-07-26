@@ -322,6 +322,23 @@ if is_proprietario:
 st.subheader("📋 Programmazione Cicli di Allenamento")
 st.write("Modifica o compila i dati direttamente nelle celle sottostanti.")
 
+# Selezione del Macrociclo (Mese e Anno di riferimento)
+col_macro1, col_macro2 = st.columns(2)
+with col_macro1:
+    mese_riferimento = st.selectbox(
+        "Mese di Riferimento", 
+        ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"],
+        key="macro_mese"
+    )
+with col_macro2:
+    anno_riferimento = st.selectbox(
+        "Anno di Riferimento", 
+        [str(y) for y in range(2025, 2031)],
+        key="macro_anno"
+    )
+
+st.markdown(f"**Macrociclo Attuale:** {mese_riferimento} {anno_riferimento}")
+
 # Inizializziamo lo stato con stringhe vuote anziché None per evitare la scritta "None" nelle celle
 if "df_cicli_allenamento_v2" not in st.session_state:
     st.session_state.df_cicli_allenamento_v2 = pd.DataFrame([
@@ -368,9 +385,15 @@ with col_btn1:
         # Creazione del PDF con fpdf2
         pdf = FPDF()
         pdf.add_page()
-        pdf.set_font("Helvetica", "B", 16)
-        pdf.cell(0, 10, "Programmazione Cicli di Allenamento", ln=True, align="L")
-        pdf.ln(5)
+        
+        # Titolo e Macrociclo nel PDF
+        pdf.set_font("Helvetica", "B", 15)
+        pdf.cell(0, 8, "Programmazione Cicli di Allenamento", ln=True, align="L")
+        
+        pdf.set_font("Helvetica", "I", 11)
+        pdf.set_text_color(80, 80, 80)
+        pdf.cell(0, 6, f"Macrociclo: {mese_riferimento} {anno_riferimento}", ln=True, align="L")
+        pdf.ln(4)
 
         # Intestazioni tabella
         pdf.set_font("Helvetica", "B", 9)
@@ -408,7 +431,7 @@ with col_btn1:
             st.download_button(
                 label="⬇️ Clicca qui per scaricare il PDF",
                 data=pdf_file,
-                file_name="cicli_allenamento.pdf",
+                file_name=f"cicli_allenamento_{mese_riferimento}_{anno_riferimento}.pdf",
                 mime="application/pdf",
                 use_container_width=True
             )
