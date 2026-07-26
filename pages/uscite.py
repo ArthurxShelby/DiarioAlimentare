@@ -18,7 +18,7 @@ st.write("DEBUG - Athlete ID letto:", ATHLETE_ID)
 st.write("DEBUG - API Key presente:", bool(API_KEY), "Lunghezza:", len(API_KEY) if API_KEY else 0)
 
 # 2. Funzione per scaricare le attività da Intervals.icu
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=1)
 def fetch_intervals_activities(athlete_id, api_key):
     oggi = datetime.today().strftime('%Y-%m-%d')
     novanta_giorni_fa = (datetime.today() - timedelta(days=90)).strftime('%Y-%m-%d')
@@ -29,7 +29,6 @@ def fetch_intervals_activities(athlete_id, api_key):
         "newest": oggi
     }
     
-    # Usiamo la tupla auth standard di requests con username "API" e la chiave pulita da spazi
     auth = ("API", api_key.strip())
     
     response = requests.get(url, auth=auth, params=params)
@@ -39,7 +38,6 @@ def fetch_intervals_activities(athlete_id, api_key):
     else:
         st.error(f"Errore nella chiamata API a Intervals: {response.status_code} - {response.text}")
         return []
-
 # Caricamento dati
 with st.spinner("Scaricamento delle attività da Intervals.icu in corso..."):
     activities = fetch_intervals_activities(ATHLETE_ID, API_KEY)
