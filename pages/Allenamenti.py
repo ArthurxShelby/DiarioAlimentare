@@ -89,7 +89,9 @@ st.sidebar.markdown(f"**Soglia Z4:** {soglia_min}-{soglia_max}W")
 st.sidebar.markdown(f"**Cadenza Soglia:** {cadenza_soglia}")
 st.sidebar.markdown(f"**Cadenza SS:** {cadenza_ss}")
 
-# --- 2. DATABASE INIZIALE STRUTTURATO (Basato sul PDF) ---[cite: 2]
+# --- 2. DATABASE INIZIALE STRUTTURATO (Basato sul PDF) ---[cite: 3]
+colonne_struttura = ["Cicli", "Allenamento", "Tipo", "Serie", "Ripetizioni", "Watt", "Recupero"]
+
 database_iniziale = {
     "2026": {
         "Gennaio": pd.DataFrame([
@@ -198,8 +200,6 @@ st.markdown("---")
 
 if anno_selezionato not in st.session_state.database_allenamenti:
     st.session_state.database_allenamenti[anno_selezionato] = {}
-
-colonne_struttura = ["Cicli", "Allenamento", "Tipo", "Serie", "Ripetizioni", "Watt", "Recupero"]
 
 if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionato]:
     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = pd.DataFrame(
