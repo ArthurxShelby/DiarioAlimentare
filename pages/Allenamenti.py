@@ -317,3 +317,39 @@ if is_proprietario:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
+
+# --- NUOVA TABELLA: CICLI ALLENAMENTI ---
+st.subheader("📋 Programmazione Cicli di Allenamento")
+st.write("Inserisci e compila i dati digitando direttamente nelle celle sottostanti.")
+
+# Inizializziamo lo stato per questa nuova tabella se non esiste
+if "df_cicli_allenamento" not in st.session_state:
+    # Creiamo un DataFrame vuoto con le colonne esatte richieste dal documento
+    st.session_state.df_cicli_allenamento = pd.DataFrame(
+        columns=["Cicli", "Allenamento", "Tipo", "Serie", "Ripetizioni", "Watt", "Recupero"]
+    )
+
+# Editor interattivo per la nuova tabella
+df_cicli_modificato = st.data_editor(
+    st.session_state.df_cicli_allenamento,
+    num_rows="dynamic",
+    use_container_width=True,
+    key="editor_cicli_locali",
+    column_config={
+        "Cicli": st.column_config.TextColumn("Cicli", required=True),
+        "Allenamento": st.column_config.TextColumn("Allenamento", required=True),
+        "Tipo": st.column_config.TextColumn("Tipo", required=True),
+        "Serie": st.column_config.NumberColumn("Serie", min_value=0, max_value=50, step=1, format="%d"),
+        "Ripetizioni": st.column_config.NumberColumn("Ripetizioni", min_value=0, max_value=100, step=1, format="%d"),
+        "Watt": st.column_config.NumberColumn("Watt", min_value=0, max_value=1000, step=1, format="%d"),
+        "Recupero": st.column_config.TextColumn("Recupero", required=False), # Può contenere indicazioni testuali o numeriche
+    },
+)
+
+# Sincronizzazione e salvataggio automatico al primo colpo senza loop o bottoni
+if not df_cicli_modificato.equals(st.session_state.df_cicli_allenamento):
+    st.session_state.df_cicli_allenamento = df_cicli_modificato.copy()
+    # Eventuale chiamata di salvataggio dedicata, es. salva_database_cicli() se usi Supabase anche qui
+    st.rerun()
+
+st.markdown("<br>", unsafe_allow_html=True)
