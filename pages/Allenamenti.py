@@ -39,7 +39,11 @@ def carica_database(db_iniziale):
             if isinstance(payload, dict) and "allenamenti" in payload:
                 raw_allenamenti = payload["allenamenti"]
                 if "tabella_cicli" in payload and payload["tabella_cicli"]:
-                    st.session_state.tabella_cicli = pd.DataFrame(payload["tabella_cicli"])
+                    val_cicli = payload["tabella_cicli"]
+                    if isinstance(val_cicli, list):
+                        st.session_state.tabella_cicli = pd.DataFrame(val_cicli)
+                    elif isinstance(val_cicli, pd.DataFrame):
+                        st.session_state.tabella_cicli = val_cicli
             else:
                 raw_allenamenti = payload
 
@@ -58,7 +62,7 @@ def carica_database(db_iniziale):
     return db_iniziale
 
 def salva_database(dati=None):
-    """Salva lo stato attuale degli allenamenti e dei cicli nel cloud di Supabase."""
+    """Salva lo stato attuale degli allenamenti e dei cicli nel cloud di Supabase in modo sicuro."""
     if not is_proprietario:
         return
     try:
@@ -73,10 +77,19 @@ def salva_database(dati=None):
                     dati_serializzabili[anno][mese] = df_val.to_dict(orient="records")
                 else:
                     dati_serializzabili[anno][mese] = df_val
+
+        # Serializzazione sicura della tabella cicli
+        cicli_correnti = st.session_state.get("tabella_cicli")
+        if isinstance(cicli_correnti, pd.DataFrame):
+            cicli_serializzabili = cicli_correnti.to_dict(orient="records")
+        elif isinstance(cicli_correnti, list):
+            cicli_serializzabili = cicli_correnti
+        else:
+            cicli_serializzabili = []
                     
         payload_completo = {
             "allenamenti": dati_serializzabili,
-            "tabella_cicli": st.session_state.tabella_cicli.to_dict(orient="records")
+            "tabella_cicli": cicli_serializzabili
         }
                     
         supabase.table("app_data").upsert({"id": 1, "payload": payload_completo}).execute()
@@ -232,7 +245,6 @@ if is_proprietario:
 # --- 5. TABELLA INTERATTIVA DI MODIFICA ---
 st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
 
-# Funzione di callback per salvare automaticamente non appena l'utente termina la modifica nella tabella
 def aggiorna_e_salva_allenamenti():
     editor_key = f"editor_{anno_selezionato}_{mese_selezionato}"
     if editor_key in st.session_state:
@@ -308,11 +320,20 @@ if is_proprietario:
     
     def aggiorna_e_salva_cicli():
         if "editor_cicli_allenamento" in st.session_state:
-            st.session_state.tabella_cicli = st.session_state["editor_cicli_allenamento"]
+            val_edit = st.session_state["editor_cicli_allenamento"]
+            if isinstance(val_edit, list):
+                st.session_state.tabella_cicli = pd.DataFrame(val_edit)
+            else:
+                st.session_state.tabella_cicli = val_edit
             salva_database()
 
+    # Assicura che l'input al data_editor sia sempre un DataFrame
+    df_cicli_input = st.session_state.tabella_cicli
+    if not isinstance(df_cicli_input, pd.DataFrame):
+        df_cicli_input = pd.DataFrame(df_cicli_input)
+
     st.data_editor(
-        st.session_state.tabella_cicli,
+        df_cicli_input,
         num_rows="dynamic",
         use_container_width=True,
         key="editor_cicli_allenamento",
