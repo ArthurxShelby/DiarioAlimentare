@@ -322,9 +322,9 @@ if is_proprietario:
 st.subheader("📋 Programmazione Cicli di Allenamento")
 st.write("Modifica o compila i dati direttamente nelle celle sottostanti.")
 
-# Inizializziamo lo stato con i dati esatti presenti nel documento PDF
-if "df_cicli_allenamento" not in st.session_state:
-    st.session_state.df_cicli_allenamento = pd.DataFrame([
+# Usiamo una nuova chiave ("df_cicli_allenamento_v2") per forzare il reset della cache in sessione
+if "df_cicli_allenamento_v2" not in st.session_state:
+    st.session_state.df_cicli_allenamento_v2 = pd.DataFrame([
         {"Cicli": "1°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
         {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
         {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
@@ -335,12 +335,12 @@ if "df_cicli_allenamento" not in st.session_state:
         {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
     ])
 
-# Editor interattivo per la tabella identica al PDF
+# Editor interattivo
 df_cicli_modificato = st.data_editor(
-    st.session_state.df_cicli_allenamento,
+    st.session_state.df_cicli_allenamento_v2,
     num_rows="dynamic",
     use_container_width=True,
-    key="editor_cicli_locali",
+    key="editor_cicli_locali_v2",
     column_config={
         "Cicli": st.column_config.TextColumn("Cicli", required=False),
         "Allenamento": st.column_config.TextColumn("Allenamento", required=True),
@@ -352,9 +352,8 @@ df_cicli_modificato = st.data_editor(
     },
 )
 
-# Sincronizzazione e salvataggio automatico al primo colpo
-if not df_cicli_modificato.equals(st.session_state.df_cicli_allenamento):
-    st.session_state.df_cicli_allenamento = df_cicli_modificato.copy()
+if not df_cicli_modificato.equals(st.session_state.df_cicli_allenamento_v2):
+    st.session_state.df_cicli_allenamento_v2 = df_cicli_modificato.copy()
     st.rerun()
 
 st.markdown("<br>", unsafe_allow_html=True)
