@@ -1,4 +1,5 @@
 import streamlit as st
+st.set_page_config(layout="wide")
 import requests
 from datetime import datetime, timedelta
 import pandas as pd
