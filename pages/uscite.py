@@ -65,8 +65,8 @@ if activities:
     parsed_data = []
     
     for act in activities:
-        # Estrazione corretta e mirata per ogni singola metrica
-        avg_watts = act.get("average_watts")
+        # Usiamo le chiavi alternative per intercettare la potenza media reale
+        avg_watts = act.get("average_watts") or act.get("icu_average_watts") or act.get("device_watts")
         norm_watts = act.get("icu_weighted_avg_watts") or act.get("normalized_watts")
         form_val = act.get("icu_ctl") or act.get("form") or act.get("icu_form")
         
