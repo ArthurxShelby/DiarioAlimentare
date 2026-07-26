@@ -76,25 +76,11 @@ if activities:
     # Elaboriamo i dati per mostrarli in un DataFrame pulito
     parsed_data = []
     
-    for act in activities:
-        # Ricerca estesa per coprire tutte le varianti di chiavi di Intervals.icu
-        avg_watts = act.get("average_watts") or act.get("icu_weighted_avg_watts")
-        norm_watts = act.get("normalized_watts") or act.get("icu_normalized_watts") or act.get("weighted_average_watts")
-        form_val = act.get("form") or act.get("icu_form") or act.get("ctl_ats") or act.get("tsb")
-        
-        parsed_data.append({
-            "activity_id": str(act.get("id")),
-            "data": act.get("start_date_local", "").split("T")[0],
-            "titolo": act.get("name", "Uscita senza titolo"),
-            "distanza": round(act.get("distance", 0) / 1000, 2),
-            "tempo": str(timedelta_to_str(act.get("moving_time", 0))),
-            "potenza_media": safe_int(avg_watts),
-            "potenza_normalizzata": safe_int(norm_watts),
-            "fc_media": safe_int(act.get("average_heartrate")),
-            "tss": safe_int(act.get("icu_training_load")),
-            "dislivello": safe_int(act.get("total_elevation_gain")),
-            "forma": safe_int(form_val)
-        })
+    # Stampiamo a schermo le chiavi della primissima attività per vederci chiaro
+    if activities:
+        st.write("Chiavi disponibili nella prima attività di Intervals:", list(activities[0].keys()))
+        # Mostriamo anche alcuni valori interni per capire dove si trovano
+        st.write("Dettagli primo record:", activities[0])
         
     df_activities = pd.DataFrame(parsed_data)
     
