@@ -224,7 +224,7 @@ if is_proprietario:
                     # Aggiorniamo la sessione con i nuovi dati del CSV
                     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_filtrato
                     salva_database()
-                    st.success(f"File CSV caricato e salvato per {mese_selezionato} {anno_selezionato}!")
+                    st.toast(f"File CSV caricato e salvato per {mese_selezionato} {anno_selezionato}!", icon="✅")
                 else:
                     st.error(f"Il file CSV non contiene le colonne corrette: {colonne_attese}")
             except Exception as e:
