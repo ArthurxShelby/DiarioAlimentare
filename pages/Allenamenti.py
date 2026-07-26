@@ -318,9 +318,9 @@ if is_proprietario:
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
 
-# --- TABELLA PERPETUA: CICLI ALLENAMENTI COLLEGATA AL SUPABASE ---
+# --- TABELLA PERPETUA: CICLI ALLENAMENTI (STRUTTURA FISSA E PROTETTA) ---
 st.subheader("📋 Programmazione Cicli di Allenamento (Perpetua)")
-st.write("Modifica o compila i dati direttamente nelle celle sottostanti per il macrociclo selezionato.")
+st.write("Modifica i dati direttamente nelle celle sottostanti (struttura fissa non cancellabile).")
 
 # Selezione del Macrociclo (Mese e Anno sincronizzati)
 col_macro1, col_macro2 = st.columns(2)
@@ -345,14 +345,13 @@ st.markdown(f"**Macrociclo Attuale:** {mese_cicli} {anno_cicli}")
 
 # Assicuriamoci che la struttura dati nel database esista per questo anno/mese specifico
 if "database_cicli_allenamento" not in st.session_state:
-    # Struttura iniziale di default se non presente
     st.session_state.database_cicli_allenamento = {}
 
 if anno_cicli not in st.session_state.database_cicli_allenamento:
     st.session_state.database_cicli_allenamento[anno_cicli] = {}
 
 if mese_cicli not in st.session_state.database_cicli_allenamento[anno_cicli]:
-    # Tabella predefinita per i nuovi mesi
+    # Tabella predefinita iniziale
     st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = pd.DataFrame([
         {"Cicli": "1°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
         {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
@@ -370,10 +369,10 @@ if isinstance(df_cicli_corrente, list):
     df_cicli_corrente = pd.DataFrame(df_cicli_corrente)
     st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_cicli_corrente
 
-# Editor interattivo collegato al mese/anno
+# Editor interattivo con num_rows="fixed" per impedire l'aggiunta o la cancellazione di righe
 df_cicli_modificato = st.data_editor(
     df_cicli_corrente,
-    num_rows="dynamic",
+    num_rows="fixed",
     use_container_width=True,
     key=f"editor_cicli_{anno_cicli}_{mese_cicli}",
     column_config={
@@ -387,13 +386,12 @@ df_cicli_modificato = st.data_editor(
     },
 )
 
-# Sincronizzazione automatica e salvataggio
+# Sincronizzazione automatica e salvataggio delle modifiche alle celle
 if not df_cicli_modificato.equals(df_cicli_corrente):
     st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_cicli_modificato.copy()
-    # Se vuoi persisterla su Supabase insieme al resto, puoi integrarla nel payload generale
     st.rerun()
 
-# --- BOTTONI DI AZIONE (ESPORTAZIONE PDF & CANCELLAZIONE) ---
+# --- BOTTONI DI AZIONE (ESPORTAZIONE PDF & RIPRISTINO STRUTTURA) ---
 col_btn1, col_btn2 = st.columns(2)
 
 with col_btn1:
@@ -458,7 +456,7 @@ with col_btn1:
         st.success("PDF generato con successo! Clicca sopra per scaricarlo.")
 
 with col_btn2:
-    if st.button("🗑️ Cancella Dati Inseriti", use_container_width=True, key="btn_del_cicli"):
+    if st.button("🗑️ Ripristina Tabella Iniziale", use_container_width=True, key="btn_del_cicli"):
         st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = pd.DataFrame([
             {"Cicli": "1°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
             {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
@@ -469,7 +467,7 @@ with col_btn2:
             {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
             {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
         ])
-        st.toast(f"Dati di {mese_cicli} {anno_cicli} cancellati e ripristinati!", icon="🗑️")
+        st.toast(f"Tabella di {mese_cicli} {anno_cicli} ripristinata allo stato iniziale!", icon="🔄")
         st.rerun()
 
 st.markdown("<br>", unsafe_allow_html=True)
