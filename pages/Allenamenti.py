@@ -322,32 +322,32 @@ if is_proprietario:
 st.subheader("📋 Programmazione Cicli di Allenamento")
 st.write("Modifica o compila i dati direttamente nelle celle sottostanti.")
 
-# Inizializziamo lo stato con i dati esatti presenti nel documento PDF
+# Inizializziamo lo stato con stringhe vuote anziché None per evitare la scritta "None" nelle celle
 if "df_cicli_allenamento_v2" not in st.session_state:
     st.session_state.df_cicli_allenamento_v2 = pd.DataFrame([
-        {"Cicli": "1°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
-        {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
-        {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
-        {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
+        {"Cicli": "1°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
     ])
 
-# Editor interattivo per la tabella identica al PDF
+# Editor interattivo pulito
 df_cicli_modificato = st.data_editor(
     st.session_state.df_cicli_allenamento_v2,
     num_rows="dynamic",
     use_container_width=True,
-    key="editor_cicli_locali_v2",
+    key="editor_cicli_locali_v3",
     column_config={
         "Cicli": st.column_config.TextColumn("Cicli", required=False),
         "Allenamento": st.column_config.TextColumn("Allenamento", required=True),
         "Tipo": st.column_config.TextColumn("Tipo", required=True),
-        "Serie": st.column_config.NumberColumn("Serie", min_value=0, max_value=50, step=1, format="%d"),
-        "Ripetizioni": st.column_config.NumberColumn("Ripetizioni", min_value=0, max_value=100, step=1, format="%d"),
-        "Watt": st.column_config.NumberColumn("Watt", min_value=0, max_value=1000, step=1, format="%d"),
+        "Serie": st.column_config.TextColumn("Serie", required=False),
+        "Ripetizioni": st.column_config.TextColumn("Ripetizioni", required=False),
+        "Watt": st.column_config.TextColumn("Watt", required=False),
         "Recupero": st.column_config.TextColumn("Recupero", required=False),
     },
 )
@@ -357,100 +357,33 @@ if not df_cicli_modificato.equals(st.session_state.df_cicli_allenamento_v2):
     st.session_state.df_cicli_allenamento_v2 = df_cicli_modificato.copy()
     st.rerun()
 
-# --- BOTTONI DI AZIONE (PDF & CANCELLAZIONE) ---
+# --- BOTTONI DI AZIONE (ESPORTAZIONE CSV & CANCELLAZIONE) ---
 col_btn1, col_btn2 = st.columns(2)
 
 with col_btn1:
-    if st.button("📥 Esporta Tabella in PDF"):
-        import weasyprint
-        import tempfile
-
-        # Generazione HTML pulito per il documento PDF
-        html_content = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <style>
-            @page { size: A4; margin: 15mm; background-color: #faf8f5; }
-            body { font-family: Helvetica, Arial, sans-serif; color: #2d3748; margin: 0; padding: 0; }
-            h1 { color: #1a365d; font-size: 18pt; border-bottom: 2px solid #cbd5e0; padding-bottom: 6px; margin-bottom: 15px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-            th { background-color: #2b6cb0; color: white; padding: 10px; font-size: 9pt; text-align: left; text-transform: uppercase; }
-            td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; font-size: 9pt; }
-            tr:nth-child(even) { background-color: #f7fafc; }
-        </style>
-        </head>
-        <body>
-            <h1>Programmazione Cicli di Allenamento</h1>
-            <table>
-                <tr>
-                    <th>Cicli</th>
-                    <th>Allenamento</th>
-                    <th>Tipo</th>
-                    <th>Serie</th>
-                    <th>Ripetizioni</th>
-                    <th>Watt</th>
-                    <th>Recupero</th>
-                </tr>
-        """
-        
-        df_to_export = st.session_state.df_cicli_allenamento_v2
-        for _, row in df_to_export.iterrows():
-            c = row['Cicli'] if pd.notna(row['Cicli']) else ""
-            a = row['Allenamento'] if pd.notna(row['Allenamento']) else ""
-            t = row['Tipo'] if pd.notna(row['Tipo']) else ""
-            s = int(row['Serie']) if pd.notna(row['Serie']) else ""
-            r = int(row['Ripetizioni']) if pd.notna(row['Ripetizioni']) else ""
-            w = int(row['Watt']) if pd.notna(row['Watt']) else ""
-            rec = row['Recupero'] if pd.notna(row['Recupero']) else ""
-
-            html_content += f"""
-                <tr>
-                    <td>{c}</td>
-                    <td>{a}</td>
-                    <td>{t}</td>
-                    <td>{s}</td>
-                    <td>{r}</td>
-                    <td>{w}</td>
-                    <td>{rec}</td>
-                </tr>
-            """
-            
-        html_content += """
-            </table>
-        </body>
-        </html>
-        """
-        
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp_html:
-            tmp_html.write(html_content.encode("utf-8"))
-            tmp_html_path = tmp_html.name
-
-        pdf_path = tmp_html_path.replace(".html", ".pdf")
-        weasyprint.HTML(tmp_html_path).write_pdf(pdf_path)
-
-        with open(pdf_path, "rb") as pdf_file:
-            st.download_button(
-                label="⬇️ Clicca qui per scaricare il PDF",
-                data=pdf_file,
-                file_name="cicli_allenamento.pdf",
-                mime="application/pdf"
-            )
-        st.success("PDF generato con successo! Clicca sul pulsante sopra per scaricarlo.")
+    # Esportazione in CSV (perfettamente compatibile con Excel e senza errori di librerie esterne)
+    df_export = st.session_state.df_cicli_allenamento_v2.fillna("")
+    csv_data = df_export.to_csv(index=False).encode('utf-8')
+    
+    st.download_button(
+        label="📥 Esporta Tabella in CSV/Excel",
+        data=csv_data,
+        file_name="cicli_allenamento.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
 
 with col_btn2:
-    if st.button("🗑️ Cancella Dati Inseriti"):
-        # Ripristiniamo la tabella pulita iniziale con i campi numerici azzerati/vuoti
+    if st.button("🗑️ Cancella Dati Inseriti", use_container_width=True):
         st.session_state.df_cicli_allenamento_v2 = pd.DataFrame([
-            {"Cicli": "1°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
-            {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
-            {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
-            {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": None, "Ripetizioni": None, "Watt": None, "Recupero": ""},
+            {"Cicli": "1°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
         ])
         st.toast("Dati cancellati e ripristinati allo stato iniziale!", icon="🗑️")
         st.rerun()
