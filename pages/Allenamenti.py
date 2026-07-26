@@ -232,12 +232,20 @@ if is_proprietario:
 # --- 5. TABELLA INTERATTIVA DI MODIFICA ---
 st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
 
+# Funzione di callback per salvare automaticamente non appena l'utente termina la modifica nella tabella
+def aggiorna_e_salva_allenamenti():
+    editor_key = f"editor_{anno_selezionato}_{mese_selezionato}"
+    if editor_key in st.session_state:
+        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = st.session_state[editor_key]
+        salva_database()
+
 if is_proprietario:
-    df_modificato = st.data_editor(
+    st.data_editor(
         df_base_mese,
         num_rows="dynamic",
         use_container_width=True,
         key=f"editor_{anno_selezionato}_{mese_selezionato}",
+        on_change=aggiorna_e_salva_allenamenti,
         column_config={
             "Watt": st.column_config.NumberColumn(min_value=50, max_value=500, step=1),
             "RPM": st.column_config.NumberColumn(min_value=60, max_value=120, step=1),
@@ -246,12 +254,6 @@ if is_proprietario:
             "Recupero (min)": st.column_config.NumberColumn(min_value=0, max_value=60, step=1),
         },
     )
-
-    if st.button("💾 Salva Modifiche Allenamenti"):
-        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato
-        salva_database()
-        st.success("Modifiche salvate e sincronizzate su Supabase con successo!")
-        st.rerun()
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -301,17 +303,18 @@ if is_proprietario:
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
 
-    # Tabella cicli allenamenti editabile con pulsante di salvataggio dedicato
+    # Tabella cicli allenamenti editabile con salvataggio automatico tramite callback
     st.markdown("### Tabella Cicli di Allenamento")
-    df_cicli_modificato = st.data_editor(
+    
+    def aggiorna_e_salva_cicli():
+        if "editor_cicli_allenamento" in st.session_state:
+            st.session_state.tabella_cicli = st.session_state["editor_cicli_allenamento"]
+            salva_database()
+
+    st.data_editor(
         st.session_state.tabella_cicli,
         num_rows="dynamic",
         use_container_width=True,
-        key="editor_cicli_allenamento"
+        key="editor_cicli_allenamento",
+        on_change=aggiorna_e_salva_cicli
     )
-    
-    if st.button("💾 Salva Tabella Cicli"):
-        st.session_state.tabella_cicli = df_cicli_modificato
-        salva_database()
-        st.success("Tabella cicli salvata e sincronizzata su Supabase con successo!")
-        st.rerun()
