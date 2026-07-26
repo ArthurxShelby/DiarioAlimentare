@@ -40,7 +40,7 @@ def carica_database(db_iniziale):
                 raw_allenamenti = payload["allenamenti"]
                 if "tabella_cicli" in payload and payload["tabella_cicli"]:
                     val_cicli = payload["tabella_cicli"]
-                    if isinstance(val_cicli, list):
+                    if isinstance(val_cicli, list) and len(val_cicli) > 0:
                         st.session_state.tabella_cicli = pd.DataFrame(val_cicli)
                     elif isinstance(val_cicli, pd.DataFrame):
                         st.session_state.tabella_cicli = val_cicli
@@ -149,8 +149,8 @@ elenco_mesi_completo = [
     "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
 ]
 
-# Inizializzazione della tabella cicli editabile nella sessione prima di caricare il DB
-if "tabella_cicli" not in st.session_state:
+# Inizializzazione sicura della tabella cicli nella sessione
+if "tabella_cicli" not in st.session_state or not isinstance(st.session_state.tabella_cicli, (pd.DataFrame, list)):
     st.session_state.tabella_cicli = pd.DataFrame([
         {"Cicli": "1°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
         {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
@@ -327,10 +327,21 @@ if is_proprietario:
                 st.session_state.tabella_cicli = val_edit
             salva_database()
 
-    # Assicura che l'input al data_editor sia sempre un DataFrame
+    # Conversione sicura in DataFrame per evitare errori di tipo
     df_cicli_input = st.session_state.tabella_cicli
-    if not isinstance(df_cicli_input, pd.DataFrame):
+    if isinstance(df_cicli_input, list):
         df_cicli_input = pd.DataFrame(df_cicli_input)
+    elif not isinstance(df_cicli_input, pd.DataFrame):
+        df_cicli_input = pd.DataFrame([
+            {"Cicli": "1°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""}
+        ])
 
     st.data_editor(
         df_cicli_input,
