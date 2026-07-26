@@ -154,7 +154,6 @@ if not isinstance(struttura_mese, dict):
         "cicli": pd.DataFrame(cicli_permanenti_default)
     }
 
-# Se la tabella cicli dovesse essere vuota, ricarica i default permanenti
 if st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"].empty:
     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"] = pd.DataFrame(cicli_permanenti_default)
 
@@ -182,58 +181,6 @@ st.sidebar.markdown(f"**Soglia Z4:** {soglia_min}-{soglia_max}W")
 st.sidebar.markdown(f"**Cadenza Soglia:** {cadenza_soglia}")
 st.sidebar.markdown(f"**Cadenza SS:** {cadenza_ss}")
 
-st.sidebar.markdown("---")
-
-# --- 1.1 MENU A DISCESA NELLA SIDEBAR PER CICLI ALLENAMENTI ---
-st.sidebar.markdown("## Inserimento Cicli Allenamenti")
-opzioni_cicli = [
-    "Soglia Avanzata", 
-    "Rilancio Aerobico", 
-    "Mantenimento", 
-    "Blocco Solido di Sweet Spot", 
-    "Intervalli Lineari", 
-    "VO2Max", 
-    "Estensione Moderata", 
-    "Richiami", 
-    "2 Serie Ripetizioni", 
-    "Scarico"
-]
-ciclo_selezionato_sidebar = st.sidebar.selectbox("Seleziona Ciclo da Inserire:", opzioni_cicli)
-settimana_input = st.sidebar.text_input("Settimana di Riferimento", value="Settimana 1")
-giorno_input = st.sidebar.selectbox("Giorno", ["Martedì", "Giovedì", "Sabato", "Domenica", "Lunedì", "Mercoledì", "Venerdì"])
-watt_input = st.sidebar.number_input("Watt Target", min_value=50, max_value=500, value=250, step=1)
-rpm_input = st.sidebar.number_input("Cadenza (RPM)", min_value=50, max_value=130, value=90, step=1)
-ripetizioni_input = st.sidebar.number_input("Ripetizioni", min_value=1, max_value=20, value=3, step=1)
-lavoro_input = st.sidebar.number_input("Lavoro (min)", min_value=1, max_value=180, value=15, step=1)
-recupero_input = st.sidebar.number_input("Recupero (min)", min_value=0, max_value=60, value=5, step=1)
-
-if st.sidebar.button("Conferma e Inserisci in Tabella"):
-    if anno_selezionato not in st.session_state.database_allenamenti:
-        st.session_state.database_allenamenti[anno_selezionato] = {}
-    if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionato]:
-        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = {
-            "principale": pd.DataFrame(),
-            "cicli": pd.DataFrame(cicli_permanenti_default)
-        }
-        
-    nuova_riga = pd.DataFrame([{
-        "Settimana": settimana_input,
-        "Giorno": giorno_input,
-        "Esercizio / Nome": ciclo_selezionato_sidebar,
-        "Watt": watt_input,
-        "RPM": rpm_input,
-        "Ripetizioni": ripetizioni_input,
-        "Lavoro (min)": lavoro_input,
-        "Recupero (min)": recupero_input
-    }])
-    
-    df_cicli_attuale = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"]
-    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"] = pd.concat([df_cicli_attuale, nueva_riga] if 'nueva_riga' in locals() else [df_cicli_attuale, nuova_riga], ignore_index=True)
-    
-    salva_database()
-    st.sidebar.success(f"✅ Ciclo inserito e salvato in modo permanente per {mese_selezionato} {anno_selezionato}!")
-    st.rerun()
-
 
 # --- 4. TABELLA PRINCIPALE ---
 st.subheader(f"📋 Pianificazione Principale: **{mese_selezionato} {anno_selezionato}**")
@@ -259,9 +206,9 @@ if is_proprietario:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 4.1 SECONDA TABELLA: CICLI ALLENAMENTI (Permanente e Identica al Modello) ---
+# --- 4.1 SECONDA TABELLA: CICLI ALLENAMENTI (Permanente e Sincronizzata) ---
 st.subheader(f"⚙️ Tabella Cicli Allenamenti: **{mese_selezionato} {anno_selezionato}**")
-st.write("Tabella permanente precompilata con i cicli strutturati e sincronizzata con il Cloud:")
+st.write("Tabella permanente sincronizzata con il Cloud:")
 
 if is_proprietario:
     df_cicli_modificato = st.data_editor(
