@@ -277,8 +277,11 @@ def genera_pdf(df, mese, anno):
         pdf.cell(col_widths[7], 7, str(row.get("Recupero (min)", "")), 1, 0, "C")
         pdf.ln()
         
-    # Restituisce direttamente i byte del PDF in modo compatibile con fpdf2
-    return pdf.output()
+    # Forza la generazione in bytes compatibile con Streamlit
+    output = pdf.output()
+    if isinstance(output, str):
+        return output.encode("latin1")
+    return bytes(output)
 
 if not df_base_mese.empty:
     pdf_data = genera_pdf(df_base_mese, mese_selezionato, anno_selezionato)
