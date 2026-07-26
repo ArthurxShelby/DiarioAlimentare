@@ -263,7 +263,7 @@ if is_proprietario:
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
 
-# --- 7. TABELLA CICLI DI ALLENAMENTO (Riferimento Permanente) ---
+# TABELLA CICLI DI ALLENAMENTO (Riferimento Permanente)
 st.markdown("---")
 st.subheader("📋 Tabella Cicli di Allenamento")
 
@@ -272,7 +272,7 @@ df_cicli_permanente = pd.DataFrame([
     {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
     {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
     {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-    {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+    {"Cicli": "III°", "Allenamento": "Mantenimento Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
     {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
     {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
     {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""}
