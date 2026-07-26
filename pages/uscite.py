@@ -68,8 +68,15 @@ if activities:
         avg_watts = act.get("average_watts") or act.get("icu_average_watts") or act.get("device_watts")
         norm_watts = act.get("icu_weighted_avg_watts") or act.get("normalized_watts")
         
-        # Cerchiamo la forma provando tutte le varianti possibili (TSB / Form)
-        form_val = act.get("form") or act.get("icu_form") or act.get("icu_tsb") or act.get("tsb")
+        # Calcoliamo la forma (TSB) come differenza tra Fitness (CTL) e Fatica (ATL) se presenti
+        ctl = act.get("icu_ctl")
+        atl = act.get("icu_atl")
+        form_val = None
+        if ctl is not None and atl is not None:
+            form_val = int(round(float(ctl) - float(atl)))
+        else:
+            # Fallback su eventuali chiavi dirette se l'API le fornisce
+            form_val = act.get("form") or act.get("icu_form") or act.get("icu_tsb")
         
         parsed_data.append({
             "activity_id": str(act.get("id")),
