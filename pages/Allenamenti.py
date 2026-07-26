@@ -260,10 +260,14 @@ if is_proprietario:
         },
     )
 
+    # Confronto approfondito che intercetta qualsiasi modifica o riga aggiunta al primo colpo
     if not df_modificato.equals(df_da_mostrare):
         st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato.copy()
         salva_database()
-        st.toast("Modifiche salvate con successo!", icon="💾")
+        st.toast("Modifiche salvate automaticamente!", icon="💾")
+        st.rerun()
+
+st.markdown("<br>", unsafe_allow_html=True)
         
 
 st.markdown("<br>", unsafe_allow_html=True)
