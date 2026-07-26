@@ -293,34 +293,13 @@ if is_proprietario:
 st.markdown("---")
 st.subheader("📋 Tabella Cicli di Allenamento")
 
-col_tab, col_btn = st.columns([4, 1])
-with col_tab:
-    df_cicli_modificato = st.data_editor(
-        st.session_state.df_cicli_permanente, 
-        use_container_width=True, 
-        hide_index=True, 
-        key="editor_cicli_perm"
-    )
+df_cicli_modificato = st.data_editor(
+    st.session_state.df_cicli_permanente, 
+    use_container_width=True, 
+    hide_index=True, 
+    key="editor_cicli_perm"
+)
 
-with col_btn:
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("➕ Inserisci in riga vuota"):
-        dati_sel = cicli_predefiniti[ciclo_selezionato_sb]
-        inserito = False
-        for idx, row in df_cicli_modificato.iterrows():
-            if str(row["Tipo"]).strip() == "" or pd.isna(row["Tipo"]):
-                df_cicli_modificato.at[idx, "Cicli"] = dati_sel["Cicli"]
-                df_cicli_modificato.at[idx, "Allenamento"] = dati_sel["Allenamento"]
-                df_cicli_modificato.at[idx, "Tipo"] = dati_sel["Tipo"]
-                inserito = True
-                break
-        if inserito:
-            st.session_state.df_cicli_permanente = df_cicli_modificato
-            st.success("Riga popolata con successo!")
-            st.rerun()
-        else:
-            st.warning("Nessuna cella vuota trovata nella colonna Tipo.")
-
-# Aggiorna lo stato se l'utente modifica direttamente le celle vuote o piene nella tabella
 if not df_cicli_modificato.equals(st.session_state.df_cicli_permanente):
     st.session_state.df_cicli_permanente = df_cicli_modificato
+    
