@@ -424,20 +424,66 @@ with col_btn1:
             pdf.cell(widths[i], 8, h, border=1, fill=True, align="C")
         pdf.ln()
 
-        # Dati della tabella
+        # Dati della tabella con gestione delle celle unite verticalmente per la colonna "Cicli"
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(0, 0, 0)
         
         df_export = df_cicli_modificato.fillna("")
-        for _, row in df_export.iterrows():
-            pdf.cell(widths[0], 7, str(row['Cicli']), border=1, align="C")
-            pdf.cell(widths[1], 7, str(row['Allenamento']), border=1, align="L")
-            pdf.cell(widths[2], 7, str(row['Tipo']), border=1, align="L")
-            pdf.cell(widths[3], 7, str(row['Serie']), border=1, align="C")
-            pdf.cell(widths[4], 7, str(row['Ripetizioni']), border=1, align="C")
-            pdf.cell(widths[5], 7, str(row['Watt']), border=1, align="C")
-            pdf.cell(widths[6], 7, str(row['Recupero']), border=1, align="C")
-            pdf.ln()
+        
+        # Raggruppiamo i cicli a coppie (es. riga con valore e riga successiva vuota)
+        righe = df_export.to_dict(orient="records")
+        row_height = 7
+        
+        for idx, row in enumerate(righe):
+            ciclo_corrente = str(row['Cicli']).strip()
+            
+            # Se siamo su una riga pari (inizio blocco) e la successiva fa parte dello stesso blocco (es. vuota)
+            # Disegniamo una cella alta il doppio per unire visivamente il ciclo
+            if idx % 2 == 0 and idx + 1 < len(righe):
+                # Salviamo la posizione X e Y corrente
+                x_start = pdf.get_x()
+                y_start = pdf.get_y()
+                
+                # Disegniamo la cella "unita" per la colonna Cicli (altezza = 14 mm anziché 7)
+                pdf.rect(x_start, y_start, widths[0], row_height * 2)
+                pdf.set_xy(x_start, y_start + row_height / 2 - 2) # Centra verticalmente il testo nel blocco doppio
+                pdf.cell(widths[0], row_height, ciclo_corrente, border=0, align="C")
+                
+                # Riposizioniamo per le altre colonne della prima riga
+                pdf.set_xy(x_start + widths[0], y_start)
+                pdf.cell(widths[1], row_height, str(row['Allenamento']), border=1, align="L")
+                pdf.cell(widths[2], row_height, str(row['Tipo']), border=1, align="L")
+                pdf.cell(widths[3], row_height, str(row['Serie']), border=1, align="C")
+                pdf.cell(widths[4], row_height, str(row['Ripetizioni']), border=1, align="C")
+                pdf.cell(widths[5], row_height, str(row['Watt']), border=1, align="C")
+                pdf.cell(widths[6], row_height, str(row['Recupero']), border=1, align="C")
+                pdf.ln()
+                
+            elif idx % 2 == 1:
+                # Seconda riga del blocco: saltiamo la colonna Cicli (già coperta dalla cella unita sopra)
+                x_start = pdf.get_x()
+                y_start = pdf.get_y()
+                
+                # Spazio vuoto per la colonna dei cicli con bordo laterale/inferiore coerente
+                pdf.cell(widths[0], row_height, "", border="LRB" if idx == len(righe)-1 else "LR", align="C")
+                
+                pdf.cell(widths[1], row_height, str(row['Allenamento']), border=1, align="L")
+                pdf.cell(widths[2], row_height, str(row['Tipo']), border=1, align="L")
+                pdf.cell(widths[3], row_height, str(row['Serie']), border=1, align="C")
+                pdf.cell(widths[4], row_height, str(row['Ripetizioni']), border=1, align="C")
+                pdf.cell(widths[5], row_height, str(row['Watt']), border=1, align="C")
+                pdf.cell(widths[6], row_height, str(row['Recupero']), border=1, align="C")
+                pdf.ln()
+            else:
+                # Comportamento standard di fallback
+                pdf.cell(widths[0], row_height, ciclo_corrente, border=1, align="C")
+                pdf.cell(widths[1], row_height, str(row['Allenamento']), border=1, align="L")
+                pdf.cell(widths[2], row_height, str(row['Tipo']), border=1, align="L")
+                pdf.cell(widths[3], row_height, str(row['Serie']), border=1, align="C")
+                pdf.cell(widths[4], row_height, str(row['Ripetizioni']), border=1, align="C")
+                pdf.cell(widths[5], row_height, str(row['Watt']), border=1, align="C")
+                pdf.cell(widths[6], row_height, str(row['Recupero']), border=1, align="C")
+                pdf.ln()
 
         # Salvataggio in un file temporaneo e download diretto
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
