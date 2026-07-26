@@ -55,22 +55,22 @@ if activities:
     st.success(f"Trovate {len(activities)} attività recenti!")
     
     # Elaboriamo i dati per mostrarli in un DataFrame pulito
-    parsed_data = []
-    for act in activities:
-        # Estraiamo i campi principali (gestendo eventuali campi mancanti con .get)
-        parsed_data.append({
-            "activity_id": str(act.get("id")),
-            "data": act.get("start_date_local", "").split("T")[0],
-            "titolo": act.get("name", "Uscita senza titolo"),
-            "distanza": round(act.get("distance", 0) / 1000, 2), # Convertito in km
-            "tempo": str(timedelta_to_str(act.get("moving_time", 0))),
-            "potenza_media": act.get("icu_weighted_avg_power") or act.get("average_watts"),
-            "potenza_normalizzata": act.get("normalized_watts"),
-            "fc_media": act.get("average_heartrate"),
-            "tss": act.get("icu_training_load"),
-            "dislivello": act.get("total_elevation_gain"),
-            "forma": act.get("form") # se presente
-        })
+   
+parsed_data = []
+for act in activities:
+    parsed_data.append({
+        "activity_id": str(act.get("id")),
+        "data": act.get("start_date_local", "").split("T")[0],
+        "titolo": act.get("name", "Uscita senza titolo"),
+        "distanza": round(act.get("distance", 0) / 1000, 2),
+        "tempo": str(timedelta_to_str(act.get("moving_time", 0))),
+        "potenza_media": act.get("average_watts"),
+        "potenza_normalizzata": act.get("normalized_watts"),
+        "fc_media": act.get("average_heartrate"),
+        "tss": act.get("icu_training_load"),
+        "dislivello": act.get("total_elevation_gain"),
+        "forma": act.get("form")
+    })
     
     df_activities = pd.DataFrame(parsed_data)
     
