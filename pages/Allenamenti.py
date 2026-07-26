@@ -264,7 +264,6 @@ if is_proprietario:
     if not df_modificato.equals(df_da_mostrare):
         st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato.copy()
         salva_database()
-        st.toast("Modifiche salvate automaticamente!", icon="💾")
         st.rerun()
 
 st.markdown("<br>", unsafe_allow_html=True)
