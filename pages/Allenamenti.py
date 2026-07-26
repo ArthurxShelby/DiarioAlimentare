@@ -249,17 +249,22 @@ if is_proprietario:
         use_container_width=True,
         key=f"editor_finale_{anno_selezionato}_{mese_selezionato}_{st.session_state.version_editor}",
         column_config={
-            "Watt": st.column_config.NumberColumn(min_value=50, max_value=500, step=1),
-            "RPM": st.column_config.NumberColumn(min_value=60, max_value=120, step=1),
-            "Ripetizioni": st.column_config.NumberColumn(min_value=1, max_value=20, step=1),
-            "Lavoro (min)": st.column_config.NumberColumn(min_value=1, max_value=180, step=1),
-            "Recupero (min)": st.column_config.NumberColumn(min_value=0, max_value=60, step=1),
+            "Settimana": st.column_config.TextColumn("Settimana", required=True),
+            "Giorno": st.column_config.TextColumn("Giorno", required=True),
+            "Esercizio / Nome": st.column_config.TextColumn("Esercizio / Nome", required=True),
+            "Watt": st.column_config.NumberColumn("Watt", min_value=0, max_value=1000, step=1, format="%d"),
+            "RPM": st.column_config.NumberColumn("RPM", min_value=0, max_value=200, step=1, format="%d"),
+            "Ripetizioni": st.column_config.NumberColumn("Ripetizioni", min_value=0, max_value=100, step=1, format="%d"),
+            "Lavoro (min)": st.column_config.NumberColumn("Lavoro (min)", min_value=0, max_value=1440, step=1, format="%d"),
+            "Recupero (min)": st.column_config.NumberColumn("Recupero (min)", min_value=0, max_value=1440, step=1, format="%d"),
         },
     )
 
     if not df_modificato.equals(df_da_mostrare):
-        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato
+        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato.copy()
         salva_database()
+        st.toast("Modifiche salvate con successo!", icon="💾")
+        st.rerun()
 
 st.markdown("<br>", unsafe_allow_html=True)
 
