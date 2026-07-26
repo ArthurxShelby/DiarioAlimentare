@@ -67,43 +67,27 @@ def salva_database(dati=None):
     except Exception as e:
         st.error(f"Errore durante il salvataggio dei dati sul cloud: {e}")
 
-# --- 1. RIFERIMENTI FTP DINAMICI & SIDEBAR (CON MENU A DISCESA E PARAMETRI MODIFICABILI) ---
-ftp_atleta = 279
+# --- 1. RIFERIMENTI FTP DINAMICI & SIDEBAR ---
+st.sidebar.markdown("## Parametri Atleta & FTP")
+ftp_atleta = st.sidebar.number_input(
+    "FTP Corrente (Watt):", min_value=100, max_value=500, value=279, step=1
+)
 
-st.sidebar.markdown(f"## Riferimenti FTP ({ftp_atleta}W)")
+# Calcoli matematici dinamici basati sul ciclismo moderno
+ss_min = int(ftp_atleta * 0.88)
+ss_max = int(ftp_atleta * 0.93)
+soglia_min = int(ftp_atleta * 0.91)
+soglia_max = int(ftp_atleta * 1.05)
 
-with st.sidebar.expander("⚙️ Personalizza Percentuali e Wattaggi"):
-    ss_min_pct = st.slider("Sweet Spot Min (%)", 80, 95, 88) / 100.0
-    ss_max_pct = st.slider("Sweet Spot Max (%)", 85, 100, 93) / 100.0
-    
-    z4_min_pct = st.slider("Soglia Z4 Min (%)", 85, 100, 91) / 100.0
-    z4_max_pct = st.slider("Soglia Z4 Max (%)", 95, 115, 105) / 100.0
+# Cadenze dinamiche orientate al ciclismo moderno (cadenza di passista/scalatore)
+cadenza_soglia = "~90 RPM"
+cadenza_ss = "~85 RPM"
 
-ss_min_w = int(ftp_atleta * ss_min_pct)
-ss_max_w = int(ftp_atleta * ss_max_pct)
-z4_min_w = int(ftp_atleta * z4_min_pct)
-z4_max_w = int(ftp_atleta * z4_max_pct)
-
-st.sidebar.markdown(f"**Sweet Spot (SS):** {ss_min_w}-{ss_max_w}W")
-st.sidebar.markdown(f"**Soglia Z4:** {z4_min_w}-{z4_max_w}W")
-st.sidebar.markdown("**Cadenza Soglia:** ~90 RPM")
-st.sidebar.markdown("**Cadenza SS:** ~85 RPM")
-
-# --- DATABASE CICLI PREDEFINITI PER LA SIDEBAR ---
-cicli_predefiniti = {
-    "I° - Soglia Avanzata": {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata"},
-    "I° - Rilancio Aerobico": {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico"},
-    "II° - Blocco Solido di Soglia": {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia"},
-    "II° - Estensione Moderata": {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata"},
-    "III° - Intervalli Lineari VO2Max": {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max"},
-    "III° - Blocco di tenuta": {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta"},
-    "IV° - Richiami Soglia (Scarico)": {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico"},
-    "IV° - Richiami Mantenimento (Scarico)": {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico"}
-}
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("⚙️ Inserimento Ciclo Rapido")
-ciclo_selezionato_sb = st.sidebar.selectbox("Seleziona Ciclo:", list(cicli_predefiniti.keys()))
+st.sidebar.markdown(f"### Riferimenti FTP ({ftp_atleta}W)")
+st.sidebar.markdown(f"**Sweet Spot (SS):** {ss_min}-{ss_max}W")
+st.sidebar.markdown(f"**Soglia Z4:** {soglia_min}-{soglia_max}W")
+st.sidebar.markdown(f"**Cadenza Soglia:** {cadenza_soglia}")
+st.sidebar.markdown(f"**Cadenza SS:** {cadenza_ss}")
 
 # --- 2. DATABASE INIZIALE STRUTTURATO ---
 database_iniziale = {
@@ -142,19 +126,6 @@ if "database_allenamenti" not in st.session_state:
     if is_proprietario:
         salva_database()
 
-# Inizializzazione dello stato per la tabella cicli identica al PDF allegato
-if "df_cicli_permanente" not in st.session_state:
-    st.session_state.df_cicli_permanente = pd.DataFrame([
-        {"Cicli": "1°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""}
-    ])
-
 st.title("🏋️ Pianificazione Allenamento per Anno Solare")
 
 # --- 3. SELEZIONE ANNO E MESE ---
@@ -184,6 +155,7 @@ if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionat
 
 dati_correnti = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
 
+# Assicura che sia sempre un DataFrame pronto all'uso
 if not isinstance(dati_correnti, pd.DataFrame):
     if isinstance(dati_correnti, list):
         df_base_mese = pd.DataFrame(dati_correnti)
@@ -297,17 +269,3 @@ if is_proprietario:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
-
-# --- 7. TABELLA CICLI DI ALLENAMENTO (Riferimento Permanente & Editabile) ---
-st.markdown("---")
-st.subheader("📋 Tabella Cicli di Allenamento")
-
-df_cicli_modificato = st.data_editor(
-    st.session_state.df_cicli_permanente, 
-    use_container_width=True, 
-    hide_index=True, 
-    key="editor_cicli_perm"
-)
-
-if not df_cicli_modificato.equals(st.session_state.df_cicli_permanente):
-    st.session_state.df_cicli_permanente = df_cicli_modificato
