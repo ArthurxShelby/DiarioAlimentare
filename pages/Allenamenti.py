@@ -4,19 +4,19 @@ import os
 import pandas as pd
 from supabase import create_client
 import streamlit as st
-from fpdf import FPDF
 
 st.set_page_config(
     page_title="Pianificazione Allenamento", page_icon="🏋️", layout="wide"
 )
 
 # --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
+# Verifica se l'utente ha effettuato il login come proprietario nella pagina principale
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
 
 if not is_proprietario:
     st.error("🚨 Accesso Negato: questa sezione è riservata esclusivamente al proprietario.")
-    st.info("Torna alla pagina principale ed effettua il login con le credenziali da amministratore.")
-    st.stop()
+    st.info("Torna alla pagina principale del Diario Alimentare ed effettua il login con le credenziali da amministratore.")
+    st.stop()  # Interrompe l'esecuzione del resto della pagina per i non autorizzati
 
 # --- 0. GESTIONE PERSISTENZA CLOUD (SUPABASE) ---
 
@@ -34,20 +34,15 @@ def carica_database(db_iniziale):
         response = supabase.table("app_data").select("payload").eq("id", 1).execute()
         if response.data and len(response.data) > 0:
             payload = response.data[0]["payload"]
+            # Ricostruisce i DataFrame dai dizionari salvati
             db_ricostruito = {}
             for anno, mesi in payload.items():
                 db_ricostruito[anno] = {}
                 for mese, val in mesi.items():
-                    if isinstance(val, dict):
-                        db_ricostruito[anno][mese] = {
-                            "principale": pd.DataFrame(val.get("principale", [])) if isinstance(val.get("principale"), list) else val.get("principale"),
-                            "cicli": pd.DataFrame(val.get("cicli", [])) if isinstance(val.get("cicli"), list) else val.get("cicli")
-                        }
-                    elif isinstance(val, list):
-                        db_ricostruito[anno][mese] = {
-                            "principale": pd.DataFrame(val),
-                            "cicli": pd.DataFrame(columns=["Settimana", "Giorno", "Esercizio / Nome", "Watt", "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)"])
-                        }
+                    if isinstance(val, list):
+                        db_ricostruito[anno][mese] = pd.DataFrame(val)
+                    else:
+                        db_ricostruito[anno][mese] = val
             return db_ricostruito
     except Exception as e:
         st.warning(f"Impossibile connettersi al cloud per il caricamento: {e}")
@@ -64,51 +59,52 @@ def salva_database(dati=None):
         dati_serializzabili = {}
         for anno, mesi in dati.items():
             dati_serializzabili[anno] = {}
-            for mese, val in mesi.items():
-                if isinstance(val, dict):
-                    df_princ = val.get("principale")
-                    df_cicli = val.get("cicli")
-                    dati_serializzabili[anno][mese] = {
-                        "principale": df_princ.to_dict(orient="records") if isinstance(df_princ, pd.DataFrame) else df_princ,
-                        "cicli": df_cicli.to_dict(orient="records") if isinstance(df_cicli, pd.DataFrame) else df_cicli
-                    }
-                elif isinstance(val, pd.DataFrame):
-                    dati_serializzabili[anno][mese] = {
-                        "principale": val.to_dict(orient="records"),
-                        "cicli": []
-                    }
+            for mese, df_val in mesi.items():
+                if isinstance(df_val, pd.DataFrame):
+                    dati_serializzabili[anno][mese] = df_val.to_dict(orient="records")
+                else:
+                    dati_serializzabili[anno][mese] = df_val
                     
         supabase.table("app_data").upsert({"id": 1, "payload": dati_serializzabili}).execute()
     except Exception as e:
         st.error(f"Errore durante il salvataggio dei dati sul cloud: {e}")
 
-# --- 2. DATABASE INIZIALE & STATO CON CICLI PERMANENTI PRECOMPILATI ---
-cicli_permanenti_default = [
-    {"Settimana": "Settimana 1", "Giorno": "Martedì", "Esercizio / Nome": "Soglia Avanzata", "Watt": 285, "RPM": 90, "Ripetizioni": 4, "Lavoro (min)": 8, "Recupero (min)": 4},
-    {"Settimana": "Settimana 1", "Giorno": "Giovedì", "Esercizio / Nome": "Rilancio Aerobico", "Watt": 250, "RPM": 95, "Ripetizioni": 5, "Lavoro (min)": 3, "Recupero (min)": 2},
-    {"Settimana": "Settimana 2", "Giorno": "Martedì", "Esercizio / Nome": "Blocco Solido di Sweet Spot", "Watt": 255, "RPM": 88, "Ripetizioni": 3, "Lavoro (min)": 12, "Recupero (min)": 5},
-    {"Settimana": "Settimana 2", "Giorno": "Giovedì", "Esercizio / Nome": "Intervalli Lineari", "Watt": 265, "RPM": 90, "Ripetizioni": 4, "Lavoro (min)": 6, "Recupero (min)": 3},
-    {"Settimana": "Settimana 3", "Giorno": "Martedì", "Esercizio / Nome": "VO2Max", "Watt": 310, "RPM": 100, "Ripetizioni": 5, "Lavoro (min)": 3, "Recupero (min)": 3},
-    {"Settimana": "Settimana 3", "Giorno": "Giovedì", "Esercizio / Nome": "Estensione Moderata", "Watt": 240, "RPM": 92, "Ripetizioni": 2, "Lavoro (min)": 20, "Recupero (min)": 6},
-    {"Settimana": "Settimana 4", "Giorno": "Martedì", "Esercizio / Nome": "Richiami", "Watt": 270, "RPM": 90, "Ripetizioni": 3, "Lavoro (min)": 4, "Recupero (min)": 2},
-    {"Settimana": "Settimana 4", "Giorno": "Giovedì", "Esercizio / Nome": "Scarico", "Watt": 190, "RPM": 95, "Ripetizioni": 1, "Lavoro (min)": 45, "Recupero (min)": 0}
-]
+# --- 1. RIFERIMENTI FTP & SIDEBAR ---
+ftp_atleta = 279
 
+st.sidebar.markdown(f"## Riferimenti FTP ({ftp_atleta}W)")
+st.sidebar.markdown(
+    f"**Sweet Spot (SS):** {int(ftp_atleta * 0.88)}-{int(ftp_atleta * 0.93)}W"
+)
+st.sidebar.markdown(
+    f"**Soglia Z4:** {int(ftp_atleta * 0.91)}-{int(ftp_atleta * 1.05)}W"
+)
+st.sidebar.markdown("**Cadenza Soglia:** ~90 RPM")
+st.sidebar.markdown("**Cadenza SS:** ~85 RPM")
+
+# --- 2. DATABASE INIZIALE STRUTTURATO ---
 database_iniziale = {
     "2026": {
         "Gennaio": {
-            "principale": pd.DataFrame([
-                {"Settimana": "Settimana 1 (Rientro e Agilità)", "Giorno": "Martedì", "Esercizio / Nome": "Fondo Z2 Agile post-stop", "Watt": 195, "RPM": 95, "Ripetizioni": 1, "Lavoro (min)": 50, "Recupero (min)": 0},
-                {"Settimana": "Settimana 1 (Rientro e Agilità)", "Giorno": "Giovedì", "Esercizio / Nome": "Fondo Z2 con Allunghi Z3", "Watt": 210, "RPM": 90, "Ripetizioni": 3, "Lavoro (min)": 10, "Recupero (min)": 5},
-                {"Settimana": "Settimana 2 (Progressione Aerobica)", "Giorno": "Martedì", "Esercizio / Nome": "Fondo Medio Z3 graduale: 2 x 12 min", "Watt": 225, "RPM": 90, "Ripetizioni": 2, "Lavoro (min)": 12, "Recupero (min)": 5},
-                {"Settimana": "Settimana 2 (Progressione Aerobica)", "Giorno": "Giovedì", "Esercizio / Nome": "Fondo Z2 e Variazioni Cadenza", "Watt": 215, "RPM": 95, "Ripetizioni": 3, "Lavoro (min)": 15, "Recupero (min)": 5},
-                {"Settimana": "Settimana 3 (Sweet Spot Moderato)", "Giorno": "Martedì", "Esercizio / Nome": "Sweet Spot Moderato: 2 x 12 min", "Watt": 240, "RPM": 88, "Ripetizioni": 2, "Lavoro (min)": 12, "Recupero (min)": 5},
-                {"Settimana": "Settimana 3 (Sweet Spot Moderato)", "Giorno": "Giovedì", "Esercizio / Nome": "Fondo Medio Z3: 2 x 15 min", "Watt": 230, "RPM": 90, "Ripetizioni": 2, "Lavoro (min)": 15, "Recupero (min)": 5},
-                {"Settimana": "Settimana 4 (Scarico e Test Ricalibrazione)", "Giorno": "Martedì", "Esercizio / Nome": "Scioltezza e Agilità Z1-Z2", "Watt": 190, "RPM": 95, "Ripetizioni": 1, "Lavoro (min)": 45, "Recupero (min)": 0},
-                {"Settimana": "Settimana 4 (Scarico e Test Ricalibrazione)", "Giorno": "Giovedì", "Esercizio / Nome": "Test FTP 20 min di Verifica", "Watt": 270, "RPM": 92, "Ripetizioni": 1, "Lavoro (min)": 20, "Recupero (min)": 0}
-            ]),
-            "cicli": pd.DataFrame(cicli_permanenti_default)
-        }
+            "Settimana 1 (Base Invernale)": {
+                "Martedì": {
+                    "Esercizio": "Fondo Medio Z3: 3 x 15 min",
+                    "Watt": 230,
+                    "RPM": 90,
+                    "Ripetizioni": 3,
+                    "Lavoro_m": 15,
+                    "Recupero_m": 5,
+                },
+                "Giovedì": {
+                    "Esercizio": "Sweet Spot: 2 x 15 min",
+                    "Watt": 245,
+                    "RPM": 85,
+                    "Ripetizioni": 2,
+                    "Lavoro_m": 15,
+                    "Recupero_m": 5,
+                },
+            }
+        },
     }
 }
 
@@ -117,6 +113,7 @@ elenco_mesi_completo = [
     "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
 ]
 
+# Inizializzazione della memoria persistente via Supabase
 if "database_allenamenti" not in st.session_state:
     st.session_state.database_allenamenti = carica_database(database_iniziale)
     if is_proprietario:
@@ -142,55 +139,69 @@ if anno_selezionato not in st.session_state.database_allenamenti:
     st.session_state.database_allenamenti[anno_selezionato] = {}
 
 if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionato]:
-    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = {
-        "principale": pd.DataFrame(columns=["Settimana", "Giorno", "Esercizio / Nome", "Watt", "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)"]),
-        "cicli": pd.DataFrame(cicli_permanenti_default)
-    }
+    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = pd.DataFrame(
+        columns=[
+            "Settimana", "Giorno", "Esercizio / Nome", "Watt", "RPM",
+            "Ripetizioni", "Lavoro (min)", "Recupero (min)",
+        ]
+    )
 
-struttura_mese = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
-if not isinstance(struttura_mese, dict):
-    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = {
-        "principale": struttura_mese if isinstance(struttura_mese, pd.DataFrame) else pd.DataFrame(),
-        "cicli": pd.DataFrame(cicli_permanenti_default)
-    }
+dati_correnti = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
 
-if st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"].empty:
-    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"] = pd.DataFrame(cicli_permanenti_default)
+# Assicura che sia sempre un DataFrame pronto all'uso
+if not isinstance(dati_correnti, pd.DataFrame):
+    if isinstance(dati_correnti, list):
+        df_base_mese = pd.DataFrame(dati_correnti)
+    else:
+        df_base_mese = pd.DataFrame(
+            columns=[
+                "Settimana", "Giorno", "Esercizio / Nome", "Watt",
+                "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
+            ]
+        )
+    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_base_mese
+else:
+    df_base_mese = dati_correnti
 
-df_base_mese = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["principale"]
-df_cicli_mese = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"]
+# --- 4. SEZIONE IMPORTAZIONE CSV (Riservata) ---
+if is_proprietario:
+    with st.expander("📂 Integra o carica piano di lavoro tramite file CSV", expanded=False):
+        st.write(f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**.")
+        file_caricato = st.file_uploader(
+            "Seleziona il file CSV",
+            type=["csv"],
+            key=f"uploader_{anno_selezionato}_{mese_selezionato}",
+        )
 
+        if file_caricato is not None:
+            try:
+                df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
+                df_caricato.columns = df_caricato.columns.str.strip()
 
-# --- 1. RIFERIMENTI FTP DINAMICI & SIDEBAR ---
-st.sidebar.markdown("## Parametri Atleta & FTP")
-ftp_atleta = st.sidebar.number_input(
-    "FTP Corrente (Watt):", min_value=100, max_value=500, value=279, step=1
-)
+                colonne_attese = [
+                    "Settimana", "Giorno", "Esercizio / Nome", "Watt",
+                    "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
+                ]
 
-ss_min = int(ftp_atleta * 0.88)
-ss_max = int(ftp_atleta * 0.93)
-soglia_min = int(ftp_atleta * 0.91)
-soglia_max = int(ftp_atleta * 1.05)
+                if all(col in df_caricato.columns for col in colonne_attese):
+                    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_caricato[colonne_attese]
+                    salva_database()
+                    st.success(f"File CSV caricato e salvato permanentemente su Supabase per {mese_selezionato} {anno_selezionato}!")
+                    st.rerun()
+                else:
+                    st.error(f"Il file CSV non contiene le colonne corrette: {colonne_attese}")
+            except Exception as e:
+                st.error(f"Errore nella lettura del file CSV: {e}")
 
-cadenza_soglia = "~90 RPM"
-cadenza_ss = "~85 RPM"
-
-st.sidebar.markdown(f"### Riferimenti FTP ({ftp_atleta}W)")
-st.sidebar.markdown(f"**Sweet Spot (SS):** {ss_min}-{ss_max}W")
-st.sidebar.markdown(f"**Soglia Z4:** {soglia_min}-{soglia_max}W")
-st.sidebar.markdown(f"**Cadenza Soglia:** {cadenza_soglia}")
-st.sidebar.markdown(f"**Cadenza SS:** {cadenza_ss}")
-
-
-# --- 4. TABELLA PRINCIPALE ---
-st.subheader(f"📋 Pianificazione Principale: **{mese_selezionato} {anno_selezionato}**")
+# --- 5. TABELLA INTERATTIVA DI MODIFICA ---
+st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
 
 if is_proprietario:
     df_modificato = st.data_editor(
         df_base_mese,
         num_rows="dynamic",
         use_container_width=True,
-        key=f"editor_principale_{anno_selezionato}_{mese_selezionato}",
+        key=f"editor_{anno_selezionato}_{mese_selezionato}",
         column_config={
             "Watt": st.column_config.NumberColumn(min_value=50, max_value=500, step=1),
             "RPM": st.column_config.NumberColumn(min_value=60, max_value=120, step=1),
@@ -201,100 +212,70 @@ if is_proprietario:
     )
 
     if not df_modificato.equals(df_base_mese):
-        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["principale"] = df_modificato
+        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato
         salva_database()
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 4.1 SECONDA TABELLA: CICLI ALLENAMENTI (Permanente e Sincronizzata) ---
-st.subheader(f"⚙️ Tabella Cicli Allenamenti: **{mese_selezionato} {anno_selezionato}**")
-st.write("Tabella permanente sincronizzata con il Cloud:")
-
+# --- 6. PANNELLO DI CANCELLAZIONE AVANZATO (Riservato) ---
 if is_proprietario:
-    df_cicli_modificato = st.data_editor(
-        df_cicli_mese,
-        num_rows="dynamic",
-        use_container_width=True,
-        key=f"editor_cicli_{anno_selezionato}_{mese_selezionato}",
-        column_config={
-            "Watt": st.column_config.NumberColumn(min_value=50, max_value=500, step=1),
-            "RPM": st.column_config.NumberColumn(min_value=60, max_value=120, step=1),
-            "Ripetizioni": st.column_config.NumberColumn(min_value=1, max_value=20, step=1),
-            "Lavoro (min)": st.column_config.NumberColumn(min_value=1, max_value=180, step=1),
-            "Recupero (min)": st.column_config.NumberColumn(min_value=0, max_value=60, step=1),
-        },
-    )
+    with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
+        st.write("Seleziona un intervallo esatto basato su date specifiche per svuotare i dati.")
 
-    if not df_cicli_modificato.equals(df_cicli_mese):
-        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]["cicli"] = df_cicli_modificato
-        salva_database()
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            data_inizio_del = st.date_input("Data Inizio Periodo", value=datetime.date(2026, 1, 1), key="data_ini_del")
+        with col_d2:
+            data_fine_del = st.date_input("Data Fine Periodo", value=datetime.date(2026, 12, 31), key="data_fin_del")
 
-st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🚨 Svuota dati per il periodo selezionato"):
+            if data_inizio_del > data_fine_del:
+                st.error("La data di inizio non può essere successiva alla data di fine.")
+            else:
+                try:
+                    anno_inizio_del = data_inizio_del.year
+                    anno_fine_del = data_fine_del.year
+                    idx_m_ini = data_inizio_del.month - 1
+                    idx_m_fin = data_fine_del.month - 1
 
-# --- 5. FUNZIONE E BOTTONE PER DOWNLOAD IN PDF ---
-def genera_pdf(df_princ, df_cicli, mese, anno):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, f"Report Allenamenti - {mese} {anno}", 0, 1, "C")
-    pdf.ln(5)
-    
-    col_widths = [25, 22, 45, 15, 15, 20, 25, 23]
-    headers = ["Settimana", "Giorno", "Esercizio", "Watt", "RPM", "Rip.", "Lavoro", "Rec."]
-    
-    if not df_princ.empty:
-        pdf.set_font("Arial", "B", 12)
-        pdf.cell(0, 8, "Pianificazione Principale", 0, 1, "L")
-        pdf.set_font("Arial", "B", 10)
-        for i, h in enumerate(headers):
-            pdf.cell(col_widths[i], 8, h, 1, 0, "C")
-        pdf.ln()
-        
-        pdf.set_font("Arial", "", 9)
-        for _, row in df_princ.iterrows():
-            pdf.cell(col_widths[0], 7, str(row.get("Settimana", "")), 1)
-            pdf.cell(col_widths[1], 7, str(row.get("Giorno", "")), 1)
-            pdf.cell(col_widths[2], 7, str(row.get("Esercizio / Nome", "")), 1)
-            pdf.cell(col_widths[3], 7, str(row.get("Watt", "")), 1, 0, "C")
-            pdf.cell(col_widths[4], 7, str(row.get("RPM", "")), 1, 0, "C")
-            pdf.cell(col_widths[5], 7, str(row.get("Ripetizioni", "")), 1, 0, "C")
-            pdf.cell(col_widths[6], 7, str(row.get("Lavoro (min)", "")), 1, 0, "C")
-            pdf.cell(col_widths[7], 7, str(row.get("Recupero (min)", "")), 1, 0, "C")
-            pdf.ln()
-        pdf.ln(5)
+                    for anno_target_num in range(anno_inizio_del, anno_fine_del + 1):
+                        anno_target = str(anno_target_num)
+                        if anno_target not in st.session_state.database_allenamenti:
+                            continue
 
-    if not df_cicli.empty:
-        pdf.set_font("Arial", "B", 12)
-        pdf.cell(0, 8, "Tabella Cicli Allenamenti", 0, 1, "L")
-        pdf.set_font("Arial", "B", 10)
-        for i, h in enumerate(headers):
-            pdf.cell(col_widths[i], 8, h, 1, 0, "C")
-        pdf.ln()
-        
-        pdf.set_font("Arial", "", 9)
-        for _, row in df_cicli.iterrows():
-            pdf.cell(col_widths[0], 7, str(row.get("Settimana", "")), 1)
-            pdf.cell(col_widths[1], 7, str(row.get("Giorno", "")), 1)
-            pdf.cell(col_widths[2], 7, str(row.get("Esercizio / Nome", "")), 1)
-            pdf.cell(col_widths[3], 7, str(row.get("Watt", "")), 1, 0, "C")
-            pdf.cell(col_widths[4], 7, str(row.get("RPM", "")), 1, 0, "C")
-            pdf.cell(col_widths[5], 7, str(row.get("Ripetizioni", "")), 1, 0, "C")
-            pdf.cell(col_widths[6], 7, str(row.get("Lavoro (min)", "")), 1, 0, "C")
-            pdf.cell(col_widths[7], 7, str(row.get("Recupero (min)", "")), 1, 0, "C")
-            pdf.ln()
-        
-    output = pdf.output()
-    if isinstance(output, str):
-        return output.encode("latin1")
-    return bytes(output)
+                        start_idx = idx_m_ini if anno_target_num == anno_inizio_del else 0
+                        end_idx = idx_m_fin if anno_target_num == anno_fine_del else 11
 
-if not df_base_mese.empty or not df_cicli_mese.empty:
-    pdf_data = genera_pdf(df_base_mese, df_cicli_mese, mese_selezionato, anno_selezionato)
-    st.download_button(
-        label="📥 Scarica Report completo in PDF",
-        data=pdf_data,
-        file_name=f"Report_Allenamenti_{mese_selezionato}_{anno_selezionato}.pdf",
-        mime="application/pdf"
-    )
-else:
-    st.info("Nessun dato presente nelle tabelle per abilitare il download in PDF.")
+                        mesi_da_pulire = elenco_mesi_completo[start_idx : end_idx + 1]
+
+                        for m in mesi_da_pulire:
+                            if m in st.session_state.database_allenamenti[anno_target]:
+                                st.session_state.database_allenamenti[anno_target][m] = pd.DataFrame(
+                                    columns=[
+                                        "Settimana", "Giorno", "Esercizio / Nome", "Watt",
+                                        "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
+                                    ]
+                                )
+
+                    salva_database()
+                    st.success("Dati svuotati e sincronizzati con successo su Supabase!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Errore durante la pulizia: {e}")
+
+# --- 7. TABELLA CICLI DI ALLENAMENTO (Riferimento Permanente) ---
+st.markdown("---")
+st.subheader("📋 Tabella Cicli di Allenamento")
+
+df_cicli_permanente = pd.DataFrame([
+    {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+    {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+    {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+    {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+    {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+    {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+    {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+    {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""}
+])
+
+st.dataframe(df_cicli_permanente, use_container_width=True, hide_index=True)
