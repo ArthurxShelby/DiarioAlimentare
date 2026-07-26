@@ -77,10 +77,18 @@ if activities:
     parsed_data = []
     
     # Stampiamo a schermo le chiavi della primissima attività per vederci chiaro
-    if activities:
-        st.write("Chiavi disponibili nella prima attività di Intervals:", list(activities[0].keys()))
-        # Mostriamo anche alcuni valori interni per capire dove si trovano
-        st.write("Dettagli primo record:", activities[0])
+   # --- CODICE DI DEBUG PER CERCARE LE CHIAVI GIUSTE ---
+if activities:
+    prima_attivita = activities[0]
+    # Filtriamo le chiavi che contengono parole chiave rilevanti
+    chiavi_potenza_norm = [k for k in prima_attivita.keys() if 'norm' in k.lower()]
+    chiavi_forma = [k for k in prima_attivita.keys() if any(w in k.lower() for w in ['form', 'ctl', 'tsb', 'atl', 'load'])]
+    
+    st.write("Chiavi simili a 'norm' trovate:", chiavi_potenza_norm)
+    st.write("Valori:", {k: prima_attivita[k] for k in chiavi_potenza_norm})
+    
+    st.write("Chiavi simili a 'forma/ctl/tsb' trovate:", chiavi_forma)
+    st.write("Valori:", {k: prima_attivita[k] for k in chiavi_forma})
         
     df_activities = pd.DataFrame(parsed_data)
     
