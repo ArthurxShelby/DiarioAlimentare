@@ -10,13 +10,12 @@ st.set_page_config(
 )
 
 # --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
-# Verifica se l'utente ha effettuato il login come proprietario nella pagina principale
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
 
 if not is_proprietario:
     st.error("🚨 Accesso Negato: questa sezione è riservata esclusivamente al proprietario.")
     st.info("Torna alla pagina principale del Diario Alimentare ed effettua il login con le credenziali da amministratore.")
-    st.stop()  # Interrompe l'esecuzione del resto della pagina per i non autorizzati
+    st.stop()
 
 # --- 0. GESTIONE PERSISTENZA CLOUD (SUPABASE) ---
 
@@ -34,7 +33,6 @@ def carica_database(db_iniziale):
         response = supabase.table("app_data").select("payload").eq("id", 1).execute()
         if response.data and len(response.data) > 0:
             payload = response.data[0]["payload"]
-            # Ricostruisce i DataFrame dai dizionari salvati
             db_ricostruito = {}
             for anno, mesi in payload.items():
                 db_ricostruito[anno] = {}
@@ -82,6 +80,22 @@ st.sidebar.markdown(
 st.sidebar.markdown("**Cadenza Soglia:** ~90 RPM")
 st.sidebar.markdown("**Cadenza SS:** ~85 RPM")
 
+# --- DATABASE CICLI PREDEFINITI PER LA SIDEBAR ---
+cicli_predefiniti = {
+    "I° - Soglia Avanzata": {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata"},
+    "I° - Rilancio Aerobico": {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico"},
+    "II° - Blocco Solido di Soglia": {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia"},
+    "II° - Estensione Moderata": {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata"},
+    "III° - Intervalli Lineari VO2Max": {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max"},
+    "III° - Blocco di tenuta": {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta"},
+    "IV° - Richiami Soglia (Scarico)": {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico"},
+    "IV° - Richiami Mantenimento (Scarico)": {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico"}
+}
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("⚙️ Inserimento Ciclo Rapido")
+ciclo_selezionato_sb = st.sidebar.selectbox("Seleziona Ciclo:", list(cicli_predefiniti.keys()))
+
 # --- 2. DATABASE INIZIALE STRUTTURATO ---
 database_iniziale = {
     "2026": {
@@ -119,6 +133,19 @@ if "database_allenamenti" not in st.session_state:
     if is_proprietario:
         salva_database()
 
+# Inizializzazione dello stato per la tabella cicli permanente e editabile
+if "df_cicli_permanente" not in st.session_state:
+    st.session_state.df_cicli_permanente = pd.DataFrame([
+        {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""}
+    ])
+
 st.title("🏋️ Pianificazione Allenamento per Anno Solare")
 
 # --- 3. SELEZIONE ANNO E MESE ---
@@ -148,7 +175,6 @@ if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionat
 
 dati_correnti = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
 
-# Assicura che sia sempre un DataFrame pronto all'uso
 if not isinstance(dati_correnti, pd.DataFrame):
     if isinstance(dati_correnti, list):
         df_base_mese = pd.DataFrame(dati_correnti)
@@ -263,19 +289,38 @@ if is_proprietario:
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
 
-# --- 7. TABELLA CICLI DI ALLENAMENTO (Riferimento Permanente) ---
+# --- 7. TABELLA CICLI DI ALLENAMENTO (Riferimento Permanente & Editabile) ---
 st.markdown("---")
 st.subheader("📋 Tabella Cicli di Allenamento")
 
-df_cicli_permanente = pd.DataFrame([
-    {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-    {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-    {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-    {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-    {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-    {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-    {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-    {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""}
-])
+col_tab, col_btn = st.columns([4, 1])
+with col_tab:
+    df_cicli_modificato = st.data_editor(
+        st.session_state.df_cicli_permanente, 
+        use_container_width=True, 
+        hide_index=True, 
+        key="editor_cicli_perm"
+    )
 
-st.dataframe(df_cicli_permanente, use_container_width=True, hide_index=True)
+with col_btn:
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("➕ Inserisci in riga vuota"):
+        dati_sel = cicli_predefiniti[ciclo_selezionato_sb]
+        inserito = False
+        for idx, row in df_cicli_modificato.iterrows():
+            if str(row["Tipo"]).strip() == "" or pd.isna(row["Tipo"]):
+                df_cicli_modificato.at[idx, "Cicli"] = dati_sel["Cicli"]
+                df_cicli_modificato.at[idx, "Allenamento"] = dati_sel["Allenamento"]
+                df_cicli_modificato.at[idx, "Tipo"] = dati_sel["Tipo"]
+                inserito = True
+                break
+        if inserito:
+            st.session_state.df_cicli_permanente = df_cicli_modificato
+            st.success("Riga popolata con successo!")
+            st.rerun()
+        else:
+            st.warning("Nessuna cella vuota trovata nella colonna Tipo.")
+
+# Aggiorna lo stato se l'utente modifica direttamente le celle vuote o piene nella tabella
+if not df_cicli_modificato.equals(st.session_state.df_cicli_permanente):
+    st.session_state.df_cicli_permanente = df_cicli_modificato
