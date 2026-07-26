@@ -128,6 +128,10 @@ if "database_allenamenti" not in st.session_state:
     if is_proprietario:
         salva_database()
 
+# Inizializzazione contatore di versione per forzare il refresh visivo del data_editor
+if "version_editor" not in st.session_state:
+    st.session_state.version_editor = 0
+
 st.title("🏋️ Pianificazione Allenamento per Anno Solare")
 
 # --- 3. SELEZIONE ANNO E MESE ---
@@ -195,6 +199,10 @@ if is_proprietario:
                 if all(col in df_caricato.columns for col in colonne_attese):
                     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_caricato[colonne_attese]
                     salva_database()
+                    
+                    # Incrementa la versione per forzare la rigenerazione del widget della tabella
+                    st.session_state.version_editor += 1
+                    
                     st.success(f"File CSV caricato e salvato permanentemente su Supabase per {mese_selezionato} {anno_selezionato}!")
                     st.rerun()
                 else:
@@ -210,7 +218,7 @@ if is_proprietario:
         df_base_mese,
         num_rows="dynamic",
         use_container_width=True,
-        key=f"editor_{anno_selezionato}_{mese_selezionato}",
+        key=f"editor_{anno_selezionato}_{mese_selezionato}_{st.session_state.version_editor}",
         column_config={
             "Watt": st.column_config.NumberColumn(min_value=50, max_value=500, step=1),
             "RPM": st.column_config.NumberColumn(min_value=60, max_value=120, step=1),
@@ -267,6 +275,10 @@ if is_proprietario:
                                 )
 
                     salva_database()
+                    
+                    # Incrementa la versione per pulire l'editor anche qui
+                    st.session_state.version_editor += 1
+                    
                     st.success("Dati svuotati e sincronizzati con successo su Supabase!")
                     st.rerun()
                 except Exception as e:
