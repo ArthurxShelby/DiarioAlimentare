@@ -62,19 +62,19 @@ if activities:
         except (ValueError, TypeError):
             return None
 
-    for act in activities:
+   for act in activities:
         parsed_data.append({
             "activity_id": str(act.get("id")),
             "data": act.get("start_date_local", "").split("T")[0],
             "titolo": act.get("name", "Uscita senza titolo"),
             "distanza": round(act.get("distance", 0) / 1000, 2),
             "tempo": str(timedelta_to_str(act.get("moving_time", 0))),
-            "potenza_media": safe_int(act.get("average_watts")),
+            "potenza_media": safe_int(act.get("average_watts") or act.get("icu_weighted_avg_watts")),
             "potenza_normalizzata": safe_int(act.get("normalized_watts")),
             "fc_media": safe_int(act.get("average_heartrate")),
             "tss": safe_int(act.get("icu_training_load")),
             "dislivello": safe_int(act.get("total_elevation_gain")),
-            "forma": safe_int(act.get("form"))
+            "forma": safe_int(act.get("form") or act.get("icu_form"))
         })
         
     df_activities = pd.DataFrame(parsed_data)
