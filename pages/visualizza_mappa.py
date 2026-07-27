@@ -1,5 +1,6 @@
 import streamlit as st
-import streamlit.components.v1 as components
+import pandas as pd
+import requests
 from supabase import create_client, Client
 
 # --- 1. Configurazione pagina ---
@@ -14,6 +15,41 @@ except Exception as e:
     st.stop()
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+def get_coordinates_from_url(url):
+    """Scarica il testo grezzo e lo converte in coordinate lat/lon corrette"""
+    try:
+        response = requests.get(url)
+        if response.status_code != 200:
+            return None
+            
+        # Proviamo a leggere il JSON o a interpretare il testo come lista di numeri
+        try:
+            data = response.json()
+        except:
+            # Se è una stringa di numeri separati da virgola
+            text = response.text.strip()
+            data = [float(x.strip()) for x in text.replace('[', '').replace(']', '').split(',') if x.strip()]
+            
+        if not data or not isinstance(data, list) or len(data) < 4:
+            return None
+            
+        # Se i dati sono una lista piatta [lat1, lon1, lat2, lon2, ...]
+        limit = (len(data) // 2) * 2
+        clean_data = data[:limit]
+        
+        lats = clean_data[0::2]  # Elementi pari
+        lons = clean_data[1::2]  # Elementi dispari
+        
+        df = pd.DataFrame({'lat': lats, 'lon': lons})
+        df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
+        df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
+        df = df.dropna()
+        
+        return df if not df.empty else None
+    except Exception as e:
+        st.error(f"Errore di parsing: {e}")
+        return None
 
 # --- Logica della Pagina ---
 st.title("🗺️ Mappa Attività - Trieste Ciclismo su strada")
@@ -43,27 +79,14 @@ if map_url:
             
             st.subheader("Tracciato Geografico")
             
-            # Incorporiamo la visualizzazione tramite iframe pulito o box interattivo
-            # Nota: Se l'URL di Intervals richiede i cookie di sessione, l'iframe potrebbe 
-            # richiedere il login; per aggirarlo in modo sicuro, offriamo il box integrato 
-            # e il pulsante diretto.
-            st.markdown(
-                f"""
-                <div style="border: 2px solid #262730; border-radius: 10px; overflow: hidden; background-color: #0e1117;">
-                    <iframe src="{map_url}" width="100%" height="600px" style="border:none;"></iframe>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+            # Carichiamo e tracciamo la mappa con i punti corretti
+            df_coords = get_coordinates_from_url(map_url)
             
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            col_btn1, col_btn2 = st.columns(2)
-            with col_btn1:
-                st.markdown(
-                    f'<a href="{map_url}" target="_blank"><button style="background-color:#FF4B4B; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:bold; width:100%;">🌍 Apri Mappa a Schermo Intero</button></a>',
-                    unsafe_allow_html=True
-                )
+            if df_coords is not None and not df_coords.empty:
+                st.success(f"Tracciato elaborato con successo ({len(df_coords)} punti GPS rilevati).")
+                st.map(df_coords, use_container_width=True)
+            else:
+                st.warning("Impossibile convertire la sequenza numerica in coordinate cartografiche valide.")
         else:
             st.warning("Nessuna informazione trovata per questa attività.")
     except Exception as e:
