@@ -488,7 +488,7 @@ if atleta_corrente == "Atleta Principale" and not usa_solo_mifflin:
         cal_carb_c = obj_carbo * 4
         obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 50.0)
 
-    st.sidebar.markdown(f"**Programma del giorno:**\n*{tipo_giornata}*")
+    st.sidebar.markdown("**Programma del giorno:**\n*Profilo Standard / Mifflin*")
 
 if atleta_corrente != "Atleta Principale" or usa_solo_mifflin:
     obj_kcal = round(tdee, 0)
