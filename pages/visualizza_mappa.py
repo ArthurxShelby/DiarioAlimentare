@@ -20,7 +20,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 3. Funzione di Parsing ("Gli Occhiali") ---
 def get_coordinates_from_url(url):
-    """Ulteriore calibrazione della longitudine per completare il viaggio dalla Francia a Trieste"""
+    """Calibrazione finale per posizionare la traccia sulla terraferma di Trieste e aprirla alla giusta scala"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
@@ -46,8 +46,8 @@ def get_coordinates_from_url(url):
             lat_values = block2
             raw_lon = block1
 
-        # Dividiamo per 3.5 per agganciarci esattamente a 13.7° Est (Trieste)
-        lon_values = [x / 3.5 for x in raw_lon]
+        # Spostiamo millimetricamente la longitudine dal mare alla terraferma (fattore 3.42)
+        lon_values = [x / 3.42 for x in raw_lon]
 
         df = pd.DataFrame({'lat': lat_values, 'lon': lon_values})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
