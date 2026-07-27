@@ -20,7 +20,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 3. Funzione di Parsing ("Gli Occhiali") ---
 def get_coordinates_from_url(url):
-    """Estrae correttamente latitudine e longitudine reali dai dati JSON salvati"""
+    """Estrae le coordinate gestendo in modo flessibile qualsiasi struttura JSON"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
@@ -31,20 +31,82 @@ def get_coordinates_from_url(url):
         except Exception:
             return None
             
-        if not data or not isinstance(data, list):
+        if not data:
             return None
             
         lat_values = []
         lon_values = []
 
-        # Intervals.icu salva i dati come una lista di coppie [lat, lon]
-        for item in data:
-            if isinstance(item, (list, tuple)) and len(item) >= 2:
-                lat_values.append(item[0])
-                lon_values.append(item[1])
+        # CASO 1: Se data è una lista
+        if isinstance(data, list):
+            # Controlliamo se è una lista di liste/tuple (es. [[lat, lon], ...])
+            if len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
+                for item in data:
+                    lat_values.append(item[0])
+                    lon_values.append(item[1])
+            # Oppure se è una lista di dizionari (es. [{"lat": ..., "lng": ...}, ...])
+            elif len(data) > 0 and isinstance(data[0], dict):
+                for item in data:
+                    lat = item.get('lat') or item.get('latitude')
+                    lon = item.get('lon') or item.get('lng') or item.get('longitude')
+                    if lat is not None and lon is not None:
+                        lat_values.append(lat)
+                        lon_values.append(lon)
+            # Oppure se è una lista piatta mista (il vecchio formato diviso a blocchi)
+            else:
+                try:
+                    numeric_data = [float(x) for x in data]
+                    n = len(numeric_data) // 2
+                    if n > 0:
+                        lat_values = numeric_data[:n]
+                        lon_values = numeric_data[n:2*n]
+                except Exception:
+                    pass
 
-        if not lat_values or not lon_values or len(lat_values) != len(lon_values):
-            return None
+        # CASO 2: Se data è un dizionario (es. formato nativo di Intervals con {"type": "latlng", "data": [...]})
+        elif isinstance(data, dict):
+            # Cerchiamo se contiene una chiave 'data' o 'latlng' o 'points'
+            inner_data = data.get('data') or data.get('latlng') or data.get('points') or data.get('coordinates')
+            if isinstance(inner_data, list):
+                return get_coordinates_from_url_helper(inner_data) # ricorsione pulita o estrazione interna
+
+            # Oppure chiavi separate lat e lon nel dizionario principale
+            if 'lat' in data and ('lon' in data or 'lng' in data):
+                lat_values = data['lat']
+                lon_values = data['lon'] or data['lng']
+
+        # Fallback se abbiamo estratto due liste separate
+        if isinstance(lat_values, list) and isinstance(lon_values, list) and len(lat_values) == len(lon_values) and len(lat_values) > 0:
+            df = pd.DataFrame({'lat': lat_values, 'lon': lon_values})
+            df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
+            df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
+            df = df.dropna()
+            return df if not df.empty else None
+
+        return None
+    except Exception as e:
+        st.error(f"Errore durante il parsing del tracciato: {e}")
+        return None
+
+def get_coordinates_from_url_helper(inner_data):
+    """Supporto interno per sotto-liste"""
+    lat_v, lon_v = [], []
+    for item in inner_data:
+        if isinstance(item, (list, tuple)) and len(item) >= 2:
+            lat_v.append(item[0])
+            lon_v.append(item[1])
+        elif isinstance(item, dict):
+            lat = item.get('lat') or item.get('latitude')
+            lon = item.get('lon') or item.get('lng') or item.get('longitude')
+            if lat is not None and lon is not None:
+                lat_v.append(lat)
+                lon_v.append(lon)
+    if lat_v and lon_v:
+        df = pd.DataFrame({'lat': lat_v, 'lon': lon_v})
+        df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
+        df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
+        return df.dropna()
+    return None
 
         df = pd.DataFrame({'lat': lat_values, 'lon': lon_values})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
