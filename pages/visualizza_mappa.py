@@ -29,7 +29,7 @@ if map_url:
             act = response.data[0]
             st.subheader(f"{act.get('titolo', 'Attività')} - {act.get('data', '')}")
             
-            # Mostriamo i dati testuali dell'uscita in modo pulito
+            # Mostriamo i dati testuali dell'uscita in modo ordinato
             col1, col2, col3 = st.columns(3)
             with col1:
                 st.metric("Distanza", f"{act.get('distanza', 0)} km")
@@ -38,10 +38,7 @@ if map_url:
             with col3:
                 st.metric("Dislivello", f"{act.get('dislivello', 0)} m")
                 
-            st.info("ℹ️ La visualizzazione grafica della mappa è stata disattivata per incompatibilità con il formato dei dati sorgente.")
-            
-            # Pulsante per aprire direttamente l'attività originale se disponibile
-            st.markdown(f"[🔗 Apri file dati sorgente]({map_url})", unsafe_allow_html=True)
+            st.info("ℹ️ La visualizzazione grafica della mappa non è disponibile per questa attività a causa del formato dei dati sorgente.")
         else:
             st.warning("Nessuna informazione trovata per questa attività.")
     except Exception as e:
