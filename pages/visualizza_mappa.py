@@ -18,7 +18,7 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_json(url):
-    """Scarica il JSON e inverte le colonne lat/lon per raddrizzare definitivamente la traccia"""
+    """Scarica il JSON e gestisce perfettamente la lista piatta con numero dispari di elementi"""
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -33,14 +33,14 @@ def get_coordinates_from_json(url):
             
             # Se i dati sono una lista piatta di numeri singoli
             elif len(data) > 0 and not isinstance(data[0], (list, tuple)):
+                # Rendiamo il totale pari tagliando l'ultimo elemento se dispari
                 limit = (len(data) // 2) * 2
                 half = limit // 2
                 
                 lats = data[:half]
                 lons = data[half:limit]
                 
-                # Invertiamo l'assegnazione per raddrizzare la mappa
-                df = pd.DataFrame({'lat': lons, 'lon': lats})
+                df = pd.DataFrame({'lat': lats, 'lon': lons})
             else:
                 return None
                 
