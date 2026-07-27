@@ -17,7 +17,7 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_url(url):
-    """Estrae i dati dividendo l'array esattamente a metà (blocco latitudini e blocco longitudini)"""
+    """Estrae i dati e inverte le coordinate se l'asse era scambiato"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
@@ -32,12 +32,12 @@ def get_coordinates_from_url(url):
         if not data or not isinstance(data, list) or len(data) < 4:
             return None
             
-        # Dividiamo la lista esattamente a metà
         n = len(data) // 2
-        lats = data[:n]
-        lons = data[n:2*n]
+        block1 = data[:n]
+        block2 = data[n:2*n]
         
-        df = pd.DataFrame({'lat': lats, 'lon': lons})
+        # Invertiamo i blocchi scambiando lat e lon per centrare la mappa correttamente
+        df = pd.DataFrame({'lat': block2, 'lon': block1})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
         df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
         df = df.dropna()
