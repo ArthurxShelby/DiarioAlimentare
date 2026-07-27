@@ -18,7 +18,7 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_json(url):
-    """Scarica il JSON e inverte il verso dell'array per raddrizzare la traccia"""
+    """Scarica il JSON e formatta correttamente le coordinate senza specchiature"""
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -31,11 +31,11 @@ def get_coordinates_from_json(url):
             if isinstance(data, list) and len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
                 df = pd.DataFrame(data, columns=['lat', 'lon'])
             
-            # Se i dati sono una lista piatta, invertiamo l'ordine della sequenza ([::-1])
+            # Se i dati sono una lista piatta
             elif isinstance(data, list) and len(data) > 0 and not isinstance(data[0], (list, tuple)):
                 half = len(data) // 2
-                lons = data[:half][::-1]
-                lats = data[half:half*2][::-1]
+                lons = data[:half]
+                lats = data[half:half*2]
                 df = pd.DataFrame({'lat': lats, 'lon': lons})
             else:
                 return None
@@ -50,7 +50,7 @@ def get_coordinates_from_json(url):
             return None
     except Exception as e:
         st.error(f"Errore nell'elaborazione della mappa: {e}")
-        return None
+        return Nonene
 
 # --- Logica della Pagina ---
 st.title("🗺️ Visualizzazione Percorso Attività")
