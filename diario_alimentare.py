@@ -484,6 +484,9 @@ st.sidebar.markdown("---")
 st.sidebar.header("Seleziona Giorno")
 data_selezionata = st.sidebar.date_input("Data", value=date.today())
 data_str = data_selezionata.strftime("%Y-%m-%d")
+st.sidebar.header("Seleziona Giorno")
+data_selezionata = st.sidebar.date_input("Data", value=date.today())
+data_str = data_selezionata.strftime("%Y-%m-%d")
 
 db_diario_atleta = atleta_data.setdefault("db_diario", {})
 if data_str not in db_diario_atleta:
