@@ -46,8 +46,8 @@ def get_coordinates_from_url(url):
             lat_values = block2
             raw_lon = block1
 
-        # Spostiamo millimetricamente la longitudine dalla costa/mare alla terraferma (fattore 3.38)
-        lon_values = [x / 3.38 for x in raw_lon]
+        # Portiamo il divisore a un valore che sposti la traccia sulla terraferma del Carso
+        lon_values = [x / 3.32 for x in raw_lon]
 
         df = pd.DataFrame({'lat': lat_values, 'lon': lon_values})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
