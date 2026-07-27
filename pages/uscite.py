@@ -3,6 +3,7 @@ st.set_page_config(layout="wide")
 import requests
 from datetime import datetime
 import pandas as pd
+import os
 
 # --- Configurazione ---
 st.title("🚴 Gestione Uscite da Intervals.icu")
@@ -128,11 +129,15 @@ if activities:
         st.dataframe(df_mese, use_container_width=True, hide_index=True, height=450)
         
     with col_img:
-        st.subheader("TCR Advanced Pro 0")
-        try:
-            st.image("TCR.png", use_container_width=True)
-        except Exception:
-            st.warning("Immagine non trovata. Verifica che il file 'TCR.png' sia nella repository GitHub.")
+    st.subheader("GIANT TCR Advance Pro 0")
+    try:
+        # Trova la cartella esatta dove si trova uscite.py
+        cartella_script = os.path.dirname(__file__)
+        percorso_foto = os.path.join(cartella_script, "TCR.png")
+        
+        st.image(percorso_foto, use_container_width=True)
+    except Exception as e:
+        st.warning(f"Immagine non trovata in {percorso_foto}. Verifica il caricamento.")
     
     st.markdown("---")
     st.subheader("📋 Dettaglio Completo Attività")
