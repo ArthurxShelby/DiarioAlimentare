@@ -5,6 +5,18 @@ from datetime import datetime
 import pandas as pd
 import os
 
+# --- Controllo Accesso: Solo il Proprietario ---
+try:
+    OWNER_ID = str(st.secrets["intervals"]["athlete_id"])
+except Exception:
+    OWNER_ID = None
+
+# Esempio di verifica (se utilizzi st.experimental_user o un sistema di login personalizzato)
+# Se gestisci l'utente loggato, puoi confrontarlo con il proprietario:
+# if str(logged_user_id) != OWNER_ID:
+#     st.error("Accesso negato: questa pagina è riservata esclusivamente al proprietario.")
+#     st.stop()
+
 # --- Configurazione ---
 st.title("🚴 Gestione Uscite da Intervals.icu")
 
@@ -104,7 +116,7 @@ if activities:
     tot_km = round(df_activities["distanza"].sum(), 2)
     tot_dislivello = int(df_activities["dislivello"].fillna(0).sum())
     
-    # 1. Riga Superiore in 3 colonne: Metrica Km, Metrica D+, e Foto Bici in alto a destra
+    # Riga Superiore in 3 colonne: Metrica Km, Metrica D+, e Foto Bici
     col_m1, col_m2, col_img = st.columns(3)
     
     with col_m1:
@@ -122,7 +134,7 @@ if activities:
     
     st.markdown("---")
     
-    # 2. Riga Inferiore in 2 colonne: Tabella Anno e Tabella Mese affiancate
+    # Riga Inferiore in 2 colonne: Tabella Anno e Tabella Mese
     col_tab1, col_tab2 = st.columns(2)
     
     with col_tab1:
@@ -137,7 +149,7 @@ if activities:
         df_mese = df_activities.groupby("mese")[["distanza", "dislivello"]].sum().reset_index()
         df_mese.columns = ["Mese", "Km Totali", "Dislivello Totale (m)"]
         df_mese = df_mese.sort_values("Mese", ascending=False)
-        st.dataframe(df_mese, use_container_width=True, hide_index=True, height=400)
+        st.dataframe(df_mese, use_container_width=True, hide_index=True, height=450)
     
     st.markdown("---")
     st.subheader("📋 Dettaglio Completo Attività")
@@ -168,3 +180,4 @@ if activities:
 
 else:
     st.info("Nessuna attività trovata nel periodo selezionato o errore di connessione.")
+    
