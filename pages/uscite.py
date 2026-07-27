@@ -131,7 +131,7 @@ if activities_db:
     
     parsed_data = []
     
-    for act in activities_db:
+    for act in activities:
         act_id = str(act.get("id"))
         avg_watts = act.get("average_watts") or act.get("icu_average_watts") or act.get("device_watts")
         norm_watts = act.get("icu_weighted_avg_watts") or act.get("normalized_watts")
