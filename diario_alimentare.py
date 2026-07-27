@@ -6,6 +6,7 @@ import re
 from supabase import create_client
 import streamlit as st
 import hashlib
+import gpxpy
 
 def hash_password(password):
     """Converte la password in una stringa cifrata (SHA-256)"""
