@@ -20,7 +20,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 3. Funzione di Parsing ("Gli Occhiali") ---
 def get_coordinates_from_url(url):
-    """Converte i semicircoli di Intervals.icu (standard FIT/Garmin) in gradi decimali"""
+    """Estrae i blocchi, scala correttamente i numeri e posiziona la rotta a Trieste"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
@@ -36,26 +36,20 @@ def get_coordinates_from_url(url):
             return None
             
         n = len(data) // 2
-        block1 = data[:n]
-        block2 = data[n:2*n]
+        block1 = data[:n] # Longitudini grezze (es. ~1.37 milioni)
+        block2 = data[n:2*n] # Latitudini grezze (es. ~4.56 milioni)
         
-        # Fattore di conversione esatto da semicircoli a gradi decimali (180 / 2^31)
-        SEMICIRCLES_TO_DEGREES = 180.0 / (2**31)
-        
-        # Conversione puntuale dei valori
-        latitudes = [x * SEMICIRCLES_TO_DEGREES for x in block1]
-        longitudes = [x * SEMICIRCLES_TO_DEGREES for x in block2]
+        # Riportiamo i valori in gradi decimali reali dividendo per 100.000
+        longitudes = [x / 100000.0 for x in block1]
+        latitudes = [x / 100000.0 for x in block2]
 
+        # Associamo correttamente block2 a lat e block1 a lon
         df = pd.DataFrame({'lat': latitudes, 'lon': longitudes})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
         df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
         df = df.dropna()
         
         return df if not df.empty else None
-    except Exception as e:
-        st.error(f"Errore durante il parsing del tracciato: {e}")
-        return None
-       
     except Exception as e:
         st.error(f"Errore durante il parsing del tracciato: {e}")
         return None
