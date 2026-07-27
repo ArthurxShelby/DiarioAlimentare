@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import requests
-import plotly.express as px
 from supabase import create_client, Client
 
 # --- 1. Configurazione pagina ---
@@ -18,7 +17,7 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_json(url):
-    """Estrae le coordinate in modo pulito per Plotly"""
+    """Scarica il JSON e restituisce un DataFrame pulito per Streamlit"""
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -27,16 +26,19 @@ def get_coordinates_from_json(url):
             if not data or not isinstance(data, list):
                 return None
             
-            # Se è una lista di coppie
+            # Se i dati sono una lista di coppie [lat, lon]
             if len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
                 df = pd.DataFrame(data, columns=['lat', 'lon'])
-            # Se è la lista piatta
+            
+            # Se i dati sono una lista piatta di numeri singoli
             elif len(data) > 0 and not isinstance(data[0], (list, tuple)):
                 limit = (len(data) // 2) * 2
                 half = limit // 2
-                lons = data[:half]
-                lats = data[half:limit]
-                df = pd.DataFrame({'lat': lats, 'lon': lons})
+                
+                lon_vals = data[:half]
+                lat_vals = data[half:limit]
+                
+                df = pd.DataFrame({'lat': lat_vals, 'lon': lon_vals})
             else:
                 return None
                 
@@ -70,22 +72,12 @@ if map_url:
     df_coords = get_coordinates_from_json(map_url)
     
     if df_coords is not None and not df_coords.empty:
-        # Usiamo Plotly Scattermapbox per disegnare il percorso in modo nativo e stabile
-        fig = px.line_mapbox(
-            df_coords, 
-            lat="lat", 
-            lon="lon", 
-            zoom=12, 
-            height=600
-        )
+        # Sfruttiamo st.map che è nativo di Streamlit e non richiede dipendenze esterne
+        st.map(df_coords, use_container_width=True)
         
-        # Impostiamo uno stile scuro coordinato con il tema della tua app
-        fig.update_layout(
-            mapbox_style="carto-darkmatter",
-            margin={"r":0,"t":0,"l":0,"b":0}
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
+        with st.expander("Dettagli Coordinate"):
+            st.write(f"Punti totali: {len(df_coords)}")
+            st.dataframe(df_coords.head(10))
     else:
         st.warning("Impossibile caricare i dati della mappa o file vuoto.")
 else:
