@@ -495,7 +495,7 @@ if atleta_corrente != "Atleta Principale" or usa_solo_mifflin:
     obj_carbo = 230.0
     obj_prot = 165.0
     obj_grassi = 70.0
-    st.sidebar.markdown("**Programma del giorno:**\n*Profilo Standard / Mifflin*"))
+    st.sidebar.markdown("**Programma del giorno:**\n*Profilo Standard / Mifflin*")
 
     st.sidebar.markdown(f"**Programma del giorno:**\n*{tipo_giornata}*")
 
