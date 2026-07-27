@@ -21,23 +21,24 @@ def get_coordinates_from_json(url):
     """Scarica il JSON dal bucket e lo converte in un DataFrame Pandas per st.map"""
     try:
         response = requests.get(url)
+        st.write(f"Status HTTP download: {response.status_code}") # Debug
+        
         if response.status_code == 200:
             intervals_data = response.json()
+            
+            # Mostriamo un'anteprima dei dati grezzi per capire come sono fatti
+            st.write("Tipo di dati ricevuti:", type(intervals_data))
+            if isinstance(intervals_data, list) and len(intervals_data) > 0:
+                st.write("Primo elemento:", intervals_data[0])
+            
             if not intervals_data:
                 return None
             
-            # Se i dati sono una lista di liste (es. [[lat, lon], ...])
-            if isinstance(intervals_data, list):
-                # Controlliamo se ogni elemento ha almeno 2 valori
-                if len(intervals_data) > 0 and isinstance(intervals_data[0], (list, tuple)) and len(intervals_data[0]) >= 2:
-                    df = pd.DataFrame(intervals_data, columns=['lat', 'lon'])
-                else:
-                    # Se è una lista semplice o ha un formato differente
-                    return None
+            if isinstance(intervals_data, list) and len(intervals_data) > 0 and isinstance(intervals_data[0], (list, tuple)) and len(intervals_data[0]) >= 2:
+                df = pd.DataFrame(intervals_data, columns=['lat', 'lon'])
             else:
                 return None
                 
-            # Rimuoviamo eventuali valori nulli
             df = df.dropna(subset=['lat', 'lon'])
             return df
         else:
