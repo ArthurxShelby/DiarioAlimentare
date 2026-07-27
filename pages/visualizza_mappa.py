@@ -20,7 +20,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 3. Funzione di Parsing ("Gli Occhiali") ---
 def get_coordinates_from_url(url):
-    """Scarica il flusso grezzo e restituisce un DataFrame pulito con lat e lon"""
+    """Estrae i dati, scala correttamente le coordinate e le posiziona a Trieste"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
@@ -39,7 +39,14 @@ def get_coordinates_from_url(url):
         block1 = data[:n]
         block2 = data[n:2*n]
         
-        # Combinazione pulita dei blocchi per la geolocalizzazione
+        # Se i numeri sono interi grandi (es. 4.5 milioni anziché 45.5), li normalizziamo
+        # Verifichiamo se il primo valore è maggiore di 180 o minore di -180
+        if abs(block1[0]) > 180:
+            block1 = [x / 100000.0 for x in block1]
+        if abs(block2[0]) > 180:
+            block2 = [x / 100000.0 for x in block2]
+
+        # Assegniamo block1 a lat e block2 a lon (o viceversa se l'oriente è specchiato)
         df = pd.DataFrame({'lat': block1, 'lon': block2})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
         df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
