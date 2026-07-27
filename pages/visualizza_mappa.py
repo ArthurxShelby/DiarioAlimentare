@@ -45,7 +45,7 @@ def get_coordinates_from_url(url):
         return df if not df.empty else None
     except Exception as e:
         st.error(f"Errore di parsing: {e}")
-        return None
+        return Nonee
 
 # --- Logica della Pagina ---
 st.title("🗺️ Mappa Attività - Trieste Ciclismo su strada")
