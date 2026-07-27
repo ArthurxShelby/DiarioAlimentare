@@ -46,7 +46,7 @@ def get_coordinates_from_url(url):
         if abs(block2[0]) > 180:
             block2 = [x / 100000.0 for x in block2]
 
-        # Assegniamo block1 a lat e block2 a lon (o viceversa se l'oriente è specchiato)
+        # Assegniamo block1 a lat e block2 a lon (o viceversa se l'oriente è specchiato
         df = pd.DataFrame({'lat': block2, 'lon': block1})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
         df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
