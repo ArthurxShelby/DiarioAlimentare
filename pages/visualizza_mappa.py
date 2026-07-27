@@ -40,7 +40,7 @@ def get_coordinates_from_url(url):
         block2 = data[n:2*n]
         
         # Costante matematica nativa Garmin per la conversione dei semicircoli
-        SEMICIRCLES_TO_DEGREES = 180.0 / (231)
+        SEMICIRCLES_TO_DEGREES = 180.0 / (2*31)
         
         # Identificazione corretta degli assi nativi
         if abs(block1[0] * SEMICIRCLES_TO_DEGREES) > 20 and abs(block1[0] * SEMICIRCLES_TO_DEGREES) < 60:
