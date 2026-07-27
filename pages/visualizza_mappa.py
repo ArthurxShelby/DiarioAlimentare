@@ -18,7 +18,7 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_json(url):
-    """Scarica il JSON e formatta correttamente le coordinate senza inversioni errate"""
+    """Scarica il JSON e formatta correttamente le coordinate invertendo lat e lon"""
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -31,16 +31,27 @@ def get_coordinates_from_json(url):
             if isinstance(data, list) and len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
                 df = pd.DataFrame(data, columns=['lat', 'lon'])
             
-            # Se i dati sono una lista piatta di coordinate alternate
+            # Se i dati sono una lista piatta, invertiamo l'ordine precedente
             elif isinstance(data, list) and len(data) > 0 and not isinstance(data[0], (list, tuple)):
                 half = len(data) // 2
-                # In Intervals.icu lo stream della mappa fornisce la longitudine prima e la latitudine dopo (o viceversa).
-                # Proviamo a mappare esplicitamente colonna 1 = lat (seconda metà) e colonna 2 = lon (prima metà)
-                lons = data[:half]
-                lats = data[half:half*2]
+                # Qui rimettiamo la prima metà come latitudine e la seconda come longitudine
+                lats = data[:half]
+                lons = data[half:half*2]
                 df = pd.DataFrame({'lat': lats, 'lon': lons})
             else:
                 return None
+                
+            # Conversione in numerico e pulizia dei valori non validi
+            df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
+            df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
+            df = df.dropna()
+            
+            return df if not df.empty else None
+        else:
+            return None
+    except Exception as e:
+        st.error(f"Errore nell'elaborazione della mappa: {e}")
+        return None
                 
             # Conversione in numerico e pulizia dei valori non validi
             df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
