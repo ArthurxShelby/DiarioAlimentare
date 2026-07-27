@@ -20,7 +20,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 3. Funzione di Parsing ("Gli Occhiali") ---
 def get_coordinates_from_url(url):
-    """Ritorna alla scala corretta europea con proporzioni geometriche precise per la traccia"""
+    """Estrae correttamente latitudine e longitudine reali dai dati JSON salvati"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
@@ -28,26 +28,23 @@ def get_coordinates_from_url(url):
             
         try:
             data = response.json()
-        except:
-            text = response.text.strip()
-            data = [float(x.strip()) for x in text.replace('[', '').replace(']', '').split(',') if x.strip()]
-            
-        if not data or not isinstance(data, list) or len(data) < 4:
+        except Exception:
             return None
             
-        n = len(data) // 2
-        block1 = data[:n]
-        block2 = data[n:2*n]
-        
-        if abs(block1[0]) > 20 and abs(block1[0]) < 60:
-            lat_values = block1
-            raw_lon = block2
-        else:
-            lat_values = block2
-            raw_lon = block1
+        if not data or not isinstance(data, list):
+            return None
+            
+        lat_values = []
+        lon_values = []
 
-        # Manteniamo la scala corretta dividendo per 3.32 per posizionarla a Trieste con la forma giusta
-        lon_values = [x / 3.32 for x in raw_lon]
+        # Intervals.icu salva i dati come una lista di coppie [lat, lon]
+        for item in data:
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                lat_values.append(item[0])
+                lon_values.append(item[1])
+
+        if not lat_values or not lon_values or len(lat_values) != len(lon_values):
+            return None
 
         df = pd.DataFrame({'lat': lat_values, 'lon': lon_values})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
