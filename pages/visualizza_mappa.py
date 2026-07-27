@@ -17,7 +17,7 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_json(url):
-    """Scarica il JSON e restituisce un DataFrame pronto per st.map()"""
+    """Scarica il JSON e mappa correttamente prima metà (lon) e seconda metà (lat)"""
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -26,22 +26,23 @@ def get_coordinates_from_json(url):
             if not data or not isinstance(data, list):
                 return None
             
-            # Formato A: Lista di coppie [lat, lon]
+            # Se i dati sono una lista di coppie [lat, lon]
             if len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
                 df = pd.DataFrame(data, columns=['lat', 'lon'])
             
-            # Formato B: Lista piatta di valori alternati
+            # Se i dati sono una lista piatta: prima metà = lon, seconda metà = lat
             elif len(data) > 0 and not isinstance(data[0], (list, tuple)):
-                half = len(data) // 2
-                lats = data[:half]
-                lons = data[half:2*half]
+                limit = (len(data) // 2) * 2
+                half = limit // 2
                 
-                # Creiamo il DataFrame direttamente con le colonne standard di Streamlit
-                df = pd.DataFrame({'lat': lats, 'lon': lons})
+                lon_vals = data[:half]
+                lat_vals = data[half:limit]
+                
+                df = pd.DataFrame({'lat': lat_vals, 'lon': lon_vals})
             else:
                 return None
                 
-            # Pulizia e conversione numerica rigorosa
+            # Conversione in numerico e pulizia dei valori non validi
             df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
             df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
             df = df.dropna()
