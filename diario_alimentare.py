@@ -432,29 +432,6 @@ with st.sidebar.expander(f"Parametri Mifflin & Attività: {st.session_state.atle
         st.text(f"Genere: {genere}")
         st.text(f"Attività: {livello_allenamento}")
 
-pal_dict = {
-    "Riposo / Sedentario (PAL 1.2)": 1.2,
-    "Attività Leggera (PAL 1.375)": 1.375,
-    "Allenamento Moderato (PAL 1.55)": 1.55,
-    "Allenamento Intenso / Rouleur-Climber (PAL 1.725)": 1.725,
-    "Doppio Allenamento / Estremo (PAL 1.9)": 1.9,
-}
-pal_selezionato = pal_dict.get(livello_allenamento, 1.55)
-
-if genere == "Uomo":
-    bmr = (10 * peso) + (6.25 * altezza) - (5 * eta) + 5
-else:
-    bmr = (10 * peso) + (6.25 * altezza) - (5 * eta) - 161
-
-tdee = bmr * pal_selezionato
-
-
-
-st.sidebar.markdown("---")
-st.sidebar.header("Seleziona Giorno")
-data_selezionata = st.sidebar.date_input("Data", value=date.today())
-data_str = data_selezionata.strftime("%Y-%m-%d")
-
 # --- CALCOLO OBIETTIVI (DINAMICO PER ATLETA PRINCIPALE) ---
 atleta_corrente = st.session_state.get("atleta_corrente", "")
 
@@ -498,37 +475,6 @@ if atleta_corrente != "Atleta Principale" or usa_solo_mifflin:
     obj_prot = 165.0
     obj_grassi = 70.0
     st.sidebar.markdown("**Programma del giorno:**\n*Profilo Standard / Mifflin*")
-
-    st.sidebar.markdown(f"**Programma del giorno:**\n*{tipo_giornata}*")
-
-else:
-    obj_kcal = round(tdee, 0)
-    obj_carbo = 230.0
-    obj_prot = 165.0
-    obj_grassi = 70.0
-    st.sidebar.markdown("**Programma del giorno:**\n*Profilo Standard / Mifflin*")
-
-    st.sidebar.markdown(f"**Programma del giorno:**\n*{tipo_giornata}*")
-
-else:
-    # Comportamento standard per gli altri atleti o se attivi il checkbox Mifflin
-    obj_kcal = round(tdee, 0)
-    obj_carbo = 230.0
-    obj_prot = 165.0
-    obj_grassi = 70.0
-    st.sidebar.markdown("**Programma del giorno:**\n*Profilo Standard / Mifflin*")
-
-    st.sidebar.markdown(f"**Programma del giorno:**\n*{tipo_giornata}*")
-
-else:
-    # Comportamento standard (per gli altri atleti o se l'atleta principale sceglie il solo Mifflin)
-    obj_kcal = round(tdee, 0)
-    obj_carbo = 230.0  # O i tuoi valori standard di default
-    obj_prot = 165.0
-    obj_grassi = 70.0
-    st.sidebar.markdown("**Programma del giorno:**\n*Standard / Profilo Mifflin*")
-
-st.sidebar.markdown(f"**Programma del giorno:**\n*{tipo_giornata}*")
 
 db_diario_atleta = atleta_data.setdefault("db_diario", {})
 if data_str not in db_diario_atleta:
