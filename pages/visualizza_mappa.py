@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 import requests
-import folium
-from streamlit_folium import st_folium
 from supabase import create_client, Client
 
 # --- 1. Configurazione pagina ---
@@ -18,40 +16,42 @@ except Exception as e:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def get_latlon_pairs(url):
-    """Estrae le coppie pulite gestendo sia liste di tuple che liste separate"""
+def get_coordinates_from_json(url):
+    """Scarica il JSON e restituisce un DataFrame pronto per st.map()"""
     try:
         response = requests.get(url)
-        if response.status_code != 200:
-            return []
-        
-        data = response.json()
-        if not data or not isinstance(data, list):
-            return []
+        if response.status_code == 200:
+            data = response.json()
             
-        coords = []
-        # Se sono già coppie [lat, lon]
-        if len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
-            for pt in data:
-                try:
-                    lat, lon = float(pt[0]), float(pt[1])
-                    coords.append((lat, lon))
-                except:
-                    continue
-        # Se è una lista piatta
-        elif len(data) > 0 and not isinstance(data[0], (list, tuple)):
-            half = len(data) // 2
-            lats = data[:half]
-            lons = data[half:2*half]
-            for lat, lon in zip(lats, lons):
-                try:
-                    coords.append((float(lat), float(lon)))
-                except:
-                    continue
-        return coords
+            if not data or not isinstance(data, list):
+                return None
+            
+            # Formato A: Lista di coppie [lat, lon]
+            if len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
+                df = pd.DataFrame(data, columns=['lat', 'lon'])
+            
+            # Formato B: Lista piatta di valori alternati
+            elif len(data) > 0 and not isinstance(data[0], (list, tuple)):
+                half = len(data) // 2
+                lats = data[:half]
+                lons = data[half:2*half]
+                
+                # Creiamo il DataFrame direttamente con le colonne standard di Streamlit
+                df = pd.DataFrame({'lat': lats, 'lon': lons})
+            else:
+                return None
+                
+            # Pulizia e conversione numerica rigorosa
+            df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
+            df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
+            df = df.dropna()
+            
+            return df if not df.empty else None
+        else:
+            return None
     except Exception as e:
-        st.error(f"Errore nel parsing: {e}")
-        return []
+        st.error(f"Errore nell'elaborazione: {e}")
+        return None
 
 # --- Logica della Pagina ---
 st.title("🗺️ Visualizzazione Percorso Attività")
@@ -69,17 +69,15 @@ if map_url:
     except:
         pass 
 
-    coords = get_latlon_pairs(map_url)
+    df_coords = get_coordinates_from_json(map_url)
     
-    if coords:
-        # Centriamo la mappa sul primo punto del percorso
-        m = folium.Map(location=coords[0], zoom_start=11, tiles="CartoDB dark_matter")
+    if df_coords is not None and not df_coords.empty:
+        # st.map accetta nativamente un dataframe con colonne 'lat' e 'lon'
+        st.map(df_coords, use_container_width=True)
         
-        # Disegniamo la linea del percorso
-        folium.PolyLine(coords, color="red", weight=4, opacity=0.8).add_to(m)
-        
-        # Renderizziamo in Streamlit
-        st_folium(m, width=1100, height=600)
+        with st.expander("Dettagli Coordinate"):
+            st.write(f"Punti totali tracciati: {len(df_coords)}")
+            st.dataframe(df_coords.head(10))
     else:
         st.warning("Impossibile caricare i dati della mappa o file vuoto.")
 else:
