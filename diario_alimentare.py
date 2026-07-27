@@ -453,18 +453,18 @@ usa_solo_mifflin = False
 if atleta_corrente == "Atleta Principale":
     usa_solo_mifflin = st.sidebar.checkbox("Usa solo profilo Mifflin (Standard)", value=False)
 
-# 1. Calcolo avanzato flessibile per la transizione e recupero infortunio
+# 1. Calcolo avanzato flessibile racchiuso in un Expander pulito
 if atleta_corrente == "Atleta Principale" and not usa_solo_mifflin:
-    st.sidebar.markdown("### 🚴‍♂️ Gestione Transizione Infortunio")
-    tipo_giornata_scelto = st.sidebar.selectbox(
-        "Seleziona Focus Giornaliero:",
-        [
-            "🔄 Riposo / Recupero",
-            "🛡️ Rafforzamento Muscolare / Palestra",
-            "🚴‍♂️ Bici (Fase Graduale / Moderata)",
-            "⛰️ Bici (Uscita Lunga / Pieno Carico)"
-        ]
-    )
+    with st.sidebar.expander("🚴‍♂️ Gestione Transizione Infortunio"):
+        tipo_giornata_scelto = st.selectbox(
+            "Seleziona Focus Giornaliero:",
+            [
+                "🔄 Riposo / Recupero",
+                "🛡️ Rafforzamento Muscolare / Palestra",
+                "🚴‍♂️ Bici (Fase Graduale / Moderata)",
+                "⛰️ Bici (Uscita Lunga / Pieno Carico)"
+            ]
+        )
     
     obj_prot = round(peso * 2.2, 1) # Proteine alte costanti per la struttura
     
