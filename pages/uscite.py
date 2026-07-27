@@ -110,15 +110,14 @@ if activities:
     
     st.markdown("---")
     
-    # 2. Tabelle Anno e Mese affiancate, altezza fissa a ~12 righe con scroll
-    col_tab1, col_tab2 = st.columns(2)
+    # 2. Tre colonne affiancate: Tabella Anno, Tabella Mese e Foto Bici
+    col_tab1, col_tab2, col_img = st.columns(3)
     
     with col_tab1:
         st.subheader("📅 Totali per Anno")
         df_anno = df_activities.groupby("anno")[["distanza", "dislivello"]].sum().reset_index()
         df_anno.columns = ["Anno", "Km Totali", "D+ Totale (m)"]
         df_anno = df_anno.sort_values("Anno", ascending=False)
-        # Altezza fissa (es. 450px corrisponde indicativamente a 12 righe prima dello scroll)
         st.dataframe(df_anno, use_container_width=True, hide_index=True, height=450)
         
     with col_tab2:
@@ -127,6 +126,11 @@ if activities:
         df_mese.columns = ["Mese", "Km Totali", "D+ Totale (m)"]
         df_mese = df_mese.sort_values("Mese", ascending=False)
         st.dataframe(df_mese, use_container_width=True, hide_index=True, height=450)
+        
+    with col_img:
+        st.subheader("GIANT TCR Advanced Pro 0")
+        # Assicurati di avere l'immagine nella stessa cartella o inserisci il percorso corretto
+        st.image("Schermata 2025-11-03 alle 18.15.00.jpg", use_container_width=True)
     
     st.markdown("---")
     st.subheader("📋 Dettaglio Completo Attività")
