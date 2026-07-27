@@ -74,5 +74,4 @@ else:
 
 st.markdown("---")
 if st.button("⬅️ Torna alla Gestione Uscite"):
-    # Se uscite.py è nella cartella principale (fuori da pages)
-    st.switch_page("uscite.py")
+    st.switch_page("pages/uscite.py")
