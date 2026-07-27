@@ -175,19 +175,32 @@ if activities_db:
         st.dataframe(df_mese, use_container_width=True, hide_index=True, height=450)
     
     st.markdown("---")
-    st.subheader("📋 Dettaglio Completo Attività")
-    df_activities = df_activities.sort_values("data", ascending=False)
+    st.subheader("🗺️ Visualizzazione Mappa Attività")
     
-    # Colonne da mostrare (escludendo quelle di servizio se presenti)
-    cols_to_show = [c for c in df_activities.columns if c not in ["data_dt", "anno", "mese", "id", "created_at"]]
+    # Selezione attività per aprire la mappa grafica
+    df_activities = df_activities.sort_values("data", ascending=False)
+    activity_options = df_activities.apply(lambda x: f"{x['titolo']} - {x['data']} (ID: {x['activity_id']})", axis=1).tolist()
+    
+    if activity_options:
+        selected_activity_str = st.selectbox("Seleziona un'attività per visualizzarne il percorso sulla mappa:", activity_options)
+        selected_index = activity_options.index(selected_activity_str)
+        selected_row = df_activities.iloc[selected_index]
+        map_url_to_view = selected_row.get('mappa')
+        
+        if map_url_to_view:
+            if st.button("🔍 Apri Mappa Grafica", use_container_width=True):
+                st.query_params.update({"map_url": map_url_to_view})
+                st.switch_page("pages/visualizza_mappa.py")
+        else:
+            st.warning("Per questa attività non è disponibile alcun tracciato mappa.")
+
     st.markdown("---")
     st.subheader("📋 Dettaglio Completo Attività")
-    df_activities = df_activities.sort_values("data", ascending=False)
     
     # Colonne da mostrare (escludendo quelle di servizio se presenti)
     cols_to_show = [c for c in df_activities.columns if c not in ["data_dt", "anno", "mese", "id", "created_at"]]
     
-    # Tabella con i link cliccabili per le mappe
+    # Tabella con i link testuali/standard
     st.dataframe(
         df_activities[cols_to_show], 
         use_container_width=True,
@@ -195,7 +208,7 @@ if activities_db:
             "mappa": st.column_config.LinkColumn(
                 "Mappa",
                 help="Clicca per aprire il file JSON della mappa",
-                display_text="Visualizza Mappa"
+                display_text="Visualizza JSON"
             )
         }
     )
