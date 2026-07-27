@@ -180,4 +180,3 @@ if activities:
 
 else:
     st.info("Nessuna attività trovata nel periodo selezionato o errore di connessione.")
-    
