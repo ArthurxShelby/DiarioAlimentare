@@ -46,10 +46,12 @@ def get_coordinates_from_url(url):
             block2 = [x / 100000.0 for x in block2]
 
         # Creiamo il DataFrame assegnando i blocchi corretti
-        df = pd.DataFrame({'lat': block1, 'lon': block2})
+        df = pd.DataFrame({'lat': block2, 'lon': block1})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
         df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
         df = df.dropna()
+        
+        return df if not df.empty else None
         
         return df if not df.empty else None
     except Exception as e:
