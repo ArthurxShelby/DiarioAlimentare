@@ -20,7 +20,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 3. Funzione di Parsing ("Gli Occhiali") ---
 def get_coordinates_from_url(url):
-    """Estrae i blocchi, scala correttamente i numeri e posiziona la rotta a Trieste"""
+    """Legge direttamente le coordinate in gradi decimali senza divisioni errate"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
@@ -36,16 +36,11 @@ def get_coordinates_from_url(url):
             return None
             
         n = len(data) // 2
-        block1 = data[:n] # Longitudini grezze (es. ~1.37 milioni)
-        block2 = data[n:2*n] # Latitudini grezze (es. ~4.56 milioni)
+        block1 = data[:n]
+        block2 = data[n:2*n]
         
-        # Riportiamo i valori in gradi decimali reali dividendo per 100.000
-        longitudes = [x / 100000.0 for x in block1]
-        latitudes = [x / 100000.0 for x in block2]
-
-        # Associamo correttamente block2 a lat e block1 a lon
-        # Invertiamo i blocchi per agganciare latitudine e longitudine esatte di Trieste
-        df = pd.DataFrame({'lat': longitudes, 'lon': latitudes})
+        # Assegnazione diretta senza divisioni che alterano la scala
+        df = pd.DataFrame({'lat': block1, 'lon': block2})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
         df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
         df = df.dropna()
