@@ -447,10 +447,36 @@ else:
     bmr = (10 * peso) + (6.25 * altezza) - (5 * eta) - 161
 
 tdee = bmr * pal_selezionato
-obj_kcal = round(tdee, 0)
-obj_carbo = 230.0
-obj_prot = 165.0
-obj_grassi = 70.0
+
+# --- CALCOLO DINAMICO DEGLI OBIETTIVI IN BASE AL GIORNO E ALL'ATTIVITÀ ---
+giorno_settimana = data_selezionata.weekday()
+obj_prot = round(peso * 2.2, 1)
+
+if giorno_settimana in [0, 2, 4]:  # Lunedì, Mercoledì, Venerdì: Pesi
+    tipo_giornata = "🏋️‍♂️ Giorno Pesi (Forza / Mantenimento)"
+    obj_kcal = round(tdee * 1.05, 0)
+    obj_carbo = round(peso * 4.0, 1)
+    cal_prot_c = obj_prot * 4
+    cal_carb_c = obj_carbo * 4
+    obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 50.0)
+
+elif giorno_settimana in [1, 3]:  # Martedì, Giovedì: Bici specifica (max 2.5h)
+    tipo_giornata = "🚴‍♂️ Bici Specifica (Allenamento Intermedio)"
+    obj_kcal = round(tdee * 1.15, 0)
+    obj_carbo = round(peso * 5.5, 1)
+    cal_prot_c = obj_prot * 4
+    cal_carb_c = obj_carbo * 4
+    obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 45.0)
+
+else:  # Sabato e Domenica: Uscite lunghe 4/5 ore con scalata
+    tipo_giornata = "⛰️ Bici Lungo / Scalata (4-5 ore)"
+    obj_kcal = round(tdee * 1.35, 0)
+    obj_carbo = round(peso * 7.5, 1)
+    cal_prot_c = obj_prot * 4
+    cal_carb_c = obj_carbo * 4
+    obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 50.0)
+
+st.sidebar.markdown(f"**Programma del giorno:**\n*{tipo_giornata}*")
 
 st.sidebar.info(f"**Atleta in uso:** {st.session_state.atleta_corrente}\n\n**BMR stimato:** {bmr:.0f} kcal\n\n**TDEE dinamico:** {obj_kcal:.0f} kcal")
 
