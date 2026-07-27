@@ -462,6 +462,7 @@ usa_solo_mifflin = False
 if atleta_corrente == "Atleta Principale":
     usa_solo_mifflin = st.sidebar.checkbox("Usa solo profilo Mifflin (Standard)", value=False)
 
+# Blocco 1: Calcolo avanzato per l'atleta principale (se Mifflin non è attivo)
 if atleta_corrente == "Atleta Principale" and not usa_solo_mifflin:
     giorno_settimana = data_selezionata.weekday()
     obj_prot = round(peso * 2.2, 1)
@@ -488,8 +489,9 @@ if atleta_corrente == "Atleta Principale" and not usa_solo_mifflin:
         cal_carb_c = obj_carbo * 4
         obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 50.0)
 
-    st.sidebar.markdown("**Programma del giorno:**\n*Profilo Standard / Mifflin*")
+    st.sidebar.markdown(f"**Programma del giorno:**\n*{tipo_giornata}*")
 
+# Blocco 2: Profilo Standard o Mifflin (per altri atleti o se spunti il checkbox)
 if atleta_corrente != "Atleta Principale" or usa_solo_mifflin:
     obj_kcal = round(tdee, 0)
     obj_carbo = 230.0
