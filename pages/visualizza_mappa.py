@@ -74,4 +74,5 @@ else:
 
 st.markdown("---")
 if st.button("⬅️ Torna alla Gestione Uscite"):
-    st.switch_page("uscite.py") # Assicurati che il nome del file principale sia corretto
+    # Se uscite.py è nella cartella principale (fuori da pages)
+    st.switch_page("uscite.py")
