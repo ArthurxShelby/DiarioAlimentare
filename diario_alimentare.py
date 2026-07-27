@@ -453,39 +453,58 @@ usa_solo_mifflin = False
 if atleta_corrente == "Atleta Principale":
     usa_solo_mifflin = st.sidebar.checkbox("Usa solo profilo Mifflin (Standard)", value=False)
 
-# 1. Calcolo avanzato (solo per te, se non usi solo Mifflin)
+# 1. Calcolo avanzato flessibile per la transizione e recupero infortunio
 if atleta_corrente == "Atleta Principale" and not usa_solo_mifflin:
-    giorno_settimana = data_selezionata.weekday()
-    obj_prot = round(peso * 2.2, 1)
-
-    if giorno_settimana in [0, 2, 4]:
-        tipo_giornata = "🏋️‍♂️ Giorno Pesi (Forza / Mantenimento)"
-        obj_kcal = round(tdee * 1.05, 0)
+    st.sidebar.markdown("### 🚴‍♂️ Gestione Transizione Infortunio")
+    tipo_giornata_scelto = st.sidebar.selectbox(
+        "Seleziona Focus Giornaliero:",
+        [
+            "🔄 Riposo / Recupero",
+            "🛡️ Rafforzamento Muscolare / Palestra",
+            "🚴‍♂️ Bici (Fase Graduale / Moderata)",
+            "⛰️ Bici (Uscita Lunga / Pieno Carico)"
+        ]
+    )
+    
+    obj_prot = round(peso * 2.2, 1) # Proteine alte costanti per la struttura
+    
+    if "Riposo" in tipo_giornata_scelto:
+        tipo_giornata = "🔄 Riposo / Recupero"
+        obj_kcal = round(tdee * 1.2, 0)
+        obj_carbo = round(peso * 3.0, 1)
+        cal_prot_c = obj_prot * 4
+        cal_carb_c = obj_carbo * 4
+        obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 50.0)
+        
+    elif "Rafforzamento" in tipo_giornata_scelto:
+        tipo_giornata = "🛡️ Rafforzamento Muscolare / Palestra"
+        obj_kcal = round(tdee * 1.08, 0)
         obj_carbo = round(peso * 4.0, 1)
         cal_prot_c = obj_prot * 4
         cal_carb_c = obj_carbo * 4
         obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 50.0)
-    elif giorno_settimana in [1, 3]:
-        tipo_giornata = "🚴‍♂️ Bici Specifica (Allenamento Intermedio)"
+        
+    elif "Graduale" in tipo_giornata_scelto:
+        tipo_giornata = "🚴‍♂️ Bici (Fase Graduale / Moderata)"
         obj_kcal = round(tdee * 1.15, 0)
-        obj_carbo = round(peso * 5.5, 1)
+        obj_carbo = round(peso * 5.0, 1)
         cal_prot_c = obj_prot * 4
         cal_carb_c = obj_carbo * 4
         obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 45.0)
+        
     else:
-        tipo_giornata = "⛰️ Bici Lungo / Scalata (4-5 ore)"
+        tipo_giornata = "⛰️ Bici (Uscita Lunga / Pieno Carico)"
         obj_kcal = round(tdee * 1.35, 0)
         obj_carbo = round(peso * 7.5, 1)
         cal_prot_c = obj_prot * 4
         cal_carb_c = obj_carbo * 4
         obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 50.0)
 
-    st.sidebar.markdown(f"**Programma del giorno:**\n*{tipo_giornata}*")
+    st.sidebar.markdown(f"**Programma attivo:**\n*{tipo_giornata}*")
 
 # 2. Profilo Standard o Mifflin (per gli altri o se attivi il checkbox)
 if atleta_corrente != "Atleta Principale" or usa_solo_mifflin:
     obj_kcal = round(tdee, 0)
-    # Ripartizione dinamica basata sul TDEE (es. 50% Carboidrati, 25% Proteine, 25% Grassi)
     obj_carbo = round((obj_kcal * 0.50) / 4, 1)
     obj_prot = round((obj_kcal * 0.25) / 4, 1)
     obj_grassi = round((obj_kcal * 0.25) / 9, 1)
