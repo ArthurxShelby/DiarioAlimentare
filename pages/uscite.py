@@ -126,42 +126,9 @@ with st.spinner("Caricamento delle uscite da Supabase in corso..."):
     activities_db = response.data
 
 if activities_db:
+    st.success(f"Caricate {len(activities_db)} attività da Supabase!")
+    
     df_activities = pd.DataFrame(activities_db)
-    st.success(f"Caricate {len(df_activities)} attività da Supabase!")
-    
-    parsed_data = []
-    
-    for act in activities:
-        act_id = str(act.get("id"))
-        avg_watts = act.get("average_watts") or act.get("icu_average_watts") or act.get("device_watts")
-        norm_watts = act.get("icu_weighted_avg_watts") or act.get("normalized_watts")
-        
-        ctl = act.get("icu_ctl")
-        atl = act.get("icu_atl")
-        form_val = None
-        if ctl is not None and atl is not None:
-            form_val = int(round(float(ctl) - float(atl)))
-        else:
-            form_val = act.get("form") or act.get("icu_form") or act.get("icu_tsb")
-            
-        map_url = None
-        
-        parsed_data.append({
-            "activity_id": act_id,
-            "data": act.get("start_date_local", "").split("T")[0],
-            "titolo": act.get("name", "Uscita senza titolo"),
-            "distanza": round(act.get("distance", 0) / 1000, 2),
-            "tempo": str(timedelta_to_str(act.get("moving_time", 0))),
-            "potenza_media": safe_int(avg_watts),
-            "potenza_normalizzata": safe_int(norm_watts),
-            "fc_media": safe_int(act.get("average_heartrate")),
-            "tss": safe_int(act.get("icu_training_load")),
-            "dislivello": safe_int(act.get("total_elevation_gain")),
-            "forma": safe_int(form_val),
-            "mappa": map_url
-        })
-        
-    df_activities = pd.DataFrame(parsed_data)
     
     # --- AGGREGAZIONI E STATISTICHE ---
     df_activities["data_dt"] = pd.to_datetime(df_activities["data"])
@@ -210,31 +177,49 @@ if activities_db:
     st.markdown("---")
     st.subheader("📋 Dettaglio Completo Attività")
     df_activities = df_activities.sort_values("data", ascending=False)
-    st.dataframe(df_activities.drop(columns=["data_dt", "anno", "mese"]), use_container_width=True)
     
-    # Pulsante per salvare le attività e le mappe su Supabase
-    if st.button("💾 Salva le uscite e le mappe su Supabase", key="btn_salva_uscite_supabase_aggregata", use_container_width=True):
-        success_count = 0
-        with st.spinner("Salvataggio attività e caricamento mappe su Supabase in corso..."):
-            for row in parsed_data:
-                try:
-                    act_id = row["activity_id"]
-                    # 1. Recupera le coordinate da Intervals e carica il file nel bucket 'mappe-uscite'
+    # Colonne da mostrare (escludendo quelle di servizio se presenti)
+    cols_to_show = [c for c in df_activities.columns if c not in ["data_dt", "anno", "mese", "id", "created_at"]]
+    st.dataframe(df_activities[cols_to_show], use_container_width=True)
+    
+    # Pulsante per aggiornare/riscaricare le uscite e le mappe da Intervals a Supabase
+    if st.button("🔄 Aggiorna uscite da Intervals.icu", key="btn_aggiorna_intervals", use_container_width=True):
+        with st.spinner("Sincronizzazione da Intervals.icu in corso..."):
+            activities_ext = fetch_intervals_activities(ATHLETE_ID, API_KEY)
+            if activities_ext:
+                for act in activities_ext:
+                    act_id = str(act.get("id"))
+                    avg_watts = act.get("average_watts") or act.get("icu_average_watts") or act.get("device_watts")
+                    norm_watts = act.get("icu_weighted_avg_watts") or act.get("normalized_watts")
+                    
+                    ctl = act.get("icu_ctl")
+                    atl = act.get("icu_atl")
+                    form_val = None
+                    if ctl is not None and atl is not None:
+                        form_val = int(round(float(ctl) - float(atl)))
+                    else:
+                        form_val = act.get("form") or act.get("icu_form") or act.get("icu_tsb")
+                        
                     map_stream = fetch_activity_map(act_id, API_KEY)
-                    if map_stream:
-                        public_url = upload_map_to_supabase(act_id, map_stream)
-                        row["mappa"] = public_url
+                    public_url = upload_map_to_supabase(act_id, map_stream) if map_stream else None
                     
-                    # 2. Upsert sulla tabella uscite inclusa la colonna 'mappa'
-                    supabase.table("uscite").upsert(row, on_conflict="activity_id").execute()
-                    success_count += 1
-                except Exception as ex:
-                    st.warning(f"Errore nel salvataggio dell'attività {row['activity_id']}: {ex}")
-                    
-        if success_count == len(parsed_data):
-            st.success(f"Tutte le {success_count} attività e relative mappe sono state salvate/aggiornate con successo su Supabase!")
-        else:
-            st.warning(f"Salvata/aggiornata con successo solo {success_count} su {len(parsed_data)} attività.")
+                    row_data = {
+                        "activity_id": act_id,
+                        "data": act.get("start_date_local", "").split("T")[0],
+                        "titolo": act.get("name", "Uscita senza titolo"),
+                        "distanza": round(act.get("distance", 0) / 1000, 2),
+                        "tempo": str(timedelta_to_str(act.get("moving_time", 0))),
+                        "potenza_media": safe_int(avg_watts),
+                        "potenza_normalizzata": safe_int(norm_watts),
+                        "fc_media": safe_int(act.get("average_heartrate")),
+                        "tss": safe_int(act.get("icu_training_load")),
+                        "dislivello": safe_int(act.get("total_elevation_gain")),
+                        "forma": safe_int(form_val),
+                        "mappa": public_url
+                    }
+                    supabase.table("uscite").upsert(row_data, on_conflict="activity_id").execute()
+                st.success("Sincronizzazione completata! Ricarica la pagina.")
+                st.rerun()
 
 else:
-    st.info("Nessuna attività trovata nel periodo selezionato o errore di connessione.")
+    st.info("Nessuna attività trovata su Supabase. Clicca sul pulsante per sincronizzare.")
