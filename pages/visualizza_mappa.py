@@ -1,6 +1,5 @@
-
 import streamlit as st
-import requests
+import streamlit.components.v1 as components
 from supabase import create_client, Client
 
 # --- 1. Configurazione pagina ---
@@ -17,7 +16,7 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- Logica della Pagina ---
-st.title("🗺️ Dettaglio Attività - Trieste Ciclismo su strada")
+st.title("🗺️ Mappa Attività - Trieste Ciclismo su strada")
 
 map_url = st.session_state.get("map_url_to_view")
 if not map_url:
@@ -29,7 +28,7 @@ if map_url:
         if response.data:
             act = response.data[0]
             
-            # Mostriamo le metriche principali esattamente come su Intervals
+            # Metriche principali in alto
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("Distanza", f"{act.get('distanza', 112.38)} km")
@@ -42,13 +41,29 @@ if map_url:
                 
             st.markdown("---")
             
-            st.info("ℹ️ Il file di origine punta ai flussi temporali dell'attività. Per esplorare la mappa interattiva completa di questo giro, puoi aprire direttamente la sorgente.")
+            st.subheader("Tracciato Geografico")
             
-            # Pulsante per aprire la mappa originale
+            # Incorporiamo la visualizzazione tramite iframe pulito o box interattivo
+            # Nota: Se l'URL di Intervals richiede i cookie di sessione, l'iframe potrebbe 
+            # richiedere il login; per aggirarlo in modo sicuro, offriamo il box integrato 
+            # e il pulsante diretto.
             st.markdown(
-                f'<a href="{map_url}" target="_blank"><button style="background-color:#FF4B4B; color:white; border:none; padding:12px 24px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:16px;">🌍 Apri Attività su Intervals.icu</button></a>',
+                f"""
+                <div style="border: 2px solid #262730; border-radius: 10px; overflow: hidden; background-color: #0e1117;">
+                    <iframe src="{map_url}" width="100%" height="600px" style="border:none;"></iframe>
+                </div>
+                """,
                 unsafe_allow_html=True
             )
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                st.markdown(
+                    f'<a href="{map_url}" target="_blank"><button style="background-color:#FF4B4B; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:bold; width:100%;">🌍 Apri Mappa a Schermo Intero</button></a>',
+                    unsafe_allow_html=True
+                )
         else:
             st.warning("Nessuna informazione trovata per questa attività.")
     except Exception as e:
