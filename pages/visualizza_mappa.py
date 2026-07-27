@@ -18,30 +18,38 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_json(url):
-    """Scarica il JSON dal bucket e converte la lista piatta in un DataFrame Pandas per st.map"""
+    """Scarica il JSON e accoppia in sicurezza con zip per evitare disallineamenti di lunghezza"""
     try:
         response = requests.get(url)
         if response.status_code == 200:
-            intervals_data = response.json()
+            data = response.json()
             
-            if not intervals_data or not isinstance(intervals_data, list):
+            if not data or not isinstance(data, list):
                 return None
             
-            # Se la lista è piatta (es. [lat1, lat2, ..., lon1, lon2, ...])
-            # Verifico se gli elementi sono numeri singoli anziché liste
-            if len(intervals_data) > 0 and not isinstance(intervals_data[0], (list, tuple)):
-                metà = len(intervals_data) // 2
-                lats = intervals_data[:metà]
-                lons = intervals_data[metà:]
-                df = pd.DataFrame({'lat': lats, 'lon': lons})
-            else:
-                # Se per caso è già nel formato [[lat, lon], ...]
-                df = pd.DataFrame(intervals_data, columns=['lat', 'lon'])
+            # Se i dati sono una lista di coppie [lat, lon]
+            if len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
+                df = pd.DataFrame(data, columns=['lat', 'lon'])
+            
+            # Se i dati sono una lista piatta di numeri singoli
+            elif len(data) > 0 and not isinstance(data[0], (list, tuple)):
+                half = len(data) // 2
+                lons = data[:half]
+                lats = data[half:half*2]
                 
-            df = df.dropna(subset=['lat', 'lon'])
-            return df
+                # Zip accoppia elemento per elemento fermandosi alla lunghezza della lista più corta
+                coppie = list(zip(lats, lons))
+                df = pd.DataFrame(coppie, columns=['lat', 'lon'])
+            else:
+                return None
+                
+            # Conversione in numerico e pulizia dei valori non validi
+            df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
+            df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
+            df = df.dropna()
+            
+            return df if not df.empty else None
         else:
-            st.error(f"Errore nel download della mappa. Codice: {response.status_code}")
             return None
     except Exception as e:
         st.error(f"Eccezione durante l'elaborazione della mappa: {e}")
