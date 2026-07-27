@@ -26,7 +26,19 @@ def get_coordinates_from_json(url):
             if not intervals_data:
                 return None
             
-            df = pd.DataFrame(intervals_data, columns=['lat', 'lon'])
+            # Se i dati sono una lista di liste (es. [[lat, lon], ...])
+            if isinstance(intervals_data, list):
+                # Controlliamo se ogni elemento ha almeno 2 valori
+                if len(intervals_data) > 0 and isinstance(intervals_data[0], (list, tuple)) and len(intervals_data[0]) >= 2:
+                    df = pd.DataFrame(intervals_data, columns=['lat', 'lon'])
+                else:
+                    # Se è una lista semplice o ha un formato differente
+                    return None
+            else:
+                return None
+                
+            # Rimuoviamo eventuali valori nulli
+            df = df.dropna(subset=['lat', 'lon'])
             return df
         else:
             st.error(f"Errore nel download della mappa. Codice: {response.status_code}")
