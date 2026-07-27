@@ -180,7 +180,25 @@ if activities_db:
     
     # Colonne da mostrare (escludendo quelle di servizio se presenti)
     cols_to_show = [c for c in df_activities.columns if c not in ["data_dt", "anno", "mese", "id", "created_at"]]
-    st.dataframe(df_activities[cols_to_show], use_container_width=True)
+    st.markdown("---")
+    st.subheader("📋 Dettaglio Completo Attività")
+    df_activities = df_activities.sort_values("data", ascending=False)
+    
+    # Colonne da mostrare (escludendo quelle di servizio se presenti)
+    cols_to_show = [c for c in df_activities.columns if c not in ["data_dt", "anno", "mese", "id", "created_at"]]
+    
+    # Tabella con i link cliccabili per le mappe
+    st.dataframe(
+        df_activities[cols_to_show], 
+        use_container_width=True,
+        column_config={
+            "mappa": st.column_config.LinkColumn(
+                "Mappa",
+                help="Clicca per aprire il file JSON della mappa",
+                display_text="Visualizza Mappa"
+            )
+        }
+    )
     
     # Pulsante per aggiornare/riscaricare le uscite e le mappe da Intervals a Supabase
     if st.button("🔄 Aggiorna uscite da Intervals.icu", key="btn_aggiorna_intervals", use_container_width=True):
