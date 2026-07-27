@@ -5,8 +5,13 @@ import json
 from supabase import create_client, Client
 
 # --- Configurazione Supabase (copiala dal tuo file principale) ---
-SUPABASE_URL = "TUO_URL_SUPABASE"
-SUPABASE_KEY = "TUA_KEY_SUPABASE"
+try:
+    SUPABASE_URL = st.secrets["supabase"]["url"]
+    SUPABASE_KEY = st.secrets["supabase"]["key"]
+except Exception as e:
+    st.error("Errore: Configura le credenziali di Supabase nei secrets.")
+    st.stop()
+
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Visualizza Percorso Attività", layout="wide")
