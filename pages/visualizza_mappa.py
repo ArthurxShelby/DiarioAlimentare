@@ -20,7 +20,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 3. Funzione di Parsing ("Gli Occhiali") ---
 def get_coordinates_from_url(url):
-    """Legge direttamente le coordinate in gradi decimali senza divisioni errate"""
+    """Moltiplica per 100 per riportare la posizione esatta da Russia/Caucaso a Trieste"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
@@ -39,8 +39,11 @@ def get_coordinates_from_url(url):
         block1 = data[:n]
         block2 = data[n:2*n]
         
-        # Assegnazione diretta senza divisioni che alterano la scala
-        df = pd.DataFrame({'lat': block1, 'lon': block2})
+        # Riportiamo i valori alla scala corretta moltiplicandoli per 100
+        latitudes = [x * 100.0 for x in block1]
+        longitudes = [x * 100.0 for x in block2]
+
+        df = pd.DataFrame({'lat': latitudes, 'lon': longitudes})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
         df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
         df = df.dropna()
