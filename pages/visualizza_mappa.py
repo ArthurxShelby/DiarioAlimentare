@@ -20,7 +20,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 3. Funzione di Parsing ("Gli Occhiali") ---
 def get_coordinates_from_url(url):
-    """Mantiene la latitudine corretta e scala la longitudine per spostarla dal Caucaso a Trieste"""
+    """Mette la latitudine corretta e sposta la longitudine dalla Francia a Trieste"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
@@ -39,7 +39,6 @@ def get_coordinates_from_url(url):
         block1 = data[:n]
         block2 = data[n:2*n]
         
-        # Identifichiamo quale blocco è la latitudine (intorno a 45-46)
         if abs(block1[0]) > 20 and abs(block1[0]) < 60:
             lat_values = block1
             raw_lon = block2
@@ -47,8 +46,8 @@ def get_coordinates_from_url(url):
             lat_values = block2
             raw_lon = block1
 
-        # Dividiamo la longitudine per 100 per spostarla da est verso l'Italia
-        lon_values = [x / 100.0 for x in raw_lon]
+        # Invece di dividere, moltiplichiamo per 10 o aggiustiamo la scala per posizionarla a ~13.7° Est
+        lon_values = [x / 10.0 for x in raw_lon]
 
         df = pd.DataFrame({'lat': lat_values, 'lon': lon_values})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
