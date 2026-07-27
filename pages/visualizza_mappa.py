@@ -17,7 +17,7 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_json(url):
-    """Estrae lo stream latlng in modo sicuro e pulito"""
+    """Estrae i dati da una lista piatta di numeri alternati [lat, lon, lat, lon...]"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
@@ -25,33 +25,35 @@ def get_coordinates_from_json(url):
             
         data = response.json()
         
-        # Se i dati sono una lista di dizionari (formato stream tipico di Intervals)
-        if isinstance(data, list):
-            # Cerchiamo se c'è l'oggetto stream latlng
-            latlng_data = None
-            for item in data:
-                if isinstance(item, dict) and item.get('type') == 'latlng':
-                    latlng_data = item.get('data')
-                    break
+        if not data or not isinstance(data, list):
+            return None
             
-            # Se non è uno stream strutturato ma una lista diretta di coordinate
-            if not latlng_data:
-                latlng_data = data
-                
-            if latlng_data and isinstance(latlng_data, list):
-                # Puliamo e formattiamo in DataFrame
-                clean_points = []
-                for pt in latlng_data:
-                    if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                        clean_points.append([float(pt[0]), float(pt[1])])
-                
-                if clean_points:
-                    df = pd.DataFrame(clean_points, columns=['lat', 'lon'])
-                    return df.dropna()
-                    
-        return None
+        # Caso A: Lista di coppie già strutturate [[lat, lon], [lat, lon], ...]
+        if len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
+            df = pd.DataFrame(data, columns=['lat', 'lon'])
+            
+        # Caso B: Lista piatta di numeri alternati [lat, lon, lat, lon, ...]
+        elif len(data) > 0 and not isinstance(data[0], (list, tuple)):
+            # Tronchiamo la lista se ha un numero dispari di elementi
+            limit = (len(data) // 2) * 2
+            clean_data = data[:limit]
+            
+            # Estraiamo gli elementi alternati
+            lats = clean_data[0::2]  # Posizioni pari: 0, 2, 4...
+            lons = clean_data[1::2]  # Posizioni dispari: 1, 3, 5...
+            
+            df = pd.DataFrame({'lat': lats, 'lon': lons})
+        else:
+            return None
+            
+        df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
+        df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
+        df = df.dropna()
+        
+        return df if not df.empty else None
+        
     except Exception as e:
-        st.error(f"Errore nel parsing delle coordinate: {e}")
+        st.error(f"Errore nel parsing: {e}")
         return None
 
 # --- Logica della Pagina ---
@@ -63,28 +65,20 @@ if not map_url:
 
 if map_url:
     try:
-        response = supabase.table("uscite").select("*").eq("mappa", map_url).execute()
+        response = supabase.table("uscite").select("titolo, data").eq("mappa", map_url).execute()
         if response.data:
-            act = response.data[0]
-            st.subheader(f"{act.get('titolo', 'Attività')} - {act.get('data', '')}")
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Distanza", f"{act.get('distanza', 0)} km")
-            with col2:
-                st.metric("Tempo", str(act.get('tempo', 'N/D')))
-            with col3:
-                st.metric("Dislivello", f"{act.get('dislivello', 0)} m")
+            act_info = response.data[0]
+            st.subheader(f"{act_info['titolo']} - {act_info['data']}")
     except:
         pass 
 
     df_coords = get_coordinates_from_json(map_url)
     
     if df_coords is not None and not df_coords.empty:
-        st.success(f"Tracciato caricato correttamente ({len(df_coords)} punti GPS).")
+        # Mostriamo la mappa nativa con le coordinate estratte correttamente
         st.map(df_coords, use_container_width=True)
     else:
-        st.warning("⚠️ Il link salvato non restituisce uno stream di coordinate valido. Verifica che l'URL in Supabase punti direttamente al file JSON/stream delle coordinate di Intervals.icu.")
+        st.warning("Impossibile interpretare la serie numerica come coordinate valide.")
 else:
     st.warning("⚠️ Nessun URL di mappa specificato.")
 
