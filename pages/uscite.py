@@ -129,15 +129,13 @@ if activities:
         st.dataframe(df_mese, use_container_width=True, hide_index=True, height=450)
         
     with col_img:
-    st.subheader("GIANT TCR Advance Pro 0")
-    try:
-        # Trova la cartella esatta dove si trova uscite.py
-        cartella_script = os.path.dirname(__file__)
-        percorso_foto = os.path.join(cartella_script, "TCR.png")
-        
-        st.image(percorso_foto, use_container_width=True)
-    except Exception as e:
-        st.warning(f"Immagine non trovata in {percorso_foto}. Verifica il caricamento.")
+        st.subheader("TCR Advanced Pro 0")
+        try:
+            cartella_script = os.path.dirname(__file__)
+            percorso_foto = os.path.join(cartella_script, "TCR.png")
+            st.image(percorso_foto, use_container_width=True)
+        except Exception:
+            st.warning("Immagine TCR.png non trovata.")
     
     st.markdown("---")
     st.subheader("📋 Dettaglio Completo Attività")
