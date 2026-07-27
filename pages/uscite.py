@@ -5,17 +5,14 @@ from datetime import datetime
 import pandas as pd
 import os
 
-# --- Controllo Accesso: Solo il Proprietario ---
-try:
-    OWNER_ID = str(st.secrets["intervals"]["athlete_id"])
-except Exception:
-    OWNER_ID = None
+# --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
+# Verifica se l'utente ha effettuato il login come proprietario nella pagina principale
+is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
 
-# Esempio di verifica (se utilizzi st.experimental_user o un sistema di login personalizzato)
-# Se gestisci l'utente loggato, puoi confrontarlo con il proprietario:
-# if str(logged_user_id) != OWNER_ID:
-#     st.error("Accesso negato: questa pagina è riservata esclusivamente al proprietario.")
-#     st.stop()
+if not is_proprietario:
+    st.error("🚨 Accesso Negato: questa sezione è riservata esclusivamente al proprietario.")
+    st.info("Torna alla pagina principale del Diario Alimentare ed effettua il login con le credenziali da amministratore.")
+    st.stop()  # Interrompe l'esecuzione del resto della pagina per i non autorizzati
 
 # --- Configurazione ---
 st.title("🚴 Gestione Uscite da Intervals.icu")
