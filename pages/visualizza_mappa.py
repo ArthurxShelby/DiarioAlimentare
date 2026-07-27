@@ -44,7 +44,8 @@ def get_coordinates_from_url(url):
         latitudes = [x / 100000.0 for x in block2]
 
         # Associamo correttamente block2 a lat e block1 a lon
-        df = pd.DataFrame({'lat': latitudes, 'lon': longitudes})
+        # Invertiamo i blocchi per agganciare latitudine e longitudine esatte di Trieste
+        df = pd.DataFrame({'lat': longitudes, 'lon': latitudes})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
         df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
         df = df.dropna()
