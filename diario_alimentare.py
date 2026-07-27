@@ -485,10 +485,11 @@ if atleta_corrente == "Atleta Principale" and not usa_solo_mifflin:
 # 2. Profilo Standard o Mifflin (per gli altri o se attivi il checkbox)
 if atleta_corrente != "Atleta Principale" or usa_solo_mifflin:
     obj_kcal = round(tdee, 0)
-    obj_carbo = 230.0
-    obj_prot = 165.0
-    obj_grassi = 70.0
-    st.sidebar.markdown("**Programma del giorno:**\n*Profilo Standard / Mifflin*")
+    # Ripartizione dinamica basata sul TDEE (es. 50% Carboidrati, 25% Proteine, 25% Grassi)
+    obj_carbo = round((obj_kcal * 0.50) / 4, 1)
+    obj_prot = round((obj_kcal * 0.25) / 4, 1)
+    obj_grassi = round((obj_kcal * 0.25) / 9, 1)
+    st.sidebar.markdown("**Programma del giorno:**\n*Profilo Standard / Mifflin (Dinamico)*")
 
 db_diario_atleta = atleta_data.setdefault("db_diario", {})
 if data_str not in db_diario_atleta:
