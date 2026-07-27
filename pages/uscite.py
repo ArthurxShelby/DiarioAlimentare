@@ -119,12 +119,15 @@ def fetch_intervals_activities(athlete_id, api_key):
         st.error(f"Errore di connessione a Intervals: {e}")
         return []
 
-# --- Logica Principale ---
-with st.spinner("Scaricamento delle attività da Intervals.icu in corso..."):
-    activities = fetch_intervals_activities(ATHLETE_ID, API_KEY)
 
-if activities:
-    st.success(f"Trovate {len(activities)} attività recenti!")
+# --- Logica Principale ---
+with st.spinner("Caricamento delle uscite da Supabase in corso..."):
+    response = supabase.table("uscite").select("*").order("data", desc=True).execute()
+    activities_db = response.data
+
+if activities_db:
+    df_activities = pd.DataFrame(activities_db)
+    st.success(f"Caricate {len(df_activities)} attività da Supabase!")
     
     parsed_data = []
     
