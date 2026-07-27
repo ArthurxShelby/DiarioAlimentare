@@ -18,27 +18,32 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_json(url):
-    """Scarica il JSON e gestisce qualsiasi disallineamento della lista piatta"""
+    """Scarica il JSON e formatta correttamente le coordinate per st.map"""
     try:
         response = requests.get(url)
         if response.status_code == 200:
-            intervals_data = response.json()
+            data = response.json()
             
-            if not intervals_data or not isinstance(intervals_data, list):
+            if not data:
                 return None
             
-            # Se la lista è piatta (es. [lat, lat..., lon, lon...])
-            if len(intervals_data) > 0 and not isinstance(intervals_data[0], (list, tuple)):
-                metà = len(intervals_data) // 2
-                lats = intervals_data[:metà]
-                lons = intervals_data[metà:metà*2] # Tronca esattamente alla stessa lunghezza
+            # Caso A: I dati sono già una lista di coppie [lat, lon]
+            if isinstance(data, list) and len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
+                df = pd.DataFrame(data, columns=['lat', 'lon'])
+            
+            # Caso B: I dati sono un dizionario o una struttura con lat/lon separati salvati nello stream
+            elif isinstance(data, dict) and 'latitude' in data and 'longitude' in data:
+                df = pd.DataFrame({'lat': data['latitude'], 'lon': data['longitude']})
                 
-                # Creiamo il DataFrame accoppiando in sicurezza
-                df = pd.DataFrame({'lat': lats, 'lon': lons})
+            # Caso C: Lista piatta (fallback sicuro se salvata come array unico di coordinate alternate)
+            elif isinstance(data, list) and len(data) > 0 and not isinstance(data[0], (list, tuple)):
+                # Se Intervals ha salvato lo stream pulito in formato corretto
+                half = len(data) // 2
+                df = pd.DataFrame({'lat': data[:half], 'lon': data[half:half*2]})
             else:
-                df = pd.DataFrame(intervals_data, columns=['lat', 'lon'])
+                return None
                 
-            # Pulizia finale di eventuali valori nulli o non numerici
+            # Pulizia e conversione numerica rigorosa
             df = df.dropna(subset=['lat', 'lon'])
             df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
             df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
@@ -46,10 +51,9 @@ def get_coordinates_from_json(url):
             
             return df if not df.empty else None
         else:
-            st.error(f"Errore nel download della mappa. Codice: {response.status_code}")
             return None
     except Exception as e:
-        st.error(f"Eccezione durante l'elaborazione della mappa: {e}")
+        st.error(f"Errore nell'elaborazione della mappa: {e}")
         return None
 
 # --- Logica della Pagina ---
