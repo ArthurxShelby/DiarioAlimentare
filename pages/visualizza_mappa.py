@@ -17,7 +17,7 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_url(url):
-    """Estrae i dati ripristinando l'ordine corretto dei blocchi"""
+    """Estrae i dati e riallinea gli assi correttamente per la mappa"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
@@ -36,8 +36,8 @@ def get_coordinates_from_url(url):
         block1 = data[:n]
         block2 = data[n:2*n]
         
-        # Ripristiniamo block1 su lat e block2 su lon
-        df = pd.DataFrame({'lat': block1, 'lon': block2})
+        # Assegniamo block2 a lat e block1 a lon per raddrizzare la mappa sulla posizione geografica esatta
+        df = pd.DataFrame({'lat': block2, 'lon': block1})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
         df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
         df = df.dropna()
