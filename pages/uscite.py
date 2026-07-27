@@ -1,5 +1,5 @@
 import streamlit as st
-st.set_page_config(layout="wide") # Imposta la pagina in modalità wide per allargare il layout
+st.set_page_config(layout="wide")
 import requests
 from datetime import datetime
 import pandas as pd
@@ -101,53 +101,46 @@ if activities:
     st.markdown("---")
     st.subheader("📊 Riepilogo e Statistiche Generali")
     
-    # 1. Riga Superiore: Metriche di Riepilogo affiancate
     tot_km = round(df_activities["distanza"].sum(), 2)
     tot_dislivello = int(df_activities["dislivello"].fillna(0).sum())
     
-    col_metrica1, col_metrica2 = st.columns(2) # Due colonne per le metriche
-    col_metrica1.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
-    col_metrica2.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
+    # 1. Riga Superiore in 3 colonne: Metrica Km, Metrica D+, e Foto Bici in alto a destra
+    col_m1, col_m2, col_img = st.columns(3)
+    
+    with col_m1:
+        st.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
+    with col_m2:
+        st.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
+    with col_img:
+        st.subheader("TCR Advanced Pro 0")
+        try:
+            cartella_script = os.path.dirname(__file__)
+            percorso_foto = os.path.join(cartella_script, "TCR.png")
+            st.image(percorso_foto, use_container_width=True)
+        except Exception:
+            st.warning("Immagine TCR.png non trovata.")
     
     st.markdown("---")
     
-    # 2. Riga Centrale (La novità richiesta): Tre colonne affiancate
-    col_tab1, col_tab2, col_img = st.columns(3) # Creiamo 3 colonne
+    # 2. Riga Inferiore in 2 colonne: Tabella Anno e Tabella Mese affiancate
+    col_tab1, col_tab2 = st.columns(2)
     
-    # --- Colonna 1: Totali per Anno ---
     with col_tab1:
         st.subheader("📅 Totali per Anno")
         df_anno = df_activities.groupby("anno")[["distanza", "dislivello"]].sum().reset_index()
         df_anno.columns = ["Anno", "Km Totali", "Dislivello Totale (m)"]
-        # Ordiniamo per anno decrescente come in foto
         df_anno = df_anno.sort_values("Anno", ascending=False)
         st.dataframe(df_anno, use_container_width=True, hide_index=True)
         
-    # --- Colonna 2: Totali per Mese ---
     with col_tab2:
         st.subheader("📆 Totali per Mese")
         df_mese = df_activities.groupby("mese")[["distanza", "dislivello"]].sum().reset_index()
         df_mese.columns = ["Mese", "Km Totali", "Dislivello Totale (m)"]
-        # Ordiniamo per mese decrescente come in foto
         df_mese = df_mese.sort_values("Mese", ascending=False)
-        # Per evitare una tabella lunghissima che spezza il layout, possiamo limitare l'altezza
-        st.dataframe(df_mese, use_container_width=True, hide_index=True, height=400) 
-        
-    # --- Colonna 3: Immagine Bici ---
-    with col_img:
-        st.subheader("TCR Advanced Pro 0")
-        try:
-            # Assicurati che il file TCR.png sia nella stessa cartella del file uscite.py
-            # o, se usi le pagine, nella cartella radice del progetto.
-            cartella_script = os.path.dirname(__file__)
-            percorso_foto = os.path.join(cartella_script, "TCR.png")
-            st.image(percorso_foto, use_container_width=True)
-        except Exception as e:
-            st.warning(f"Immagine non trovata. Verifica che TCR.png sia presente. Errore: {e}")
+        st.dataframe(df_mese, use_container_width=True, hide_index=True, height=400)
     
     st.markdown("---")
     st.subheader("📋 Dettaglio Completo Attività")
-    # Ordiniamo le attività per data decrescente
     df_activities = df_activities.sort_values("data", ascending=False)
     st.dataframe(df_activities.drop(columns=["data_dt", "anno", "mese"]), use_container_width=True)
     
