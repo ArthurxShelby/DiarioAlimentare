@@ -455,33 +455,49 @@ st.sidebar.header("Seleziona Giorno")
 data_selezionata = st.sidebar.date_input("Data", value=date.today())
 data_str = data_selezionata.strftime("%Y-%m-%d")
 
-# --- CALCOLO DINAMICO DEGLI OBIETTIVI ---
-giorno_settimana = data_selezionata.weekday()
-obj_prot = round(peso * 2.2, 1)
+# --- CALCOLO OBIETTIVI (DINAMICO PER ATLETA PRINCIPALE O STANDARD) ---
+# Controlliamo se siamo sull'atleta principale e se NON è attivo il blocco esclusivo Mifflin
+atleta_corrente = st.session_state.get("atleta_corrente", "")
 
-if giorno_settimana in [0, 2, 4]:  # Lunedì, Mercoledì, Venerdì: Pesi
-    tipo_giornata = "🏋️‍♂️ Giorno Pesi (Forza / Mantenimento)"
-    obj_kcal = round(tdee * 1.05, 0)
-    obj_carbo = round(peso * 4.0, 1)
-    cal_prot_c = obj_prot * 4
-    cal_carb_c = obj_carbo * 4
-    obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 50.0)
+# (Sostituisci "Nome Atleta Principale" con il nome esatto che usi nello script per l'atleta principale, es. il tuo nome o la variabile dedicata)
+if atleta_corrente == "Atleta Principale" and not usa_solo_mifflin: # <-- Assicurati che la variabile del checkbox Mifflin corrisponda alla tua
+    
+    giorno_settimana = data_selezionata.weekday()
+    obj_prot = round(peso * 2.2, 1)
 
-elif giorno_settimana in [1, 3]:  # Martedì, Giovedì: Bici specifica (max 2.5h)
-    tipo_giornata = "🚴‍♂️ Bici Specifica (Allenamento Intermedio)"
-    obj_kcal = round(tdee * 1.15, 0)
-    obj_carbo = round(peso * 5.5, 1)
-    cal_prot_c = obj_prot * 4
-    cal_carb_c = obj_carbo * 4
-    obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 45.0)
+    if giorno_settimana in [0, 2, 4]:  # Lunedì, Mercoledì, Venerdì: Pesi
+        tipo_giornata = "🏋️‍♂️ Giorno Pesi (Forza / Mantenimento)"
+        obj_kcal = round(tdee * 1.05, 0)
+        obj_carbo = round(peso * 4.0, 1)
+        cal_prot_c = obj_prot * 4
+        cal_carb_c = obj_carbo * 4
+        obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 50.0)
 
-else:  # Sabato e Domenica: Uscite lunghe 4/5 ore con scalata
-    tipo_giornata = "⛰️ Bici Lungo / Scalata (4-5 ore)"
-    obj_kcal = round(tdee * 1.35, 0)
-    obj_carbo = round(peso * 7.5, 1)
-    cal_prot_c = obj_prot * 4
-    cal_carb_c = obj_carbo * 4
-    obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 50.0)
+    elif giorno_settimana in [1, 3]:  # Martedì, Giovedì: Bici specifica (max 2.5h)
+        tipo_giornata = "🚴‍♂️ Bici Specifica (Allenamento Intermedio)"
+        obj_kcal = round(tdee * 1.15, 0)
+        obj_carbo = round(peso * 5.5, 1)
+        cal_prot_c = obj_prot * 4
+        cal_carb_c = obj_carbo * 4
+        obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 45.0)
+
+    else:  # Sabato e Domenica: Uscite lunghe 4/5 ore con scalata
+        tipo_giornata = "⛰️ Bici Lungo / Scalata (4-5 ore)"
+        obj_kcal = round(tdee * 1.35, 0)
+        obj_carbo = round(peso * 7.5, 1)
+        cal_prot_c = obj_prot * 4
+        cal_carb_c = obj_carbo * 4
+        obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 50.0)
+
+    st.sidebar.markdown(f"**Programma del giorno:**\n*{tipo_giornata}*")
+
+else:
+    # Comportamento standard (per gli altri atleti o se l'atleta principale sceglie il solo Mifflin)
+    obj_kcal = round(tdee, 0)
+    obj_carbo = 230.0  # O i tuoi valori standard di default
+    obj_prot = 165.0
+    obj_grassi = 70.0
+    st.sidebar.markdown("**Programma del giorno:**\n*Standard / Profilo Mifflin*")
 
 st.sidebar.markdown(f"**Programma del giorno:**\n*{tipo_giornata}*")
 
