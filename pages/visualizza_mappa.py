@@ -18,7 +18,7 @@ except Exception as e:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- 3. Funzione di Parsing ("Gli Occhiali") ---
+# --- 3. Funzione di Parsing Flessibile ---
 def get_coordinates_from_url(url):
     """Estrae le coordinate gestendo in modo flessibile qualsiasi struttura JSON"""
     try:
@@ -39,12 +39,10 @@ def get_coordinates_from_url(url):
 
         # CASO 1: Se data è una lista
         if isinstance(data, list):
-            # Controlliamo se è una lista di liste/tuple (es. [[lat, lon], ...])
             if len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
                 for item in data:
                     lat_values.append(item[0])
                     lon_values.append(item[1])
-            # Oppure se è una lista di dizionari (es. [{"lat": ..., "lng": ...}, ...])
             elif len(data) > 0 and isinstance(data[0], dict):
                 for item in data:
                     lat = item.get('lat') or item.get('latitude')
@@ -52,7 +50,6 @@ def get_coordinates_from_url(url):
                     if lat is not None and lon is not None:
                         lat_values.append(lat)
                         lon_values.append(lon)
-            # Oppure se è una lista piatta mista (il vecchio formato diviso a blocchi)
             else:
                 try:
                     numeric_data = [float(x) for x in data]
@@ -63,19 +60,16 @@ def get_coordinates_from_url(url):
                 except Exception:
                     pass
 
-        # CASO 2: Se data è un dizionario (es. formato nativo di Intervals con {"type": "latlng", "data": [...]})
+        # CASO 2: Se data è un dizionario
         elif isinstance(data, dict):
-            # Cerchiamo se contiene una chiave 'data' o 'latlng' o 'points'
             inner_data = data.get('data') or data.get('latlng') or data.get('points') or data.get('coordinates')
             if isinstance(inner_data, list):
-                return get_coordinates_from_url_helper(inner_data) # ricorsione pulita o estrazione interna
+                return get_coordinates_from_url_helper(inner_data)
 
-            # Oppure chiavi separate lat e lon nel dizionario principale
             if 'lat' in data and ('lon' in data or 'lng' in data):
                 lat_values = data['lat']
                 lon_values = data['lon'] or data['lng']
 
-        # Fallback se abbiamo estratto due liste separate
         if isinstance(lat_values, list) and isinstance(lon_values, list) and len(lat_values) == len(lon_values) and len(lat_values) > 0:
             df = pd.DataFrame({'lat': lat_values, 'lon': lon_values})
             df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
@@ -107,16 +101,6 @@ def get_coordinates_from_url_helper(inner_data):
         df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
         return df.dropna()
     return None
-
-        df = pd.DataFrame({'lat': lat_values, 'lon': lon_values})
-        df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
-        df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
-        df = df.dropna()
-        
-        return df if not df.empty else None
-    except Exception as e:
-        st.error(f"Errore durante il parsing del tracciato: {e}")
-        return None
 
 # --- 4. Logica dell'Interfaccia ---
 st.title("🗺️ Dettaglio Tracciato - Trieste Ciclismo su strada")
@@ -151,17 +135,12 @@ if map_url:
             df_coords = get_coordinates_from_url(map_url)
             
             if df_coords is not None and not df_coords.empty:
-                # Calcoliamo il punto centrale della mappa in base alle coordinate reali del giro
                 center_lat = df_coords['lat'].mean()
                 center_lon = df_coords['lon'].mean()
                 
-                # Creazione della mappa interattiva con Folium (stile OpenStreetMap)
                 m = folium.Map(location=[center_lat, center_lon], zoom_start=11, tiles="OpenStreetMap")
-                
-                # Estrazione dei punti sotto forma di lista di tuple [lat, lon]
                 points = list(zip(df_coords['lat'], df_coords['lon']))
                 
-                # Disegno della polilinea del percorso (colore rosso stile Intervals)
                 folium.PolyLine(
                     points,
                     color="#ff4b4b",
@@ -169,7 +148,6 @@ if map_url:
                     opacity=0.8
                 ).add_to(m)
                 
-                # Renderizzazione della mappa all'interno di Streamlit
                 st_folium(m, width=1200, height=600)
             else:
                 st.warning("Impossibile elaborare il tracciato GPS dai dati ricevuti.")
