@@ -18,26 +18,42 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_json(url):
-    """Funzione di diagnostica per scoprire la vera struttura del JSON"""
+    """Scarica il JSON e gestisce perfettamente la lista piatta con numero dispari di elementi"""
     try:
         response = requests.get(url)
         if response.status_code == 200:
             data = response.json()
             
-            # Mostriamo a schermo le prime informazioni sulla struttura
-            st.write(f"Tipo di dato ricevuto: {type(data)}")
-            if isinstance(data, list):
-                st.write(f"Elementi totali nella lista: {len(data)}")
-                st.write(f"Primi 5 elementi: {data[:5]}")
-            elif isinstance(data, dict):
-                st.write(f"Chiavi disponibili nel dizionario: {list(data.keys())}")
+            if not data or not isinstance(data, list):
+                return None
             
-            return None
+            # Se i dati sono una lista di coppie [lat, lon]
+            if len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
+                df = pd.DataFrame(data, columns=['lat', 'lon'])
+            
+            # Se i dati sono una lista piatta di numeri singoli
+            elif len(data) > 0 and not isinstance(data[0], (list, tuple)):
+                # Rendiamo il totale pari tagliando l'ultimo elemento se dispari
+                limit = (len(data) // 2) * 2
+                half = limit // 2
+                
+                lats = data[:half]
+                lons = data[half:limit]
+                
+                df = pd.DataFrame({'lat': lats, 'lon': lons})
+            else:
+                return None
+                
+            # Conversione in numerico e pulizia dei valori non validi
+            df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
+            df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
+            df = df.dropna()
+            
+            return df if not df.empty else None
         else:
-            st.error(f"Errore HTTP: {response.status_code}")
             return None
     except Exception as e:
-        st.error(f"Errore: {e}")
+        st.error(f"Errore nell'elaborazione della mappa: {e}")
         return None
 
 # --- Logica della Pagina ---
