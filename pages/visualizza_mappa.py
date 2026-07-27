@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 import requests
 from supabase import create_client, Client
 
@@ -16,45 +15,8 @@ except Exception as e:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def get_coordinates_from_json(url):
-    """Scarica il JSON e restituisce un DataFrame pulito per Streamlit"""
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            
-            if not data or not isinstance(data, list):
-                return None
-            
-            # Se i dati sono una lista di coppie [lat, lon]
-            if len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
-                df = pd.DataFrame(data, columns=['lat', 'lon'])
-            
-            # Se i dati sono una lista piatta di numeri singoli
-            elif len(data) > 0 and not isinstance(data[0], (list, tuple)):
-                limit = (len(data) // 2) * 2
-                half = limit // 2
-                
-                lon_vals = data[:half]
-                lat_vals = data[half:limit]
-                
-                df = pd.DataFrame({'lat': lat_vals, 'lon': lon_vals})
-            else:
-                return None
-                
-            df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
-            df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
-            df = df.dropna()
-            
-            return df if not df.empty else None
-        else:
-            return None
-    except Exception as e:
-        st.error(f"Errore: {e}")
-        return None
-
 # --- Logica della Pagina ---
-st.title("🗺️ Visualizzazione Percorso Attività")
+st.title("🗺️ Dettaglio Attività")
 
 map_url = st.session_state.get("map_url_to_view")
 if not map_url:
@@ -62,26 +24,30 @@ if not map_url:
 
 if map_url:
     try:
-        response = supabase.table("uscite").select("titolo, data").eq("mappa", map_url).execute()
+        response = supabase.table("uscite").select("*").eq("mappa", map_url).execute()
         if response.data:
-            act_info = response.data[0]
-            st.subheader(f"{act_info['titolo']} - {act_info['data']}")
-    except:
-        pass 
-
-    df_coords = get_coordinates_from_json(map_url)
-    
-    if df_coords is not None and not df_coords.empty:
-        # Sfruttiamo st.map che è nativo di Streamlit e non richiede dipendenze esterne
-        st.map(df_coords, use_container_width=True)
-        
-        with st.expander("Dettagli Coordinate"):
-            st.write(f"Punti totali: {len(df_coords)}")
-            st.dataframe(df_coords.head(10))
-    else:
-        st.warning("Impossibile caricare i dati della mappa o file vuoto.")
+            act = response.data[0]
+            st.subheader(f"{act.get('titolo', 'Attività')} - {act.get('data', '')}")
+            
+            # Mostriamo i dati testuali dell'uscita in modo pulito
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Distanza", f"{act.get('distanza', 0)} km")
+            with col2:
+                st.metric("Tempo", str(act.get('tempo', 'N/D')))
+            with col3:
+                st.metric("Dislivello", f"{act.get('dislivello', 0)} m")
+                
+            st.info("ℹ️ La visualizzazione grafica della mappa è stata disattivata per incompatibilità con il formato dei dati sorgente.")
+            
+            # Pulsante per aprire direttamente l'attività originale se disponibile
+            st.markdown(f"[🔗 Apri file dati sorgente]({map_url})", unsafe_allow_html=True)
+        else:
+            st.warning("Nessuna informazione trovata per questa attività.")
+    except Exception as e:
+        st.error(f"Errore nel caricamento dei dati: {e}")
 else:
-    st.warning("⚠️ Nessun URL di mappa specificato.")
+    st.warning("⚠️ Nessun URL specificato.")
 
 st.markdown("---")
 if st.button("⬅️ Torna alla Gestione Uscite"):
