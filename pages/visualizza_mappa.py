@@ -20,7 +20,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 3. Funzione di Parsing ("Gli Occhiali") ---
 def get_coordinates_from_url(url):
-    """Moltiplica per 100 per riportare la posizione esatta da Russia/Caucaso a Trieste"""
+    """Legge i dati decimali nativi di Intervals.icu senza alterazioni"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
@@ -39,11 +39,16 @@ def get_coordinates_from_url(url):
         block1 = data[:n]
         block2 = data[n:2*n]
         
-        # Riportiamo i valori alla scala corretta moltiplicandoli per 100
-        latitudes = [x * 100.0 for x in block1]
-        longitudes = [x * 100.0 for x in block2]
+        # Verifichiamo quale blocco contiene la latitudine (valori intorno a 45/46)
+        # e quale contiene la longitudine (valori intorno a 13/14)
+        if abs(block1[0]) > 20 and abs(block1[0]) < 60:
+            lat_values = block1
+            lon_values = block2
+        else:
+            lat_values = block2
+            lon_values = block1
 
-        df = pd.DataFrame({'lat': latitudes, 'lon': longitudes})
+        df = pd.DataFrame({'lat': lat_values, 'lon': lon_values})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
         df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
         df = df.dropna()
