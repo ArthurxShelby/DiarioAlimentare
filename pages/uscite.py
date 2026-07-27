@@ -128,11 +128,11 @@ if activities:
         st.dataframe(df_mese, use_container_width=True, hide_index=True, height=450)
         
     with col_img:
-        st.subheader("GIANT TCR Advance Pro 0")
+        st.subheader("TCR Advanced Pro 0")
         try:
-            st.image("Schermata 2025-11-03 alle 18.15.00.jpg", use_container_width=True)
+            st.image("TCR.png", use_container_width=True)
         except Exception:
-            st.warning("Immagine non trovata. Carica il file 'Schermata 2025-11-03 alle 18.15.00.jpg' nella repository GitHub.")
+            st.warning("Immagine non trovata. Verifica che il file 'TCR.png' sia nella repository GitHub.")
     
     st.markdown("---")
     st.subheader("📋 Dettaglio Completo Attività")
