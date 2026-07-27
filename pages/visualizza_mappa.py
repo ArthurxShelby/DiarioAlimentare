@@ -18,7 +18,7 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_json(url):
-    """Scarica il JSON dal bucket e converte la lista piatta in un DataFrame Pandas per st.map"""
+    """Scarica il JSON e gestisce qualsiasi disallineamento della lista piatta"""
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -27,19 +27,24 @@ def get_coordinates_from_json(url):
             if not intervals_data or not isinstance(intervals_data, list):
                 return None
             
-            # Se la lista è piatta (es. [lat1, lat2, ..., lon1, lon2, ...])
-            # Verifico se gli elementi sono numeri singoli anziché liste
+            # Se la lista è piatta (es. [lat, lat..., lon, lon...])
             if len(intervals_data) > 0 and not isinstance(intervals_data[0], (list, tuple)):
                 metà = len(intervals_data) // 2
                 lats = intervals_data[:metà]
-                lons = intervals_data[metà:]
+                lons = intervals_data[metà:metà*2] # Tronca esattamente alla stessa lunghezza
+                
+                # Creiamo il DataFrame accoppiando in sicurezza
                 df = pd.DataFrame({'lat': lats, 'lon': lons})
             else:
-                # Se per caso è già nel formato [[lat, lon], ...]
                 df = pd.DataFrame(intervals_data, columns=['lat', 'lon'])
                 
+            # Pulizia finale di eventuali valori nulli o non numerici
             df = df.dropna(subset=['lat', 'lon'])
-            return df
+            df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
+            df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
+            df = df.dropna()
+            
+            return df if not df.empty else None
         else:
             st.error(f"Errore nel download della mappa. Codice: {response.status_code}")
             return None
