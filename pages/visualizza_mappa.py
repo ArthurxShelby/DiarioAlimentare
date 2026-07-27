@@ -17,29 +17,25 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_url(url):
-    """Scarica il testo grezzo e lo converte in coordinate lat/lon corrette"""
+    """Estrae i dati dividendo l'array esattamente a metà (blocco latitudini e blocco longitudini)"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
             return None
             
-        # Proviamo a leggere il JSON o a interpretare il testo come lista di numeri
         try:
             data = response.json()
         except:
-            # Se è una stringa di numeri separati da virgola
             text = response.text.strip()
             data = [float(x.strip()) for x in text.replace('[', '').replace(']', '').split(',') if x.strip()]
             
         if not data or not isinstance(data, list) or len(data) < 4:
             return None
             
-        # Se i dati sono una lista piatta [lat1, lon1, lat2, lon2, ...]
-        limit = (len(data) // 2) * 2
-        clean_data = data[:limit]
-        
-        lats = clean_data[0::2]  # Elementi pari
-        lons = clean_data[1::2]  # Elementi dispari
+        # Dividiamo la lista esattamente a metà
+        n = len(data) // 2
+        lats = data[:n]
+        lons = data[n:2*n]
         
         df = pd.DataFrame({'lat': lats, 'lon': lons})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
