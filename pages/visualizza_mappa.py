@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
 import requests
-import json
+import folium
+from streamlit_folium import st_folium
 from supabase import create_client, Client
 
-# --- 1. Configurazione pagina (deve essere la primissima chiamata) ---
+# --- 1. Configurazione pagina ---
 st.set_page_config(page_title="Visualizza Percorso Attività", layout="wide")
 
 # --- 2. Configurazione Supabase ---
@@ -17,77 +18,72 @@ except Exception as e:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def get_coordinates_from_json(url):
-    """Scarica il JSON e accoppia in sicurezza con zip per evitare disallineamenti di lunghezza"""
+def get_latlon_pairs(url):
+    """Estrae le coppie pulite gestendo sia liste di tuple che liste separate"""
     try:
         response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
+        if response.status_code != 200:
+            return []
+        
+        data = response.json()
+        if not data or not isinstance(data, list):
+            return []
             
-            if not data or not isinstance(data, list):
-                return None
-            
-            # Se i dati sono una lista di coppie [lat, lon]
-            if len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
-                df = pd.DataFrame(data, columns=['lat', 'lon'])
-            
-            # Se i dati sono una lista piatta di numeri singoli
-            elif len(data) > 0 and not isinstance(data[0], (list, tuple)):
-                half = len(data) // 2
-                lons = data[:half]
-                lats = data[half:half*2]
-                
-                # Zip accoppia elemento per elemento fermandosi alla lunghezza della lista più corta
-                coppie = list(zip(lats, lons))
-                df = pd.DataFrame(coppie, columns=['lat', 'lon'])
-            else:
-                return None
-                
-            # Conversione in numerico e pulizia dei valori non validi
-            df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
-            df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
-            df = df.dropna()
-            
-            return df if not df.empty else None
-        else:
-            return None
+        coords = []
+        # Se sono già coppie [lat, lon]
+        if len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
+            for pt in data:
+                try:
+                    lat, lon = float(pt[0]), float(pt[1])
+                    coords.append((lat, lon))
+                except:
+                    continue
+        # Se è una lista piatta
+        elif len(data) > 0 and not isinstance(data[0], (list, tuple)):
+            half = len(data) // 2
+            lats = data[:half]
+            lons = data[half:2*half]
+            for lat, lon in zip(lats, lons):
+                try:
+                    coords.append((float(lat), float(lon)))
+                except:
+                    continue
+        return coords
     except Exception as e:
-        st.error(f"Eccezione durante l'elaborazione della mappa: {e}")
-        return None
+        st.error(f"Errore nel parsing: {e}")
+        return []
 
 # --- Logica della Pagina ---
 st.title("🗺️ Visualizzazione Percorso Attività")
 
-# Recuperiamo l'URL sia dalla sessione che dai query params (per massima compatibilità)
 map_url = st.session_state.get("map_url_to_view")
 if not map_url:
     map_url = st.query_params.get("map_url")
 
 if map_url:
-    st.info(f"Caricamento percorso in corso...")
-    
     try:
         response = supabase.table("uscite").select("titolo, data").eq("mappa", map_url).execute()
         if response.data:
             act_info = response.data[0]
             st.subheader(f"{act_info['titolo']} - {act_info['data']}")
-    except Exception as e:
+    except:
         pass 
 
-    df_coords = get_coordinates_from_json(map_url)
+    coords = get_latlon_pairs(map_url)
     
-    if df_coords is not None and not df_coords.empty:
-        st.map(df_coords, use_container_width=True)
+    if coords:
+        # Centriamo la mappa sul primo punto del percorso
+        m = folium.Map(location=coords[0], zoom_start=11, tiles="CartoDB dark_matter")
         
-        with st.expander("Dettagli Coordinate"):
-            st.write(f"Numero di punti tracciati: {len(df_coords)}")
-            st.dataframe(df_coords.head(10))
+        # Disegniamo la linea del percorso
+        folium.PolyLine(coords, color="red", weight=4, opacity=0.8).add_to(m)
+        
+        # Renderizziamo in Streamlit
+        st_folium(m, width=1100, height=600)
     else:
         st.warning("Impossibile caricare i dati della mappa o file vuoto.")
-
 else:
     st.warning("⚠️ Nessun URL di mappa specificato.")
-    st.info("Torna alla pagina **uscite** e seleziona un'attività cliccando su 'Apri Mappa Grafica'.")
 
 st.markdown("---")
 if st.button("⬅️ Torna alla Gestione Uscite"):
