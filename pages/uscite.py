@@ -147,7 +147,7 @@ if activities:
             "tss": safe_int(act.get("icu_training_load")),
             "dislivello": safe_int(act.get("total_elevation_gain")),
             "forma": safe_int(form_val),
-            "map_url": map_url
+            "mappa": map_url
         })
         
     df_activities = pd.DataFrame(parsed_data)
@@ -212,9 +212,9 @@ if activities:
                     map_stream = fetch_activity_map(act_id, API_KEY)
                     if map_stream:
                         public_url = upload_map_to_supabase(act_id, map_stream)
-                        row["map_url"] = public_url
+                        row["mappa"] = public_url
                     
-                    # 2. Upsert sulla tabella uscite inclusa la colonna map_url
+                    # 2. Upsert sulla tabella uscite inclusa la colonna 'mappa'
                     supabase.table("uscite").upsert(row, on_conflict="activity_id").execute()
                     success_count += 1
                 except Exception as ex:
