@@ -18,26 +18,25 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_json(url):
-    """Scarica il JSON dal bucket e lo converte in un DataFrame Pandas per st.map"""
+    """Scarica il JSON dal bucket e converte la lista piatta in un DataFrame Pandas per st.map"""
     try:
         response = requests.get(url)
-        st.write(f"Status HTTP download: {response.status_code}") # Debug
-        
         if response.status_code == 200:
             intervals_data = response.json()
             
-            # Mostriamo un'anteprima dei dati grezzi per capire come sono fatti
-            st.write("Tipo di dati ricevuti:", type(intervals_data))
-            if isinstance(intervals_data, list) and len(intervals_data) > 0:
-                st.write("Primo elemento:", intervals_data[0])
-            
-            if not intervals_data:
+            if not intervals_data or not isinstance(intervals_data, list):
                 return None
             
-            if isinstance(intervals_data, list) and len(intervals_data) > 0 and isinstance(intervals_data[0], (list, tuple)) and len(intervals_data[0]) >= 2:
-                df = pd.DataFrame(intervals_data, columns=['lat', 'lon'])
+            # Se la lista è piatta (es. [lat1, lat2, ..., lon1, lon2, ...])
+            # Verifico se gli elementi sono numeri singoli anziché liste
+            if len(intervals_data) > 0 and not isinstance(intervals_data[0], (list, tuple)):
+                metà = len(intervals_data) // 2
+                lats = intervals_data[:metà]
+                lons = intervals_data[metà:]
+                df = pd.DataFrame({'lat': lats, 'lon': lons})
             else:
-                return None
+                # Se per caso è già nel formato [[lat, lon], ...]
+                df = pd.DataFrame(intervals_data, columns=['lat', 'lon'])
                 
             df = df.dropna(subset=['lat', 'lon'])
             return df
