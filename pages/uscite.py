@@ -93,39 +93,43 @@ if activities:
     df_activities = pd.DataFrame(parsed_data)
     
     # --- AGGREGAZIONI E STATISTICHE ---
-    # Convertiamo la colonna data in formato datetime per estrarre Anno e Mese
     df_activities["data_dt"] = pd.to_datetime(df_activities["data"])
     df_activities["anno"] = df_activities["data_dt"].dt.year
-    df_activities["mese"] = df_activities["data_dt"].dt.strftime("%Y-%m") # es. "2025-11"
+    df_activities["mese"] = df_activities["data_dt"].dt.strftime("%Y-%m")
     
     st.markdown("---")
     st.subheader("📊 Riepilogo e Statistiche Generali")
     
-    # 1. Totale Generale
+    # 1. Totale Generale (Km e D+ affiancati)
     tot_km = round(df_activities["distanza"].sum(), 2)
     tot_dislivello = int(df_activities["dislivello"].fillna(0).sum())
     
-    col1, col2 = st.columns(2)
-    col1.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
-    col2.metric("Dislivello Totale (Raccolta)", f"{tot_dislivello:,} m")
+    col_metrica1, col_metrica2 = st.columns(2)
+    col_metrica1.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
+    col_metrica2.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
     
-    # 2. Raggruppamento per Anno
-    st.markdown("### 📅 Totali per Anno")
-    df_anno = df_activities.groupby("anno")[["distanza", "dislivello"]].sum().reset_index()
-    df_anno.columns = ["Anno", "Km Totali", "Dislivello Totale (m)"]
-    st.dataframe(df_anno, use_container_width=True, hide_index=True)
+    st.markdown("---")
     
-    # 3. Raggruppamento per Mese
-    st.markdown("### 📆 Totali per Mese")
-    df_mese = df_activities.groupby("mese")[["distanza", "dislivello"]].sum().reset_index()
-    df_mese.columns = ["Mese", "Km Totali", "Dislivello Totale (m)"]
-    # Ordinati cronologicamente dal più vecchio al più recente (o viceversa invertendo ascending)
-    df_mese = df_mese.sort_values("Mese", ascending=False)
-    st.dataframe(df_mese, use_container_width=True, hide_index=True)
+    # 2. Tabelle Anno e Mese affiancate, altezza fissa a ~12 righe con scroll
+    col_tab1, col_tab2 = st.columns(2)
+    
+    with col_tab1:
+        st.subheader("📅 Totali per Anno")
+        df_anno = df_activities.groupby("anno")[["distanza", "dislivello"]].sum().reset_index()
+        df_anno.columns = ["Anno", "Km Totali", "D+ Totale (m)"]
+        df_anno = df_anno.sort_values("Anno", ascending=False)
+        # Altezza fissa (es. 450px corrisponde indicativamente a 12 righe prima dello scroll)
+        st.dataframe(df_anno, use_container_width=True, hide_index=True, height=450)
+        
+    with col_tab2:
+        st.subheader("📆 Totali per Mese")
+        df_mese = df_activities.groupby("mese")[["distanza", "dislivello"]].sum().reset_index()
+        df_mese.columns = ["Mese", "Km Totali", "D+ Totale (m)"]
+        df_mese = df_mese.sort_values("Mese", ascending=False)
+        st.dataframe(df_mese, use_container_width=True, hide_index=True, height=450)
     
     st.markdown("---")
     st.subheader("📋 Dettaglio Completo Attività")
-    # Mostriamo la tabella interattiva escludendo le colonne di servizio temporanee
     st.dataframe(df_activities.drop(columns=["data_dt", "anno", "mese"]), use_container_width=True)
     
     # Pulsante per salvare le attività su Supabase
