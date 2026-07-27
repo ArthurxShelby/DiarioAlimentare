@@ -189,7 +189,8 @@ if activities_db:
         
         if map_url_to_view:
             if st.button("🔍 Apri Mappa Grafica", use_container_width=True):
-                st.query_params.update({"map_url": map_url_to_view})
+                # Salviamo l'URL nella sessione anziché nei query params
+                st.session_state["map_url_to_view"] = map_url_to_view
                 st.switch_page("pages/visualizza_mappa.py")
         else:
             st.warning("Per questa attività non è disponibile alcun tracciato mappa.")
