@@ -18,7 +18,7 @@ except Exception as e:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_coordinates_from_json(url):
-    """Scarica il JSON e formatta correttamente le coordinate per st.map"""
+    """Scarica il JSON e formatta correttamente lat/lon gestendo l'inversione"""
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -27,19 +27,16 @@ def get_coordinates_from_json(url):
             if not data:
                 return None
             
-            # Caso A: I dati sono già una lista di coppie [lat, lon]
+            # Caso A: Lista di coppie [valore1, valore2] -> invertiamo se necessario o proviamo a leggerle pulite
             if isinstance(data, list) and len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
                 df = pd.DataFrame(data, columns=['lat', 'lon'])
             
-            # Caso B: I dati sono un dizionario o una struttura con lat/lon separati salvati nello stream
-            elif isinstance(data, dict) and 'latitude' in data and 'longitude' in data:
-                df = pd.DataFrame({'lat': data['latitude'], 'lon': data['longitude']})
-                
-            # Caso C: Lista piatta (fallback sicuro se salvata come array unico di coordinate alternate)
+            # Caso B: Lista piatta (es. [lon, lon... lat, lat...] oppure [lat, lat... lon, lon...])
             elif isinstance(data, list) and len(data) > 0 and not isinstance(data[0], (list, tuple)):
-                # Se Intervals ha salvato lo stream pulito in formato corretto
                 half = len(data) // 2
-                df = pd.DataFrame({'lat': data[:half], 'lon': data[half:half*2]})
+                # In Intervals.icu spesso il primo blocco è longitudine e il secondo latitudine, o viceversa. 
+                # Proviamo l'associazione invertita (lon prima, lat dopo) per correggere lo zoom sull'Europa/estero:
+                df = pd.DataFrame({'lat': data[half:half*2], 'lon': data[:half]})
             else:
                 return None
                 
@@ -48,6 +45,16 @@ def get_coordinates_from_json(url):
             df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
             df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
             df = df.dropna()
+            
+            # Controllo di sicurezza geografico (Italia circa: lat 35-47, lon 6-18)
+            # Se la media della prima colonna è attorno a 30-46, va bene. Se è invertita, scambiamo le colonne.
+            if not df.empty:
+                mean_col1 = df['lat'].mean()
+                if mean_col1 > 35 and mean_col1 < 48:
+                    pass # Corretto
+                else:
+                    # Invertiamo le colonne se i valori medi suggeriscono l'inversione
+                    df = df.rename(columns={'lat': 'lon', 'lon': 'lat'})
             
             return df if not df.empty else None
         else:
