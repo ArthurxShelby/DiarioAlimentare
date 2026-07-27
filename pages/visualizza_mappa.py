@@ -20,7 +20,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 3. Funzione di Parsing ("Gli Occhiali") ---
 def get_coordinates_from_url(url):
-    """Calibrazione finale per posizionare la traccia sulla terraferma tra Grado, Aquileia e Trieste"""
+    """Conversione nativa standard FIT/Garmin (Edge 540) da semicircoli a gradi decimali"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
@@ -39,17 +39,22 @@ def get_coordinates_from_url(url):
         block1 = data[:n]
         block2 = data[n:2*n]
         
-        if abs(block1[0]) > 20 and abs(block1[0]) < 60:
-            lat_values = block1
-            raw_lon = block2
+        # Costante matematica nativa Garmin per la conversione dei semicircoli
+        SEMICIRCLES_TO_DEGREES = 180.0 / (2**31)
+        
+        # Identificazione corretta degli assi nativi
+        if abs(block1[0] * SEMICIRCLES_TO_DEGREES) > 20 and abs(block1[0] * SEMICIRCLES_TO_DEGREES) < 60:
+            lat_raw = block1
+            lon_raw = block2
         else:
-            lat_values = block2
-            raw_lon = block1
+            lat_raw = block2
+            lon_raw = block1
 
-        # Ultimo micro-spostamento millimetrico verso la terraferma
-        lon_values = [x / 3.28 for x in raw_lon]
+        # Applicazione della formula geometrica esatta
+        latitudes = [x * SEMICIRCLES_TO_DEGREES for x in lat_raw]
+        longitudes = [x * SEMICIRCLES_TO_DEGREES for x in lon_raw]
 
-        df = pd.DataFrame({'lat': lat_values, 'lon': lon_values})
+        df = pd.DataFrame({'lat': latitudes, 'lon': longitudes})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
         df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
         df = df.dropna()
