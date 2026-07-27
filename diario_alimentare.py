@@ -42,7 +42,6 @@ st.set_page_config(
 # --- Gestione Toast persistente ---
 if "notifica_toast" in st.session_state and st.session_state.notifica_toast:
     st.toast(st.session_state.notifica_toast, icon="✅")
-    # Resettiamo la variabile per evitare che compaia a ogni singolo click futuro
     st.session_state.notifica_toast = None
 
 # --- 0. GESTIONE PERSISTENZA CLOUD (SUPABASE) ---
@@ -322,10 +321,6 @@ if is_proprietario:
                         except Exception as e:
                             st.error(f"Errore durante la creazione su Supabase: {e}")
 
-        if "ultimo_utente_creato" in st.session_state and st.session_state.ultimo_utente_creato:
-            st.success(f"Account '{st.session_state.ultimo_utente_creato}' creato con successo e salvato su Supabase!")
-            st.session_state.ultimo_utente_creato = None
-
         with st.expander("🗑️ Gestione ed Eliminazione Utenti"):
             try:
                 res_utenti = supabase.table("utenti").select("username").execute()
@@ -431,6 +426,25 @@ with st.sidebar.expander(f"Parametri Mifflin & Attività: {st.session_state.atle
         st.text(f"Età: {eta} anni")
         st.text(f"Genere: {genere}")
         st.text(f"Attività: {livello_allenamento}")
+
+# Selezione della Data del Diario e calcolo TDEE
+data_selezionata = st.sidebar.date_input("Data Diario", value=date.today())
+data_str = data_selezionata.strftime("%Y-%m-%d")
+
+# Calcolo BMR (Mifflin-St Jeor) e TDEE
+if genere == "Uomo":
+    bmr = (10 * peso) + (6.25 * altezza) - (5 * eta) + 5
+else:
+    bmr = (10 * peso) + (6.25 * altezza) - (5 * eta) - 161
+
+pal_val = 1.55
+if "1.2" in livello_allenamento: pal_val = 1.2
+elif "1.375" in livello_allenamento: pal_val = 1.375
+elif "1.55" in livello_allenamento: pal_val = 1.55
+elif "1.725" in livello_allenamento: pal_val = 1.725
+elif "1.9" in livello_allenamento: pal_val = 1.9
+
+tdee = bmr * pal_val
 
 # --- CALCOLO OBIETTIVI (DINAMICO PER ATLETA PRINCIPALE) ---
 atleta_corrente = st.session_state.get("atleta_corrente", "")
@@ -1008,8 +1022,8 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                             pdf_output.set_text_color(0, 0, 0)
                         pdf_output.write(6, f"Kcal: {dk:.1f}")
 
-                        pdf_output.set_text_color(0, 0, sia_pass := 0)
-                        pdf_output.write(6, " | Carbo: >")
+                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.write(6, " | Carbo: ")
                         if dc > obj_carbo:
                             pdf_output.set_text_color(220, 20, 60)
                         pdf_output.write(6, f"{dc:.1f}g")
