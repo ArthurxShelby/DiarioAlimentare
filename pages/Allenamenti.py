@@ -343,33 +343,40 @@ with col_macro2:
 
 st.markdown(f"**Macrociclo Attuale:** {mese_cicli} {anno_cicli}")
 
-# Assicuriamoci che la struttura dati nel database esista per questo anno/mese specifico
+# Inizializzazione della struttura nel session_state
 if "database_cicli_allenamento" not in st.session_state:
     st.session_state.database_cicli_allenamento = {}
 
 if anno_cicli not in st.session_state.database_cicli_allenamento:
     st.session_state.database_cicli_allenamento[anno_cicli] = {}
 
-if mese_cicli not in st.session_state.database_cicli_allenamento[anno_cicli]:
-    # Tabella predefinita iniziale aggiornata con la chiave "Serie" al posto di "Ripetizioni"
-    st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = pd.DataFrame([
-        {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+# Funzione di reset/struttura predefinita con la colonna "Serie"
+def crea_struttura_cicli_aggiornata():
+    return pd.DataFrame([
+        {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Watt": "", "Recupero": ""},
     ])
 
-# Recuperiamo il DataFrame specifico per il mese e l'anno selezionati
-df_cicli_corrente = st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli]
-if isinstance(df_cicli_corrente, list):
-    df_cicli_corrente = pd.DataFrame(df_cicli_corrente)
-    st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_cicli_corrente
+if mese_cicli not in st.session_state.database_cicli_allenamento[anno_cicli]:
+    st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = crea_struttura_cicli_aggiornata()
+else:
+    # CONTROLLO DI SICUREZZA: se nel dataframe in memoria esiste ancora la vecchia colonna "Ripetizioni", aggiorna la struttura
+    df_esistente = st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli]
+    if isinstance(df_esistente, list):
+        df_esistente = pd.DataFrame(df_esistente)
+    if "Ripetizioni" in df_esistente.columns and "Serie" not in df_esistente.columns:
+        df_esistente = df_esistente.rename(columns={"Ripetizioni": "Serie"})
+        st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_esistente
 
-# Editor interattivo con la colonna "Serie" aggiornata
+df_cicli_corrente = st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli]
+
+# Editor interattivo pulito (senza la colonna "Ripetizioni")
 df_cicli_modificato = st.data_editor(
     df_cicli_corrente,
     num_rows="fixed",
@@ -380,11 +387,14 @@ df_cicli_modificato = st.data_editor(
         "Allenamento": st.column_config.TextColumn("Allenamento", required=True),
         "Tipo": st.column_config.TextColumn("Tipo", required=True),
         "Serie": st.column_config.TextColumn("Serie", required=False),
-        "Ripetizioni": st.column_config.TextColumn("Ripetizioni", required=False),
         "Watt": st.column_config.TextColumn("Watt", required=False),
         "Recupero": st.column_config.TextColumn("Recupero", required=False),
     },
 )
+
+if not df_cicli_modificato.equals(df_cicli_corrente):
+    st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_cicli_modificato.copy()
+    st.rerun()
 
 # Sincronizzazione automatica e salvataggio delle modifiche alle celle
 if not df_cicli_modificato.equals(df_cicli_corrente):
