@@ -50,48 +50,35 @@ def safe_int(val):
 
 # --- FUNZIONE GPX SICURA ---
 def fetch_activity_gpx(activity_id, api_key):
-    url = f"https://intervals.icu/api/v1/activity/{activity_id}/streams/latlng"
+    url = f"https://intervals.icu/api/v1/activity/{activity_id}/streams"
     auth = ("API_KEY", api_key.strip())
     try:
         response = requests.get(url, auth=auth)
-        st.write(f"ID {activity_id} - Status: {response.status_code}")
-        
         if response.status_code == 200:
-            data = response.json()
-            st.write(data[:2] if isinstance(data, list) else "Dizionario ricevuto")
-            
-            points_list = []
-            if isinstance(data, list):
-                for item in data:
-                    if isinstance(item, dict) and 'data' in item:
-                        points_list = item['data']
-                        break
-                if not points_list:
-                    points_list = data
-            elif isinstance(data, dict):
-                points_list = data.get('data', [])
-
-            if not points_list:
-                return None
-
-            gpx = gpxpy.gpx.GPX()
-            gpx_track = gpxpy.gpx.GPXTrack()
-            gpx.tracks.append(gpx_track)
-            gpx_segment = gpxpy.gpx.GPXTrackSegment()
-            gpx_track.segments.append(gpx_segment)
-
-            for pt in points_list:
-                if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                    lat, lon = pt[0], pt[1]
-                    if lat is not None and lon is not None:
-                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
-
-            return gpx.to_xml().encode('utf-8')
+            return response.content
         else:
             return None
-    except Exception as e:
-        st.write(f"Errore eccezione ID {activity_id}: {e}")
+    except Exception:
         return None
+def upload_gpx_to_supabase(activity_id, gpx_bytes):
+    if not gpx_bytes:
+        return None
+    
+    file_path = f"map_{activity_id}.json"
+    
+    try:
+        response = supabase.storage.from_(BUCKET_NAME).upload(
+            path=file_path,
+            file=gpx_bytes,
+            file_options={"content-type": "application/json", "upsert": "true"}
+        )
+        public_url = supabase.storage.from_(BUCKET_NAME).get_public_url(file_path)
+        return public_url
+    except Exception:
+        try:
+            return supabase.storage.from_(BUCKET_NAME).get_public_url(file_path)
+        except Exception:
+            return None        
 
 @st.cache_data(ttl=1)
 def fetch_intervals_activities(athlete_id, api_key):
