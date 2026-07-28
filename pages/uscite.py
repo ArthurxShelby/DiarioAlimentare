@@ -135,8 +135,31 @@ if activities_db:
         df_anno.columns = ["Anno", "Km Totali", "Dislivello Totale (m)"]
         df_anno = df_anno.sort_values("Anno", ascending=False)
         
-        # Uso di st.dataframe con altezza calibrata e stile nativo pulito
-        st.dataframe(df_anno, use_container_width=True, hide_index=True, height=200)
+        # Generazione HTML personalizzato con font grande
+        html_anno = df_anno.to_html(index=False, classes="custom-table")
+        st.markdown(f"""
+            <style>
+                .custom-table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 1.25rem;
+                    text-align: left;
+                }}
+                .custom-table th {{
+                    background-color: #1e1e1e;
+                    color: #ffffff;
+                    padding: 12px;
+                    font-size: 1.3rem;
+                    border-bottom: 2px solid #444;
+                }}
+                .custom-table td {{
+                    padding: 12px;
+                    border-bottom: 1px solid #333;
+                    color: #f0f0f0;
+                }}
+            </style>
+            {html_anno}
+        """, unsafe_allow_html=True)
         
     with col_tab2:
         st.subheader("📆 Totali per Mese")
@@ -144,7 +167,42 @@ if activities_db:
         df_mese.columns = ["Mese", "Km Totali", "Dislivello Totale (m)"]
         df_mese = df_mese.sort_values("Mese", ascending=False)
         
-        st.dataframe(df_mese, use_container_width=True, hide_index=True, height=400)
+        # Generazione HTML con scroll e font grande per i mesi
+        html_mese = df_mese.to_html(index=False, classes="custom-table-mese")
+        st.markdown(f"""
+            <style>
+                .table-container {{
+                    max-height: 420px;
+                    overflow-y: auto;
+                    border: 1px solid #333;
+                    border-radius: 5px;
+                }}
+                .custom-table-mese {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 1.25rem;
+                    text-align: left;
+                }}
+                .custom-table-mese th {{
+                    background-color: #1e1e1e;
+                    color: #ffffff;
+                    padding: 12px;
+                    font-size: 1.3rem;
+                    position: sticky;
+                    top: 0;
+                    z-index: 1;
+                    border-bottom: 2px solid #444;
+                }}
+                .custom-table-mese td {{
+                    padding: 12px;
+                    border-bottom: 1px solid #333;
+                    color: #f0f0f0;
+                }}
+            </style>
+            <div class="table-container">
+                {html_mese}
+            </div>
+        """, unsafe_allow_html=True)
     
     st.markdown("---")
     
