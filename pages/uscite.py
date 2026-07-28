@@ -198,9 +198,11 @@ if activities_db:
         
         # Senza min_value e max_value, il menu degli anni e dei mesi sarà sempre completamente interattivo
         intervallo_date = st.date_input(
-            "📅 Filtra per periodo",
-            value=(min_data, max_data)
-        )
+        "📅 Filtra per periodo",
+        value=(min_data, max_data),
+        min_value=date(2025, 11, 15),
+        max_value=date(2040, 12, 31)  # <-- Qui puoi impostare l'anno massimo desiderato (es. 2040)
+    )
 
     # Applicazione dei filtri combinati
     df_filtrato = df_activities.copy()
