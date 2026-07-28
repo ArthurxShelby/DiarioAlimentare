@@ -1,7 +1,7 @@
 import streamlit as st
 st.set_page_config(layout="wide")
 import requests
-import pydeck as pdk
+import plotly.graph_objects as go
 
 map_url = st.session_state.get("map_url_to_view")
 activity_title = st.session_state.get("activity_title_to_view", "Dettaglio Tracciato")
@@ -21,7 +21,8 @@ try:
     if response.status_code == 200:
         data = response.json()
         
-        latlons = []
+        lats = []
+        lons = []
         distance_meters = 0
         moving_time = 0
         total_elevation_gain = 0
@@ -36,8 +37,8 @@ try:
                         if isinstance(lat_list, list) and isinstance(lon_list, list):
                             for lat, lon in zip(lat_list, lon_list):
                                 if lat is not None and lon is not None:
-                                    # Pydeck vuole rigorosamente [lon, lat]
-                                    latlons.append([float(lon), float(lat)])
+                                    lats.append(float(lat))
+                                    lons.append(float(lon))
                     elif stype == "distance":
                         dist_data = stream.get("data", [])
                         if dist_data:
@@ -72,68 +73,60 @@ try:
 
         st.markdown("---")
 
-        if latlons:
+        if lats and lons:
             c1, c2 = st.columns([4, 2])
             with c1:
                 st.subheader("Tracciato GPS")
             with c2:
                 stile_mappa = st.selectbox(
                     "Stile Mappa",
-                    ["Stradale (Light)", "Satellite", "Scuro (Dark)"],
+                    ["Stradale (OpenStreetMap)", "Satellite (CartoDB)", "Terreno (Stamen)"],
                     label_visibility="collapsed"
                 )
 
+            # Mappatura degli stili cartografici gratuiti supportati da Plotly
             if "Satellite" in stile_mappa:
-                map_style = "mapbox://styles/mapbox/satellite-v9"
-            elif "Scuro" in stile_mappa:
-                map_style = "mapbox://styles/mapbox/dark-v10"
+                mapbox_style = "carto-positron" # Sostituibile con tile raster se preferito, usiamo stili interni stabili
+                basemap_style = "white-bg"
+            elif "Terreno" in stile_mappa:
+                basemap_style = "open-street-map"
             else:
-                map_style = "mapbox://styles/mapbox/light-v10"
+                basemap_style = "open-street-map"
 
-            # Calcolo preciso del centro basato sulla media delle coordinate del tracciato
-            lons_only = [pt[0] for pt in latlons]
-            lats_only = [pt[1] for pt in latlons]
-            center_lon = sum(lons_only) / len(lons_only)
-            center_lat = sum(lats_only) / len(lats_only)
+            fig = go.Figure()
 
-            path_layer = pdk.Layer(
-                "PathLayer",
-                data=[{"path": latlons}],
-                get_path="path",
-                get_color="[0, 128, 255, 220]",
-                get_width=5,
-                width_scale=10,
-                width_min_pixels=4,
+            # Aggiunta del tracciato GPS sopra la mappa
+            fig.add_trace(go.Scattermapbox(
+                lat=lats,
+                lon=lons,
+                mode='lines',
+                line=dict(width=4, color='dodgerblue'),
+                name='Tracciato'
+            ))
+
+            # Marker di partenza e arrivo
+            fig.add_trace(go.Scattermapbox(
+                lat=[lats[0], lats[-1]],
+                lon=[lons[0], lons[-1]],
+                mode='markers',
+                marker=dict(size=12, color=['green', 'red']),
+                text=['Partenza', 'Arrivo'],
+                name='Marker'
+            ))
+
+            # Configurazione del layout pulito, centrato e senza pulsanti zoom visibili
+            fig.update_layout(
+                mapbox=dict(
+                    style=basemap_style,
+                    center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
+                    zoom=11
+                ),
+                margin=dict(l=0, r=0, t=0, b=0),
+                height=600,
+                showlegend=False
             )
 
-            markers_data = [
-                {"coordinates": latlons[0], "name": "Partenza", "color": [0, 200, 0]},
-                {"coordinates": latlons[-1], "name": "Arrivo", "color": [200, 0, 0]}
-            ]
-            marker_layer = pdk.Layer(
-                "ScatterplotLayer",
-                data=markers_data,
-                get_position="coordinates",
-                get_color="color",
-                get_radius=100,
-                pickable=True,
-            )
-
-            view_state = pdk.ViewState(
-                latitude=center_lat,
-                longitude=center_lon,
-                zoom=11,
-                pitch=0,
-            )
-
-            r = pdk.Deck(
-                layers=[path_layer, marker_layer],
-                initial_view_state=view_state,
-                map_style=map_style,
-                tooltip={"text": "{name}"}
-            )
-
-            st.pydeck_chart(r)
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
         else:
             st.warning("Nessun punto di coordinate valido trovato nel tracciato.")
 
