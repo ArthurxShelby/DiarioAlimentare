@@ -36,8 +36,8 @@ try:
                         if isinstance(lat_list, list) and isinstance(lon_list, list):
                             for lat, lon in zip(lat_list, lon_list):
                                 if lat is not None and lon is not None:
-                                    # Pydeck vuole le coordinate nel formato [lon, lat]
-                                    latlons.append([lon, lat])
+                                    # Pydeck vuole rigorosamente [lon, lat]
+                                    latlons.append([float(lon), float(lat)])
                     elif stype == "distance":
                         dist_data = stream.get("data", [])
                         if dist_data:
@@ -73,7 +73,6 @@ try:
         st.markdown("---")
 
         if latlons:
-            # Selettore di stile pulito in alto a destra sopra la mappa
             c1, c2 = st.columns([4, 2])
             with c1:
                 st.subheader("Tracciato GPS")
@@ -84,7 +83,6 @@ try:
                     label_visibility="collapsed"
                 )
 
-            # Traduzione dello stile nei preset ufficiali di Mapbox/Pydeck
             if "Satellite" in stile_mappa:
                 map_style = "mapbox://styles/mapbox/satellite-v9"
             elif "Scuro" in stile_mappa:
@@ -92,21 +90,22 @@ try:
             else:
                 map_style = "mapbox://styles/mapbox/light-v10"
 
-            # Centro della mappa calcolato sul primo punto
-            center_lon, center_lat = latlons[0]
+            # Calcolo preciso del centro basato sulla media delle coordinate del tracciato
+            lons_only = [pt[0] for pt in latlons]
+            lats_only = [pt[1] for pt in latlons]
+            center_lon = sum(lons_only) / len(lons_only)
+            center_lat = sum(lats_only) / len(lats_only)
 
-            # Creazione del layer del percorso
             path_layer = pdk.Layer(
                 "PathLayer",
                 data=[{"path": latlons}],
                 get_path="path",
-                get_color="[30, 144, 255, 200]",
+                get_color="[0, 128, 255, 220]",
                 get_width=5,
                 width_scale=10,
                 width_min_pixels=4,
             )
 
-            # Layer per i marker di partenza e arrivo
             markers_data = [
                 {"coordinates": latlons[0], "name": "Partenza", "color": [0, 200, 0]},
                 {"coordinates": latlons[-1], "name": "Arrivo", "color": [200, 0, 0]}
@@ -116,14 +115,14 @@ try:
                 data=markers_data,
                 get_position="coordinates",
                 get_color="color",
-                get_radius=80,
+                get_radius=100,
                 pickable=True,
             )
 
             view_state = pdk.ViewState(
                 latitude=center_lat,
                 longitude=center_lon,
-                zoom=12,
+                zoom=11,
                 pitch=0,
             )
 
