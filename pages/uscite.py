@@ -135,16 +135,8 @@ if activities_db:
         df_anno.columns = ["Anno", "Km Totali", "Dislivello Totale (m)"]
         df_anno = df_anno.sort_values("Anno", ascending=False)
         
-        # Tabella Anno con caratteri ingranditi tramite HTML
-        html_anno = df_anno.to_html(index=False, classes="table-large", justify="center")
-        st.markdown(f"""
-        <style>
-            .table-large {{ width: 100%; font-size: 1.2rem; text-align: left; border-collapse: collapse; }}
-            .table-large th {{ background-color: #262730; color: white; padding: 12px; font-size: 1.3rem; }}
-            .table-large td {{ padding: 10px; border-bottom: 1px solid #444; font-size: 1.2rem; }}
-        </style>
-        {html_anno}
-        """, unsafe_allow_html=True)
+        # Uso di st.dataframe con altezza calibrata e stile nativo pulito
+        st.dataframe(df_anno, use_container_width=True, hide_index=True, height=200)
         
     with col_tab2:
         st.subheader("📆 Totali per Mese")
@@ -152,19 +144,7 @@ if activities_db:
         df_mese.columns = ["Mese", "Km Totali", "Dislivello Totale (m)"]
         df_mese = df_mese.sort_values("Mese", ascending=False)
         
-        # Tabella Mese con scroll e caratteri ingranditi
-        html_mese = df_mese.to_html(index=False, classes="table-large-mese", justify="center")
-        st.markdown(f"""
-        <style>
-            .table-container-mese {{ max-height: 450px; overflow-y: auto; }}
-            .table-large-mese {{ width: 100%; font-size: 1.2rem; text-align: left; border-collapse: collapse; }}
-            .table-large-mese th {{ background-color: #262730; color: white; padding: 12px; font-size: 1.3rem; position: sticky; top: 0; }}
-            .table-large-mese td {{ padding: 10px; border-bottom: 1px solid #444; font-size: 1.2rem; }}
-        </style>
-        <div class="table-container-mese">
-            {html_mese}
-        </div>
-        """, unsafe_allow_html=True)
+        st.dataframe(df_mese, use_container_width=True, hide_index=True, height=400)
     
     st.markdown("---")
     
