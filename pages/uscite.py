@@ -175,6 +175,7 @@ if activities_db:
             if st.button("🔍 Apri Mappa Grafica", use_container_width=True):
                 st.session_state["map_url_to_view"] = map_url_to_view
                 st.session_state["activity_title_to_view"] = selected_row.get("titolo", "Uscita senza titolo")
+                st.session_state["activity_date_to_view"] = selected_row.get("data", "")
                 st.switch_page("pages/visualizza_mappa.py")
         else:
             st.warning("Per questa attività non è disponibile alcun tracciato mappa.")
