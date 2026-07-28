@@ -1,9 +1,7 @@
 import streamlit as st
 st.set_page_config(layout="wide")
 import requests
-import folium
-from branca.element import MacroElement, Template
-from streamlit_folium import st_folium
+import pydeck as pdk
 
 map_url = st.session_state.get("map_url_to_view")
 activity_title = st.session_state.get("activity_title_to_view", "Dettaglio Tracciato")
@@ -38,7 +36,8 @@ try:
                         if isinstance(lat_list, list) and isinstance(lon_list, list):
                             for lat, lon in zip(lat_list, lon_list):
                                 if lat is not None and lon is not None:
-                                    latlons.append([lat, lon])
+                                    # Pydeck vuole le coordinate nel formato [lon, lat]
+                                    latlons.append([lon, lat])
                     elif stype == "distance":
                         dist_data = stream.get("data", [])
                         if dist_data:
@@ -74,66 +73,68 @@ try:
         st.markdown("---")
 
         if latlons:
-            start_coord = latlons[0]
-            
-            # Mappa base con OpenStreetMap
-            m = folium.Map(location=start_coord, zoom_start=13, zoom_control=False)
-            
-            # Layer aggiuntivi
-            osm_layer = folium.TileLayer(
-                'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                attr='&copy; OpenStreetMap contributors',
-                name='Stradale'
-            ).add_to(m)
+            # Selettore di stile pulito in alto a destra sopra la mappa
+            c1, c2 = st.columns([4, 2])
+            with c1:
+                st.subheader("Tracciato GPS")
+            with c2:
+                stile_mappa = st.selectbox(
+                    "Stile Mappa",
+                    ["Stradale (Light)", "Satellite", "Scuro (Dark)"],
+                    label_visibility="collapsed"
+                )
 
-            topo_layer = folium.TileLayer(
-                'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-                attr='Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap (CC-BY-SA)',
-                name='Topografica'
-            ).add_to(m)
+            # Traduzione dello stile nei preset ufficiali di Mapbox/Pydeck
+            if "Satellite" in stile_mappa:
+                map_style = "mapbox://styles/mapbox/satellite-v9"
+            elif "Scuro" in stile_mappa:
+                map_style = "mapbox://styles/mapbox/dark-v10"
+            else:
+                map_style = "mapbox://styles/mapbox/light-v10"
 
-            sat_layer = folium.TileLayer(
-                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                attr='Tiles &copy; Esri',
-                name='Satellite'
-            ).add_to(m)
+            # Centro della mappa calcolato sul primo punto
+            center_lon, center_lat = latlons[0]
 
-            # Tracciato e Marker
-            folium.PolyLine(latlons, color="blue", weight=4, opacity=0.8).add_to(m)
-            folium.Marker(latlons[0], popup="Partenza", icon=folium.Icon(color="green", icon="play")).add_to(m)
-            folium.Marker(latlons[-1], popup="Arrivo", icon=folium.Icon(color="red", icon="stop")).add_to(m)
+            # Creazione del layer del percorso
+            path_layer = pdk.Layer(
+                "PathLayer",
+                data=[{"path": latlons}],
+                get_path="path",
+                get_color="[30, 144, 255, 200]",
+                get_width=5,
+                width_scale=10,
+                width_min_pixels=4,
+            )
 
-            # Controllo layer standard nascosto tramite CSS e sostituito da un selettore pulito in alto a destra
-            folium.LayerControl(collapsed=True).add_to(m)
+            # Layer per i marker di partenza e arrivo
+            markers_data = [
+                {"coordinates": latlons[0], "name": "Partenza", "color": [0, 200, 0]},
+                {"coordinates": latlons[-1], "name": "Arrivo", "color": [200, 0, 0]}
+            ]
+            marker_layer = pdk.Layer(
+                "ScatterplotLayer",
+                data=markers_data,
+                get_position="coordinates",
+                get_color="color",
+                get_radius=80,
+                pickable=True,
+            )
 
-            # Aggiunta CSS personalizzato per posizionare il selettore stile Google Maps in alto a destra
-            custom_css = MacroElement()
-            custom_css._template = Template("""
-            {% macro script(this, kwargs) %}
-            <style>
-                /* Posiziona il controllo layer in alto a destra stile Google Maps */
-                .leaflet-top.leaflet-right {
-                    top: 10px;
-                    right: 10px;
-                }
-                .leaflet-control-layers {
-                    border-radius: 8px !important;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important;
-                    border: none !important;
-                    background: white !important;
-                    padding: 6px 10px;
-                }
-                .leaflet-control-layers-toggle {
-                    width: 36px;
-                    height: 36px;
-                    background-size: 20px 20px;
-                }
-            </style>
-            {% endmacro %}
-            """)
-            m.get_root().add_child(custom_css)
+            view_state = pdk.ViewState(
+                latitude=center_lat,
+                longitude=center_lon,
+                zoom=12,
+                pitch=0,
+            )
 
-            st_folium(m, width=1200, height=600)
+            r = pdk.Deck(
+                layers=[path_layer, marker_layer],
+                initial_view_state=view_state,
+                map_style=map_style,
+                tooltip={"text": "{name}"}
+            )
+
+            st.pydeck_chart(r)
         else:
             st.warning("Nessun punto di coordinate valido trovato nel tracciato.")
 
