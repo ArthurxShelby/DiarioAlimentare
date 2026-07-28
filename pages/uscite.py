@@ -1,7 +1,7 @@
 import streamlit as st
 st.set_page_config(layout="wide")
 import requests
-from datetime import datetime
+from datetime import datetime, date
 import pandas as pd
 import os
 import gpxpy
@@ -196,13 +196,13 @@ if activities_db:
         min_data = df_activities["data_dt"].min().date()
         max_data = df_activities["data_dt"].max().date()
         
-        # Senza min_value e max_value, il menu degli anni e dei mesi sarà sempre completamente interattivo
+        # Calendario con range min e max personalizzati in base all'inizio raccolta e data futura
         intervallo_date = st.date_input(
-        "📅 Filtra per periodo",
-        value=(min_data, max_data),
-        min_value=date(2025, 11, 15),
-        max_value=date(2040, 12, 31)  # <-- Qui puoi impostare l'anno massimo desiderato (es. 2040)
-    )
+            "📅 Filtra per periodo",
+            value=(min_data, max_data),
+            min_value=date(2025, 11, 15),
+            max_value=date(2040, 12, 31)
+        )
 
     # Applicazione dei filtri combinati
     df_filtrato = df_activities.copy()
