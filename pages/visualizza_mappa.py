@@ -20,18 +20,57 @@ try:
         data = response.json()
         
         latlons = []
+        distance_meters = 0
+        moving_time = 0
+        total_elevation_gain = 0
+        
         if isinstance(data, list):
             for stream in data:
-                if isinstance(stream, dict) and stream.get("type") == "latlng":
-                    lat_list = stream.get("data", [])
-                    lon_list = stream.get("data2", [])
-                    
-                    # Uniamo le due liste elemento per elemento
-                    if isinstance(lat_list, list) and isinstance(lon_list, list):
-                        for lat, lon in zip(lat_list, lon_list):
-                            if lat is not None and lon is not None:
-                                latlons.append([lat, lon])
-                    break
+                if isinstance(stream, dict):
+                    stype = stream.get("type")
+                    if stype == "latlng":
+                        lat_list = stream.get("data", [])
+                        lon_list = stream.get("data2", [])
+                        if isinstance(lat_list, list) and isinstance(lon_list, list):
+                            for lat, lon in zip(lat_list, lon_list):
+                                if lat is not None and lon is not None:
+                                    latlons.append([lat, lon])
+                    elif stype == "distance":
+                        dist_data = stream.get("data", [])
+                        if dist_data:
+                            distance_meters = max(dist_data)
+                    elif stype == "time":
+                        time_data = stream.get("data", [])
+                        if time_data:
+                            moving_time = max(time_data)
+                    elif stype == "altitude":
+                        alt_data = stream.get("data", [])
+                        # Stima sommaria dislivello positivo dai dati altimetrici se disponibili
+                        if alt_data and len(alt_data) > 1:
+                            gain = 0
+                            for i in range(1, len(alt_data)):
+                                diff = alt_data[i] - alt_data[i-1]
+                                if diff > 0:
+                                    gain += diff
+                            total_elevation_gain = gain
+
+        # Converti metriche per la visualizzazione
+        km_dist = f"{distance_meters / 1000:.2f} km" if distance_meters else "N/D"
+        
+        hours = int(moving_time // 3600)
+        minutes = int((moving_time % 3600) // 60)
+        seconds = int(moving_time % 60)
+        time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}" if moving_time else "N/D"
+        
+        elev_str = f"{int(total_elevation_gain)} m" if total_elevation_gain else "N/D"
+
+        # Mostriamo le metriche in alto
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Distanza", km_dist)
+        col2.metric("Tempo di Percorrenza", time_str)
+        col3.metric("Dislivello Positivo", elev_str)
+
+        st.markdown("---")
 
         if latlons:
             start_coord = latlons[0]
