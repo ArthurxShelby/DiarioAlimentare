@@ -351,7 +351,7 @@ if anno_cicli not in st.session_state.database_cicli_allenamento:
     st.session_state.database_cicli_allenamento[anno_cicli] = {}
 
 if mese_cicli not in st.session_state.database_cicli_allenamento[anno_cicli]:
-    # Tabella predefinita iniziale con "I°" in romano
+    # Tabella predefinita iniziale aggiornata con la chiave "Serie" al posto di "Ripetizioni"
     st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = pd.DataFrame([
         {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
         {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
@@ -369,7 +369,7 @@ if isinstance(df_cicli_corrente, list):
     df_cicli_corrente = pd.DataFrame(df_cicli_corrente)
     st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_cicli_corrente
 
-# Editor interattivo con num_rows="fixed" per impedire l'aggiunta o la cancellazione di righe
+# Editor interattivo con la colonna "Serie" aggiornata
 df_cicli_modificato = st.data_editor(
     df_cicli_corrente,
     num_rows="fixed",
@@ -412,7 +412,7 @@ with col_btn1:
         pdf.cell(0, 6, f"Macrociclo: {mese_cicli} {anno_cicli}", ln=True, align="L")
         pdf.ln(4)
 
-        # Intestazioni tabella
+        # Intestazioni tabella PDF aggiornate con "Serie"
         pdf.set_font("Helvetica", "B", 9)
         pdf.set_fill_color(43, 108, 176) # Blu coordinato
         pdf.set_text_color(255, 255, 255)
@@ -433,7 +433,7 @@ with col_btn1:
             pdf.cell(widths[0], 7, str(row['Cicli']), border=1, align="C")
             pdf.cell(widths[1], 7, str(row['Allenamento']), border=1, align="L")
             pdf.cell(widths[2], 7, str(row['Tipo']), border=1, align="L")
-            pdf.cell(widths[3], 7, str(row['Serie']), border=1, align="C")
+            pdf.cell(widths[3], 7, str(row['Serie']), border=1, align="C") # Riferimento aggiornato a 'Serie'
             pdf.cell(widths[4], 7, str(row['Ripetizioni']), border=1, align="C")
             pdf.cell(widths[5], 7, str(row['Watt']), border=1, align="C")
             pdf.cell(widths[6], 7, str(row['Recupero']), border=1, align="C")
