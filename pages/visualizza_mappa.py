@@ -3,6 +3,14 @@ st.set_page_config(layout="wide")
 import requests
 import plotly.graph_objects as go
 
+# --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
+is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
+
+if not is_proprietario:
+    st.error("🚨 Accesso Negato: questa sezione è riservata esclusivamente al proprietario.")
+    st.info("Torna alla pagina principale del Diario Alimentare ed effettua il login con le credenziali da amministratore.")
+    st.stop()
+
 map_url = st.session_state.get("map_url_to_view")
 activity_title = st.session_state.get("activity_title_to_view", "Dettaglio Tracciato")
 activity_date = st.session_state.get("activity_date_to_view", "")
