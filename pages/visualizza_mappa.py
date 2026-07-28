@@ -134,13 +134,14 @@ try:
                     "below": "traces"
                 }]
 
-            ffig.update_layout(
+            fig.update_layout(
                 mapbox=mapbox_config,
                 margin=dict(l=0, r=0, t=0, b=0),
                 height=750,
                 showlegend=False
             )
 
+            # Attiviamo la toolbar per consentire lo zoom a rotellina e la visualizzazione a schermo intero
             st.plotly_chart(
                 fig, 
                 use_container_width=True, 
@@ -149,13 +150,6 @@ try:
                     'scrollZoom': True,
                     'displaylogo': False
                 }
-            )
-
-            # Disabilitiamo i pulsanti di zoom (+/-) mantenendo però la navigazione e lo zoom a rotellina/pinch attivi
-            st.plotly_chart(
-                fig, 
-                use_container_width=True, 
-                config={'displayModeBar': False, 'scrollZoom': True}
             )
         else:
             st.warning("Nessun punto di coordinate valido trovato nel tracciato.")
