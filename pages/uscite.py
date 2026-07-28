@@ -128,19 +128,43 @@ if activities_db:
     st.markdown("---")
     
     col_tab1, col_tab2 = st.columns(2)
+    
     with col_tab1:
         st.subheader("📅 Totali per Anno")
         df_anno = df_activities.groupby("anno")[["distanza", "dislivello"]].sum().reset_index()
         df_anno.columns = ["Anno", "Km Totali", "Dislivello Totale (m)"]
         df_anno = df_anno.sort_values("Anno", ascending=False)
-        st.dataframe(df_anno, use_container_width=True, hide_index=True)
+        
+        # Tabella Anno con caratteri ingranditi tramite HTML
+        html_anno = df_anno.to_html(index=False, classes="table-large", justify="center")
+        st.markdown(f"""
+        <style>
+            .table-large {{ width: 100%; font-size: 1.2rem; text-align: left; border-collapse: collapse; }}
+            .table-large th {{ background-color: #262730; color: white; padding: 12px; font-size: 1.3rem; }}
+            .table-large td {{ padding: 10px; border-bottom: 1px solid #444; font-size: 1.2rem; }}
+        </style>
+        {html_anno}
+        """, unsafe_allow_html=True)
         
     with col_tab2:
         st.subheader("📆 Totali per Mese")
         df_mese = df_activities.groupby("mese")[["distanza", "dislivello"]].sum().reset_index()
         df_mese.columns = ["Mese", "Km Totali", "Dislivello Totale (m)"]
         df_mese = df_mese.sort_values("Mese", ascending=False)
-        st.dataframe(df_mese, use_container_width=True, hide_index=True, height=450)
+        
+        # Tabella Mese con scroll e caratteri ingranditi
+        html_mese = df_mese.to_html(index=False, classes="table-large-mese", justify="center")
+        st.markdown(f"""
+        <style>
+            .table-container-mese {{ max-height: 450px; overflow-y: auto; }}
+            .table-large-mese {{ width: 100%; font-size: 1.2rem; text-align: left; border-collapse: collapse; }}
+            .table-large-mese th {{ background-color: #262730; color: white; padding: 12px; font-size: 1.3rem; position: sticky; top: 0; }}
+            .table-large-mese td {{ padding: 10px; border-bottom: 1px solid #444; font-size: 1.2rem; }}
+        </style>
+        <div class="table-container-mese">
+            {html_mese}
+        </div>
+        """, unsafe_allow_html=True)
     
     st.markdown("---")
     
@@ -196,7 +220,6 @@ if activities_db:
         min_data = df_activities["data_dt"].min().date()
         max_data = df_activities["data_dt"].max().date()
         
-        # Calendario con range min e max personalizzati in base all'inizio raccolta e data futura
         intervallo_date = st.date_input(
             "📅 Filtra per periodo",
             value=(min_data, max_data),
@@ -204,17 +227,14 @@ if activities_db:
             max_value=date(2040, 12, 31)
         )
 
-    # Applicazione dei filtri combinati
     df_filtrato = df_activities.copy()
 
-    # Filtro testuale
     if ricerca:
         df_filtrato = df_filtrato[
             df_filtrato["titolo"].str.lower().str.contains(ricerca, na=False) | 
             df_filtrato["data"].str.contains(ricerca, na=False)
         ]
 
-    # Filtro per intervallo date
     if isinstance(intervallo_date, tuple) and len(intervallo_date) == 2:
         data_inizio, data_fine = intervallo_date
         df_filtrato = df_filtrato[
@@ -222,7 +242,6 @@ if activities_db:
             (df_filtrato["data_dt"].dt.date <= data_fine)
         ]
 
-    # Lista attività con scroll e caratteri ingranditi
     with st.container(height=650):
         if len(df_filtrato) == 0:
             st.info("Nessuna uscita corrisponde ai filtri di ricerca selezionati.")
