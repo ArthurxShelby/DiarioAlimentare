@@ -15,7 +15,7 @@ if not is_proprietario:
     st.info("Torna alla pagina principale del Diario Alimentare ed effettua il login con le credenziali da amministratore.")
     st.stop()
 
-st.title("🚴 Gestione Uscite da Intervals.icu")
+st.title("🚴 Diario Storico Giant Tcr Advanced Pro 0")
 
 try:
     API_KEY = st.secrets["intervals"]["api_key"]
