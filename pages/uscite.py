@@ -163,7 +163,10 @@ if activities_db:
     st.markdown("---")
     st.subheader("📋 Dettaglio Completo Attività e Mappe")
     
-    # Iteriamo sulle attività ordinate per data discendente per creare una lista pulita con pulsante mappa
+    st.markdown("---")
+    st.subheader("📋 Dettaglio Completo Attività e Mappe")
+    
+    # Iteriamo sulle attività con caratteri ingranditi e ben visibili nei riquadri
     for index, row in df_activities.iterrows():
         act_title = row.get("titolo", "Uscita senza titolo")
         act_date = row.get("data", "")
@@ -175,9 +178,12 @@ if activities_db:
         with st.container(border=True):
             col_info, col_btn = st.columns([4, 1])
             with col_info:
-                st.markdown(f"**{act_title}** — `{act_date}`")
-                st.caption(f"Distanza: **{act_dist} km** | D+: **{act_elev} m** | Tempo: **{act_time}**")
+                # Titolo e data ingranditi
+                st.markdown(f"<h3 style='margin: 0; padding-bottom: 5px;'>{act_title} <span style='font-size: 1.1rem; color: #999;'>({act_date})</span></h3>", unsafe_allow_html=True)
+                # Metriche ingrandite
+                st.markdown(f"<p style='font-size: 1.2rem; margin: 0;'>Distanza: <b>{act_dist} km</b> &nbsp;|&nbsp; D+: <b>{act_elev} m</b> &nbsp;|&nbsp; Tempo: <b>{act_time}</b></p>", unsafe_allow_html=True)
             with col_btn:
+                st.write("") # Piccolo allineamento verticale
                 if map_url:
                     if st.button("🔍 Apri Mappa", key=f"map_btn_{row['activity_id']}", use_container_width=True):
                         st.session_state["map_url_to_view"] = map_url
