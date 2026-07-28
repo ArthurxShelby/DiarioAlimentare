@@ -92,7 +92,7 @@ try:
                     label_visibility="collapsed"
                 )
             with c3:
-                # Generazione dinamica del contenuto GPX senza indentazioni anomale
+                # Generazione del file GPX pulita e priva di blocchi di indentazione complessi
                 gpx_righe = [
                     '<?xml version="1.0" encoding="UTF-8"?>',
                     '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
