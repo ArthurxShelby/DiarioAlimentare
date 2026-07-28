@@ -50,15 +50,16 @@ def safe_int(val):
 
 # --- FUNZIONE GPX SICURA ---
 def fetch_activity_gpx(activity_id, api_key):
-    """
-    Tenta di scaricare il flusso latlng e convertirlo in GPX in modo sicuro.
-    """
     url = f"https://intervals.icu/api/v1/activity/{activity_id}/streams/latlng"
     auth = ("API_KEY", api_key.strip())
     try:
         response = requests.get(url, auth=auth)
+        st.write(f"ID {activity_id} - Status: {response.status_code}")
+        
         if response.status_code == 200:
             data = response.json()
+            st.write(data[:2] if isinstance(data, list) else "Dizionario ricevuto")
+            
             points_list = []
             if isinstance(data, list):
                 for item in data:
@@ -88,28 +89,9 @@ def fetch_activity_gpx(activity_id, api_key):
             return gpx.to_xml().encode('utf-8')
         else:
             return None
-    except Exception:
-        return None
-
-def upload_gpx_to_supabase(activity_id, gpx_bytes):
-    if not gpx_bytes:
-        return None
-    
-    file_path = f"map_{activity_id}.gpx"
-    
-    try:
-        response = supabase.storage.from_(BUCKET_NAME).upload(
-            path=file_path,
-            file=gpx_bytes,
-            file_options={"content-type": "application/gpx+xml", "upsert": "true"}
-        )
-        public_url = supabase.storage.from_(BUCKET_NAME).get_public_url(file_path)
-        return public_url
     except Exception as e:
-        try:
-            return supabase.storage.from_(BUCKET_NAME).get_public_url(file_path)
-        except Exception:
-            return None
+        st.write(f"Errore eccezione ID {activity_id}: {e}")
+        return None
 
 @st.cache_data(ttl=1)
 def fetch_intervals_activities(athlete_id, api_key):
