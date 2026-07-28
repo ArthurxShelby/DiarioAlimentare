@@ -134,11 +134,21 @@ try:
                     "below": "traces"
                 }]
 
-            fig.update_layout(
+            ffig.update_layout(
                 mapbox=mapbox_config,
                 margin=dict(l=0, r=0, t=0, b=0),
-                height=600,
+                height=750,
                 showlegend=False
+            )
+
+            st.plotly_chart(
+                fig, 
+                use_container_width=True, 
+                config={
+                    'displayModeBar': True,
+                    'scrollZoom': True,
+                    'displaylogo': False
+                }
             )
 
             # Disabilitiamo i pulsanti di zoom (+/-) mantenendo però la navigazione e lo zoom a rotellina/pinch attivi
