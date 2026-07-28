@@ -183,7 +183,7 @@ if activities_db:
                     st.success("Sincronizzazione completata! Ricarica la pagina.")
                     st.rerun()
 
-    # --- FILTRI DI RICERCA (TESTO + RANGE DI DATE) ---
+    # --- FILTRI DI RICERCA (TESTO + RANGE DI DATE LIBERO) ---
     c_filtro1, c_filtro2 = st.columns([2, 2])
     
     with c_filtro1:
@@ -196,11 +196,10 @@ if activities_db:
         min_data = df_activities["data_dt"].min().date()
         max_data = df_activities["data_dt"].max().date()
         
+        # Senza min_value e max_value rigidi, il calendario permette di navigare qualsiasi anno
         intervallo_date = st.date_input(
             "📅 Filtra per periodo",
-            value=(min_data, max_data),
-            min_value=min_data,
-            max_value=max_data
+            value=(min_data, max_data)
         )
 
     # Applicazione dei filtri combinati
