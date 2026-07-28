@@ -1,5 +1,20 @@
 import streamlit as st
 st.set_page_config(layout="wide")
+
+# --- CONTROLLO DI ACCESSO PRIVATO ---
+# Sostituisci "la_tua_email@example.com" con la tua email reale o con il tuo username
+PROPRIETARIO_EMAIL = "la_tua_email@example.com" 
+
+# Recupera l'utente corrente se autenticato su Streamlit
+current_user = getattr(st, "user", None) or getattr(st, "experimental_user", None)
+user_email = current_user.get("email") if current_user else None
+
+# Se l'app non è in locale e l'email non coincide, blocca l'accesso
+if user_email and user_email != PROPRIETARIO_EMAIL:
+    st.error("⛔ Accesso negato: questa pagina è riservata esclusivamente al proprietario.")
+    st.stop()
+# ------------------------------------
+
 import requests
 import plotly.graph_objects as go
 
@@ -86,7 +101,6 @@ try:
 
             fig = go.Figure()
 
-            # Tracciato GPS
             fig.add_trace(go.Scattermapbox(
                 lat=lats,
                 lon=lons,
@@ -95,7 +109,6 @@ try:
                 name='Tracciato'
             ))
 
-            # Marker Partenza e Arrivo
             fig.add_trace(go.Scattermapbox(
                 lat=[lats[0], lats[-1]],
                 lon=[lons[0], lons[-1]],
@@ -106,7 +119,6 @@ try:
             ))
 
             if "Satellite" in stile_mappa:
-                # Base satellitare + layer trasparente superiore con i nomi delle località (CartoDB labels)
                 mapbox_config = dict(
                     style="white-bg",
                     center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
