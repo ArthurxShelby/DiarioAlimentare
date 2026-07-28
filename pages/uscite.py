@@ -4,6 +4,8 @@ import requests
 from datetime import datetime
 import pandas as pd
 import os
+import gpxpy
+import gpxpy.gpx
 from supabase import create_client, Client
 
 # --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
@@ -46,52 +48,45 @@ def safe_int(val):
     except (ValueError, TypeError):
         return None
 
-# --- FUNZIONI DI SUPPORTO CON DEBUG AGGIORNATE ---
-def fetch_activity_map(activity_id, api_key):
+# --- FUNZIONI GPX AGGIORNATE ---
+def fetch_activity_gpx(activity_id, api_key):
     """
-    Recupera i dati della mappa/tracciato da Intervals.icu per l'attività specifica con debug.
+    Scarica direttamente il file GPX dell'attività da Intervals.icu.
     """
-    url = f"https://intervals.icu/api/v1/activity/{activity_id}/streams"
+    url = f"https://intervals.icu/api/v1/activity/{activity_id}.gpx"
     auth = ("API_KEY", api_key.strip())
     try:
         response = requests.get(url, auth=auth)
         if response.status_code == 200:
-            streams = response.json()
-            if isinstance(streams, list):
-                lat = next((s.get("data") for s in streams if s.get("type") == "latlng"), None)
-                return lat
-            else:
-                st.warning(f"Formato inatteso per i stream dell'attività {activity_id}")
+            return response.content
         else:
-            st.warning(f"Intervals API Stream error {response.status_code} per ID {activity_id}: {response.text}")
+            st.warning(f"Intervals API GPX error {response.status_code} per ID {activity_id}")
     except Exception as e:
-        st.warning(f"Eccezione stream per ID {activity_id}: {e}")
+        st.warning(f"Eccezione GPX per ID {activity_id}: {e}")
     return None
 
-def upload_map_to_supabase(activity_id, map_data):
+def upload_gpx_to_supabase(activity_id, gpx_bytes):
     """
-    Gestisce l'upload dei dati della mappa su Supabase Storage con gestione errori dettagliata.
+    Gestisce l'upload del file GPX su Supabase Storage.
     """
-    if not map_data:
+    if not gpx_bytes:
         return None
     
-    file_path = f"map_{activity_id}.json"
-    file_bytes = str(map_data).encode("utf-8")
+    file_path = f"map_{activity_id}.gpx"
     
     try:
         response = supabase.storage.from_(BUCKET_NAME).upload(
             path=file_path,
-            file=file_bytes,
-            file_options={"content-type": "application/json", "upsert": "true"}
+            file=gpx_bytes,
+            file_options={"content-type": "application/gpx+xml", "upsert": "true"}
         )
         public_url = supabase.storage.from_(BUCKET_NAME).get_public_url(file_path)
         return public_url
     except Exception as e:
-        st.error(f"Errore upload Supabase per {activity_id}: {e}")
+        st.error(f"Errore upload GPX Supabase per {activity_id}: {e}")
         try:
             return supabase.storage.from_(BUCKET_NAME).get_public_url(file_path)
         except Exception as ex:
-            st.error(f"Impossibile recuperare URL pubblico per {activity_id}: {ex}")
             return None
 
 @st.cache_data(ttl=1)
@@ -177,7 +172,6 @@ if activities_db:
     st.markdown("---")
     st.subheader("🗺️ Visualizzazione Mappa Attività")
     
-    # Selezione attività per aprire la mappa grafica
     df_activities = df_activities.sort_values("data", ascending=False)
     activity_options = df_activities.apply(lambda x: f"{x['titolo']} - {x['data']} (ID: {x['activity_id']})", axis=1).tolist()
     
@@ -189,7 +183,6 @@ if activities_db:
         
         if map_url_to_view:
             if st.button("🔍 Apri Mappa Grafica", use_container_width=True):
-                # Salviamo l'URL nella sessione anziché nei query params
                 st.session_state["map_url_to_view"] = map_url_to_view
                 st.switch_page("pages/visualizza_mappa.py")
         else:
@@ -198,25 +191,23 @@ if activities_db:
     st.markdown("---")
     st.subheader("📋 Dettaglio Completo Attività")
     
-    # Colonne da mostrare (escludendo quelle di servizio se presenti)
     cols_to_show = [c for c in df_activities.columns if c not in ["data_dt", "anno", "mese", "id", "created_at"]]
     
-    # Tabella con i link testuali/standard
     st.dataframe(
         df_activities[cols_to_show], 
         use_container_width=True,
         column_config={
             "mappa": st.column_config.LinkColumn(
                 "Mappa",
-                help="Clicca per aprire il file JSON della mappa",
-                display_text="Visualizza JSON"
+                help="Clicca per aprire il file GPX della mappa",
+                display_text="Visualizza GPX"
             )
         }
     )
     
-    # Pulsante per aggiornare/riscaricare le uscite e le mappe da Intervals a Supabase
+    # Pulsante per aggiornare/riscaricare le uscite e i GPX da Intervals a Supabase
     if st.button("🔄 Aggiorna uscite da Intervals.icu", key="btn_aggiorna_intervals", use_container_width=True):
-        with st.spinner("Sincronizzazione da Intervals.icu in corso..."):
+        with st.spinner("Sincronizzazione GPX da Intervals.icu in corso..."):
             activities_ext = fetch_intervals_activities(ATHLETE_ID, API_KEY)
             if activities_ext:
                 for act in activities_ext:
@@ -232,8 +223,9 @@ if activities_db:
                     else:
                         form_val = act.get("form") or act.get("icu_form") or act.get("icu_tsb")
                         
-                    map_stream = fetch_activity_map(act_id, API_KEY)
-                    public_url = upload_map_to_supabase(act_id, map_stream) if map_stream else None
+                    # SCARICA E CARICA IL GPX ANZICHE IL JSON
+                    gpx_bytes = fetch_activity_gpx(act_id, API_KEY)
+                    public_url = upload_gpx_to_supabase(act_id, gpx_bytes) if gpx_bytes else None
                     
                     row_data = {
                         "activity_id": act_id,
@@ -250,7 +242,7 @@ if activities_db:
                         "mappa": public_url
                     }
                     supabase.table("uscite").upsert(row_data, on_conflict="activity_id").execute()
-                st.success("Sincronizzazione completata! Ricarica la pagina.")
+                st.success("Sincronizzazione GPX completata! Ricarica la pagina.")
                 st.rerun()
 
 else:
