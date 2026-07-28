@@ -343,40 +343,33 @@ with col_macro2:
 
 st.markdown(f"**Macrociclo Attuale:** {mese_cicli} {anno_cicli}")
 
-# Inizializzazione della struttura nel session_state
+# Assicuriamoci che la struttura dati nel database esista per questo anno/mese specifico
 if "database_cicli_allenamento" not in st.session_state:
     st.session_state.database_cicli_allenamento = {}
 
 if anno_cicli not in st.session_state.database_cicli_allenamento:
     st.session_state.database_cicli_allenamento[anno_cicli] = {}
 
-# Funzione di reset/struttura predefinita con la colonna "Serie"
-def crea_struttura_cicli_aggiornata():
-    return pd.DataFrame([
-        {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Watt": "", "Recupero": ""},
+if mese_cicli not in st.session_state.database_cicli_allenamento[anno_cicli]:
+    # Tabella predefinita iniziale con "I°" in romano
+    st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = pd.DataFrame([
+        {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Ripetizioni": "", "Watt": "", "Recupero": ""},
     ])
 
-if mese_cicli not in st.session_state.database_cicli_allenamento[anno_cicli]:
-    st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = crea_struttura_cicli_aggiornata()
-else:
-    # CONTROLLO DI SICUREZZA: se nel dataframe in memoria esiste ancora la vecchia colonna "Ripetizioni", aggiorna la struttura
-    df_esistente = st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli]
-    if isinstance(df_esistente, list):
-        df_esistente = pd.DataFrame(df_esistente)
-    if "Ripetizioni" in df_esistente.columns and "Serie" not in df_esistente.columns:
-        df_esistente = df_esistente.rename(columns={"Ripetizioni": "Serie"})
-        st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_esistente
-
+# Recuperiamo il DataFrame specifico per il mese e l'anno selezionati
 df_cicli_corrente = st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli]
+if isinstance(df_cicli_corrente, list):
+    df_cicli_corrente = pd.DataFrame(df_cicli_corrente)
+    st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_cicli_corrente
 
-# Editor interattivo pulito (senza la colonna "Ripetizioni")
+# Editor interattivo con num_rows="fixed" per impedire l'aggiunta o la cancellazione di righe
 df_cicli_modificato = st.data_editor(
     df_cicli_corrente,
     num_rows="fixed",
@@ -387,14 +380,11 @@ df_cicli_modificato = st.data_editor(
         "Allenamento": st.column_config.TextColumn("Allenamento", required=True),
         "Tipo": st.column_config.TextColumn("Tipo", required=True),
         "Serie": st.column_config.TextColumn("Serie", required=False),
+        "Ripetizioni": st.column_config.TextColumn("Ripetizioni", required=False),
         "Watt": st.column_config.TextColumn("Watt", required=False),
         "Recupero": st.column_config.TextColumn("Recupero", required=False),
     },
 )
-
-if not df_cicli_modificato.equals(df_cicli_corrente):
-    st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_cicli_modificato.copy()
-    st.rerun()
 
 # Sincronizzazione automatica e salvataggio delle modifiche alle celle
 if not df_cicli_modificato.equals(df_cicli_corrente):
@@ -422,7 +412,7 @@ with col_btn1:
         pdf.cell(0, 6, f"Macrociclo: {mese_cicli} {anno_cicli}", ln=True, align="L")
         pdf.ln(4)
 
-        # Intestazioni tabella PDF aggiornate con "Serie"
+        # Intestazioni tabella
         pdf.set_font("Helvetica", "B", 9)
         pdf.set_fill_color(43, 108, 176) # Blu coordinato
         pdf.set_text_color(255, 255, 255)
@@ -443,7 +433,7 @@ with col_btn1:
             pdf.cell(widths[0], 7, str(row['Cicli']), border=1, align="C")
             pdf.cell(widths[1], 7, str(row['Allenamento']), border=1, align="L")
             pdf.cell(widths[2], 7, str(row['Tipo']), border=1, align="L")
-            pdf.cell(widths[3], 7, str(row['Serie']), border=1, align="C") # Riferimento aggiornato a 'Serie'
+            pdf.cell(widths[3], 7, str(row['Serie']), border=1, align="C")
             pdf.cell(widths[4], 7, str(row['Ripetizioni']), border=1, align="C")
             pdf.cell(widths[5], 7, str(row['Watt']), border=1, align="C")
             pdf.cell(widths[6], 7, str(row['Recupero']), border=1, align="C")
