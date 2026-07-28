@@ -1,27 +1,14 @@
 import streamlit as st
 st.set_page_config(layout="wide")
-
-# --- CONTROLLO DI ACCESSO PRIVATO ---
-# Sostituisci "la_tua_email@example.com" con la tua email reale o con il tuo username
-PROPRIETARIO_EMAIL = "la_tua_email@example.com" 
-
-# Recupera l'utente corrente se autenticato su Streamlit
-current_user = getattr(st, "user", None) or getattr(st, "experimental_user", None)
-user_email = current_user.get("email") if current_user else None
-
-# Se l'app non è in locale e l'email non coincide, blocca l'accesso
-if user_email and user_email != PROPRIETARIO_EMAIL:
-    st.error("⛔ Accesso negato: questa pagina è riservata esclusivamente al proprietario.")
-    st.stop()
-# ------------------------------------
-
 import requests
-import plotly.graph_objects as go
+import folium
+from streamlit_folium import st_folium
 
 map_url = st.session_state.get("map_url_to_view")
 activity_title = st.session_state.get("activity_title_to_view", "Dettaglio Tracciato")
 activity_date = st.session_state.get("activity_date_to_view", "")
 
+# Mostriamo nome e data vicini nel titolo
 titolo_completo = f"{activity_title} ({activity_date})" if activity_date else activity_title
 st.title(f"🗺️ {titolo_completo}")
 
@@ -36,8 +23,7 @@ try:
     if response.status_code == 200:
         data = response.json()
         
-        lats = []
-        lons = []
+        latlons = []
         distance_meters = 0
         moving_time = 0
         total_elevation_gain = 0
@@ -52,8 +38,7 @@ try:
                         if isinstance(lat_list, list) and isinstance(lon_list, list):
                             for lat, lon in zip(lat_list, lon_list):
                                 if lat is not None and lon is not None:
-                                    lats.append(float(lat))
-                                    lons.append(float(lon))
+                                    latlons.append([lat, lon])
                     elif stype == "distance":
                         dist_data = stream.get("data", [])
                         if dist_data:
@@ -81,6 +66,7 @@ try:
         
         elev_str = f"{int(total_elevation_gain)} m" if total_elevation_gain else "N/D"
 
+        # Ordine richiesto: Distanza, Dislivello D+, Tempo
         col1, col2, col3 = st.columns(3)
         col1.metric("Distanza", km_dist)
         col2.metric("Dislivello Positivo (D+)", elev_str)
@@ -88,73 +74,16 @@ try:
 
         st.markdown("---")
 
-        if lats and lons:
-            c1, c2 = st.columns([4, 2])
-            with c1:
-                st.subheader("Tracciato GPS")
-            with c2:
-                stile_mappa = st.selectbox(
-                    "Stile Mappa",
-                    ["Stradale (OpenStreetMap)", "Satellite (ArcGIS con etichette)"],
-                    label_visibility="collapsed"
-                )
+        if latlons:
+            start_coord = latlons[0]
+            m = folium.Map(location=start_coord, zoom_start=13)
+            
+            folium.PolyLine(latlons, color="blue", weight=4, opacity=0.8).add_to(m)
+            
+            folium.Marker(latlons[0], popup="Partenza", icon=folium.Icon(color="green", icon="play")).add_to(m)
+            folium.Marker(latlons[-1], popup="Arrivo", icon=folium.Icon(color="red", icon="stop")).add_to(m)
 
-            fig = go.Figure()
-
-            fig.add_trace(go.Scattermapbox(
-                lat=lats,
-                lon=lons,
-                mode='lines',
-                line=dict(width=4, color='dodgerblue'),
-                name='Tracciato'
-            ))
-
-            fig.add_trace(go.Scattermapbox(
-                lat=[lats[0], lats[-1]],
-                lon=[lons[0], lons[-1]],
-                mode='markers',
-                marker=dict(size=12, color=['green', 'red']),
-                text=['Partenza', 'Arrivo'],
-                name='Marker'
-            ))
-
-            if "Satellite" in stile_mappa:
-                mapbox_config = dict(
-                    style="white-bg",
-                    center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
-                    zoom=11,
-                    layers=[
-                        {
-                            "sourcetype": "raster",
-                            "source": ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
-                            "below": "traces"
-                        },
-                        {
-                            "sourcetype": "raster",
-                            "source": ["https://cartodb-basemaps-a.global.ssl.fastly.net/rastertiles/voyager_only_labels/{z}/{x}/{y}.png"],
-                            "below": "traces"
-                        }
-                    ]
-                )
-            else:
-                mapbox_config = dict(
-                    style="open-street-map",
-                    center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
-                    zoom=11
-                )
-
-            fig.update_layout(
-                mapbox=mapbox_config,
-                margin=dict(l=0, r=0, t=0, b=0),
-                height=600,
-                showlegend=False
-            )
-
-            st.plotly_chart(
-                fig, 
-                use_container_width=True, 
-                config={'displayModeBar': False, 'scrollZoom': True}
-            )
+            st_folium(m, width=1200, height=600)
         else:
             st.warning("Nessun punto di coordinate valido trovato nel tracciato.")
 
