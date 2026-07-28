@@ -15,7 +15,7 @@ if not is_proprietario:
     st.info("Torna alla pagina principale del Diario Alimentare ed effettua il login con le credenziali da amministratore.")
     st.stop()
 
-st.title("🚴 Diario Storico Giant Tcr Advanced Pro 0")
+st.title("🚴 Diario Storico TCR Advanced Pro 0")
 
 try:
     API_KEY = st.secrets["intervals"]["api_key"]
@@ -117,7 +117,7 @@ if activities_db:
     with col_m2:
         st.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
     with col_img:
-        st.subheader("TCR Advanced Pro 0")
+       
         try:
             cartella_script = os.path.dirname(__file__)
             percorso_foto = os.path.join(cartella_script, "TCR.png")
