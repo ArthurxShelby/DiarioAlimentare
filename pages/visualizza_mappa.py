@@ -2,6 +2,7 @@ import streamlit as st
 st.set_page_config(layout="wide")
 import requests
 import plotly.graph_objects as go
+import base64
 
 # --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
@@ -82,8 +83,8 @@ try:
         st.markdown("---")
 
         if lats and lons:
-            # Generazione preventiva del GPX in modo pulito e sicuro per evitare problemi di parsing
-            righe_gpx = [
+            # Creazione sicura del contenuto GPX riga per riga
+            linee = [
                 '<?xml version="1.0" encoding="UTF-8"?>',
                 '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
                 '  <trk>',
@@ -91,17 +92,19 @@ try:
                 '    <trkseg>'
             ]
             for lat, lon in zip(lats, lons):
-                righe_gpx.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
-            righe_gpx.extend([
+                linee.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
+            linee.extend([
                 '    </trkseg>',
                 '  </trk>',
                 '</gpx>'
             ])
-            contenuto_gpx = "\n".join(righe_gpx)
+            contenuto_gpx = "\n".join(linee)
 
-            nome_file_sicuro = "".join(c for c in activity_title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+            nome_file = "".join(c for c in activity_title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+            if not nome_file:
+                nome_file = "tracciato"
 
-            c1, c2, c3 = st.columns([3, 2, 2])
+            c1, c2 = st.columns([4, 2])
             with c1:
                 st.subheader("Tracciato GPS")
             with c2:
@@ -110,14 +113,11 @@ try:
                     ["Stradale (OpenStreetMap)", "Satellite (ArcGIS)"],
                     label_visibility="collapsed"
                 )
-            with c3:
-                st.download_button(
-                    label="📥 Scarica GPX",
-                    data=contenuto_gpx,
-                    file_name=f"{nome_file_sicuro}.gpx",
-                    mime="application/gpx+xml",
-                    use_container_width=True
-                )
+
+            # Pulsante di download diretto tramite HTML/Base64 per massima compatibilità
+            b64 = base64.b64encode(contenuto_gpx.encode()).decode()
+            href = f'<a href="data:application/gpx+xml;base64,{b64}" download="{nome_file}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-bottom: 1rem;">📥 Scarica Tracciato GPX</div></a>'
+            st.markdown(href, unsafe_allow_html=True)
 
             # Configurazione delle tile layer di sfondo per Plotly
             if "Satellite" in stile_mappa:
@@ -190,4 +190,3 @@ except Exception as e:
 st.markdown("---")
 if st.button("⬅️ Torna alla Gestione Uscite"):
     st.switch_page("pages/uscite.py")
-```[cite: 3]
