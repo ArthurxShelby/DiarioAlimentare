@@ -60,6 +60,7 @@ def fetch_activity_gpx(activity_id, api_key):
             return None
     except Exception:
         return None
+
 def upload_gpx_to_supabase(activity_id, gpx_bytes):
     if not gpx_bytes:
         return None
@@ -160,42 +161,33 @@ if activities_db:
         st.dataframe(df_mese, use_container_width=True, hide_index=True, height=450)
     
     st.markdown("---")
-    st.subheader("🗺️ Visualizzazione Mappa Attività")
+    st.subheader("📋 Dettaglio Completo Attività e Mappe")
     
-    df_activities = df_activities.sort_values("data", ascending=False)
-    activity_options = df_activities.apply(lambda x: f"{x['titolo']} - {x['data']} (ID: {x['activity_id']})", axis=1).tolist()
-    
-    if activity_options:
-        selected_activity_str = st.selectbox("Seleziona un'attività per visualizzarne il percorso sulla mappa:", activity_options)
-        selected_index = activity_options.index(selected_activity_str)
-        selected_row = df_activities.iloc[selected_index]
-        map_url_to_view = selected_row.get('mappa')
+    # Iteriamo sulle attività ordinate per data discendente per creare una lista pulita con pulsante mappa
+    for index, row in df_activities.iterrows():
+        act_title = row.get("titolo", "Uscita senza titolo")
+        act_date = row.get("data", "")
+        act_dist = row.get("distanza", 0)
+        act_time = row.get("tempo", "00:00:00")
+        act_elev = row.get("dislivello", 0)
+        map_url = row.get("mappa")
         
-        if map_url_to_view:
-            if st.button("🔍 Apri Mappa Grafica", use_container_width=True):
-                st.session_state["map_url_to_view"] = map_url_to_view
-                st.session_state["activity_title_to_view"] = selected_row.get("titolo", "Uscita senza titolo")
-                st.session_state["activity_date_to_view"] = selected_row.get("data", "")
-                st.switch_page("pages/visualizza_mappa.py")
-        else:
-            st.warning("Per questa attività non è disponibile alcun tracciato mappa.")
+        with st.container(border=True):
+            col_info, col_btn = st.columns([4, 1])
+            with col_info:
+                st.markdown(f"**{act_title}** — `{act_date}`")
+                st.caption(f"Distanza: **{act_dist} km** | D+: **{act_elev} m** | Tempo: **{act_time}**")
+            with col_btn:
+                if map_url:
+                    if st.button("🔍 Apri Mappa", key=f"map_btn_{row['activity_id']}", use_container_width=True):
+                        st.session_state["map_url_to_view"] = map_url
+                        st.session_state["activity_title_to_view"] = act_title
+                        st.session_state["activity_date_to_view"] = act_date
+                        st.switch_page("pages/visualizza_mappa.py")
+                else:
+                    st.caption("Mappa non disponibile")
 
     st.markdown("---")
-    st.subheader("📋 Dettaglio Completo Attività")
-    
-    cols_to_show = [c for c in df_activities.columns if c not in ["data_dt", "anno", "mese", "id", "created_at"]]
-    
-    st.dataframe(
-        df_activities[cols_to_show], 
-        use_container_width=True,
-        column_config={
-            "mappa": st.column_config.LinkColumn(
-                "Mappa",
-                help="Clicca per aprire il file GPX della mappa",
-                display_text="Visualizza GPX"
-            )
-        }
-    )
     
     if st.button("🔄 Aggiorna uscite da Intervals.icu", key="btn_aggiorna_intervals", use_container_width=True):
         with st.spinner("Sincronizzazione in corso..."):
