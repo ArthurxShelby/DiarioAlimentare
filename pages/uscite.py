@@ -49,20 +49,51 @@ def safe_int(val):
         return None
 
 # --- FUNZIONI GPX AGGIORNATE ---
+import gpxpy.gpx
+
 def fetch_activity_gpx(activity_id, api_key):
     """
-    Scarica direttamente il file GPX dell'attività da Intervals.icu.
+    Scarica il flusso latlng da Intervals.icu e lo converte in un file GPX valido.
     """
-    url = f"https://intervals.icu/api/v1/activity/{activity_id}.gpx"
+    url = f"https://intervals.icu/api/v1/activity/{activity_id}/streams/latlng"
     auth = ("API_KEY", api_key.strip())
     try:
         response = requests.get(url, auth=auth)
         if response.status_code == 200:
-            return response.content
+            data = response.json()
+            # Intervals restituisce i dati dei flussi, cerchiamo la lista di coordinate
+            points_list = []
+            if isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict) and 'data' in item:
+                        points_list = item['data']
+                        break
+                if not points_list:
+                    points_list = data
+            elif isinstance(data, dict):
+                points_list = data.get('data', [])
+
+            if not points_list:
+                return None
+
+            # Creiamo un file GPX in-memory usando gpxpy
+            gpx = gpxpy.gpx.GPX()
+            gpx_track = gpxpy.gpx.GPXTrack()
+            gpx.tracks.append(gpx_track)
+            gpx_segment = gpxpy.gpx.GPXTrackSegment()
+            gpx_track.segments.append(gpx_segment)
+
+            for pt in points_list:
+                if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                    lat, lon = pt[0], pt[1]
+                    if lat is not None and lon is not None:
+                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+
+            return gpx.to_xml().encode('utf-8')
         else:
-            st.warning(f"Intervals API GPX error {response.status_code} per ID {activity_id}")
+            st.warning(f"Intervals API Stream error {response.status_code} per ID {activity_id}")
     except Exception as e:
-        st.warning(f"Eccezione GPX per ID {activity_id}: {e}")
+        st.warning(f"Eccezione conversione GPX per ID {activity_id}: {e}")
     return None
 
 def upload_gpx_to_supabase(activity_id, gpx_bytes):
