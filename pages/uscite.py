@@ -183,22 +183,48 @@ if activities_db:
                     st.success("Sincronizzazione completata! Ricarica la pagina.")
                     st.rerun()
 
-    ricerca = st.text_input(
-        "🔍 Cerca uscita al volo",
-        placeholder="Digita il nome dell'uscita o la data (es. 'Soglia' o '2026-07-11')..."
-    ).lower().strip()
+    # --- FILTRI DI RICERCA (TESTO + RANGE DI DATE) ---
+    c_filtro1, c_filtro2 = st.columns([2, 2])
+    
+    with c_filtro1:
+        ricerca = st.text_input(
+            "🔍 Cerca per nome o data specifica",
+            placeholder="Es. 'Soglia' o '2026-07-11'..."
+        ).lower().strip()
+        
+    with c_filtro2:
+        min_data = df_activities["data_dt"].min().date()
+        max_data = df_activities["data_dt"].max().date()
+        
+        intervallo_date = st.date_input(
+            "📅 Filtra per periodo",
+            value=(min_data, max_data),
+            min_value=min_data,
+            max_value=max_data
+        )
 
+    # Applicazione dei filtri combinati
+    df_filtrato = df_activities.copy()
+
+    # Filtro testuale
     if ricerca:
-        df_filtrato = df_activities[
-            df_activities["titolo"].str.lower().str.contains(ricerca, na=False) | 
-            df_activities["data"].str.contains(ricerca, na=False)
+        df_filtrato = df_filtrato[
+            df_filtrato["titolo"].str.lower().str.contains(ricerca, na=False) | 
+            df_filtrato["data"].str.contains(ricerca, na=False)
         ]
-    else:
-        df_filtrato = df_activities
 
+    # Filtro per intervallo date
+    if isinstance(intervallo_date, tuple) and len(intervallo_date) == 2:
+        data_inizio, data_fine = intervallo_date
+        df_filtrato = df_filtrato[
+            (df_filtrato["data_dt"].dt.date >= data_inizio) & 
+            (df_filtrato["data_dt"].dt.date <= data_fine)
+        ]
+
+    # Lista attività con scroll e caratteri ingranditi
     with st.container(height=650):
         if len(df_filtrato) == 0:
-            st.info("Nessuna uscita corrisponde alla ricerca effettuata.")
+            st.info("Nessuna uscita corrisponde ai filtri di ricerca selezionati.")
         else:
             for index, row in df_filtrato.iterrows():
                 act_title = row.get("titolo", "Uscita senza titolo")
