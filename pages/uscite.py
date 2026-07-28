@@ -8,7 +8,6 @@ import gpxpy
 import gpxpy.gpx
 from supabase import create_client, Client
 
-# --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
 
 if not is_proprietario:
@@ -16,7 +15,6 @@ if not is_proprietario:
     st.info("Torna alla pagina principale del Diario Alimentare ed effettua il login con le credenziali da amministratore.")
     st.stop()
 
-# --- Configurazione ---
 st.title("🚴 Gestione Uscite da Intervals.icu")
 
 try:
@@ -28,7 +26,6 @@ except Exception as e:
     st.error("Errore: Configura le credenziali di Intervals e Supabase nei secrets.")
     st.stop()
 
-# Inizializzazione client Supabase
 supabase: Client = create_client(supabase_url, supabase_key)
 BUCKET_NAME = "mappe-uscite"
 
@@ -48,7 +45,6 @@ def safe_int(val):
     except (ValueError, TypeError):
         return None
 
-# --- FUNZIONE GPX SICURA ---
 def fetch_activity_gpx(activity_id, api_key):
     url = f"https://intervals.icu/api/v1/activity/{activity_id}/streams"
     auth = ("API_KEY", api_key.strip())
@@ -64,9 +60,7 @@ def fetch_activity_gpx(activity_id, api_key):
 def upload_gpx_to_supabase(activity_id, gpx_bytes):
     if not gpx_bytes:
         return None
-    
     file_path = f"map_{activity_id}.json"
-    
     try:
         response = supabase.storage.from_(BUCKET_NAME).upload(
             path=file_path,
@@ -85,16 +79,9 @@ def upload_gpx_to_supabase(activity_id, gpx_bytes):
 def fetch_intervals_activities(athlete_id, api_key):
     oggi = datetime.today().strftime('%Y-%m-%d')
     data_inizio = "2025-11-15"
-    
     url = f"https://intervals.icu/api/v1/athlete/{athlete_id}/activities"
-    params = {
-        "oldest": data_inizio,
-        "newest": oggi,
-        "iw": True
-    }
-    
+    params = {"oldest": data_inizio, "newest": oggi, "iw": True}
     auth = ("API_KEY", api_key.strip())
-    
     try:
         response = requests.get(url, auth=auth, params=params)
         if response.status_code == 200:
@@ -106,15 +93,12 @@ def fetch_intervals_activities(athlete_id, api_key):
         st.error(f"Errore di connessione a Intervals: {e}")
         return []
 
-
-# --- Logica Principale ---
 with st.spinner("Caricamento delle uscite da Supabase in corso..."):
     response = supabase.table("uscite").select("*").order("data", desc=True).execute()
     activities_db = response.data
 
 if activities_db:
     st.success(f"Caricate {len(activities_db)} attività da Supabase!")
-    
     df_activities = pd.DataFrame(activities_db)
     
     df_activities["data_dt"] = pd.to_datetime(df_activities["data"])
@@ -128,7 +112,6 @@ if activities_db:
     tot_dislivello = int(df_activities["dislivello"].fillna(0).sum())
     
     col_m1, col_m2, col_img = st.columns(3)
-    
     with col_m1:
         st.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
     with col_m2:
@@ -145,7 +128,6 @@ if activities_db:
     st.markdown("---")
     
     col_tab1, col_tab2 = st.columns(2)
-    
     with col_tab1:
         st.subheader("📅 Totali per Anno")
         df_anno = df_activities.groupby("anno")[["distanza", "dislivello"]].sum().reset_index()
@@ -162,7 +144,6 @@ if activities_db:
     
     st.markdown("---")
     
-    # Intestazione e pulsante di aggiornamento in alto
     col_head1, col_head2 = st.columns([3, 1])
     with col_head1:
         st.subheader("📋 Dettaglio Completo Attività e Mappe")
@@ -175,7 +156,6 @@ if activities_db:
                         act_id = str(act.get("id"))
                         avg_watts = act.get("average_watts") or act.get("icu_average_watts") or act.get("device_watts")
                         norm_watts = act.get("icu_weighted_avg_watts") or act.get("normalized_watts")
-                        
                         ctl = act.get("icu_ctl")
                         atl = act.get("icu_atl")
                         form_val = None
@@ -183,10 +163,8 @@ if activities_db:
                             form_val = int(round(float(ctl) - float(atl)))
                         else:
                             form_val = act.get("form") or act.get("icu_form") or act.get("icu_tsb")
-                            
                         gpx_bytes = fetch_activity_gpx(act_id, API_KEY)
                         public_url = upload_gpx_to_supabase(act_id, gpx_bytes) if gpx_bytes else None
-                        
                         row_data = {
                             "activity_id": act_id,
                             "data": act.get("start_date_local", "").split("T")[0],
@@ -205,13 +183,11 @@ if activities_db:
                     st.success("Sincronizzazione completata! Ricarica la pagina.")
                     st.rerun()
 
-    # --- BARRA DI RICERCA AL VOLO ---
     ricerca = st.text_input(
         "🔍 Cerca uscita al volo",
         placeholder="Digita il nome dell'uscita o la data (es. 'Soglia' o '2026-07-11')..."
     ).lower().strip()
 
-    # Filtraggio del dataframe in base alla ricerca (per titolo o data)
     if ricerca:
         df_filtrato = df_activities[
             df_activities["titolo"].str.lower().str.contains(ricerca, na=False) | 
@@ -220,7 +196,6 @@ if activities_db:
     else:
         df_filtrato = df_activities
 
-    # Lista attività con scroll e caratteri ingranditi
     with st.container(height=650):
         if len(df_filtrato) == 0:
             st.info("Nessuna uscita corrisponde alla ricerca effettuata.")
@@ -251,4 +226,3 @@ if activities_db:
 
 else:
     st.info("Nessuna attività trovata su Supabase. Sincronizza i dati.")
-```[cite: 5]
