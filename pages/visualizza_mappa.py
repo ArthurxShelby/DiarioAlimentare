@@ -23,9 +23,21 @@ try:
         if isinstance(data, list):
             for stream in data:
                 if isinstance(stream, dict) and stream.get("type") == "latlng":
-                    latlons = stream.get("data", [])
+                    val = stream.get("data", [])
+                    # Se 'data' è a sua volta un dizionario o una lista
+                    if isinstance(val, dict):
+                        latlons = val.get("data", [])
+                    else:
+                        latlons = val
                     break
-        
+        elif isinstance(data, dict):
+            # Se il JSON radice è un dizionario
+            val = data.get("latlng", [])
+            if isinstance(val, dict):
+                latlons = val.get("data", [])
+            else:
+                latlons = val
+
         points = []
         for pt in latlons:
             if isinstance(pt, (list, tuple)) and len(pt) >= 2:
