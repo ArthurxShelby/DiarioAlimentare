@@ -351,16 +351,16 @@ if anno_cicli not in st.session_state.database_cicli_allenamento:
     st.session_state.database_cicli_allenamento[anno_cicli] = {}
 
 if mese_cicli not in st.session_state.database_cicli_allenamento[anno_cicli]:
-    # Tabella predefinita iniziale con la colonna "Lavoro" al posto di "Ripetizioni"
+    # Tabella predefinita iniziale con TUTTE le colonne presenti: Serie, Lavoro, Watt, Recupero
     st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = pd.DataFrame([
-        {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Lavoro": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Lavoro": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Lavoro": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Lavoro": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Lavoro": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Lavoro": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Lavoro": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Lavoro": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
+        {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
     ])
 
 # Recuperiamo il DataFrame specifico per il mese e l'anno selezionati
@@ -369,22 +369,27 @@ if isinstance(df_cicli_corrente, list):
     df_cicli_corrente = pd.DataFrame(df_cicli_corrente)
     st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_cicli_corrente
 
-# Controllo per rinominare automaticamente eventuali vecchie colonne salvate in sessione
-for old_col in ["Ripetizioni", "Serie"]:
-    if old_col in df_cicli_corrente.columns and "Lavoro" not in df_cicli_corrente.columns:
-        df_cicli_corrente = df_cicli_corrente.rename(columns={old_col: "Lavoro"})
-        st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_cicli_corrente
+# Controlli di sicurezza per assicurarsi che entrambe le colonne (Serie e Lavoro) esistano
+if "Serie" not in df_cicli_corrente.columns:
+    df_cicli_corrente.insert(3, "Serie", "")
+if "Lavoro" not in df_cicli_corrente.columns:
+    df_cicli_corrente.insert(4, "Lavoro", "")
+if "Recupero" not in df_cicli_corrente.columns:
+    df_cicli_corrente["Recupero"] = ""
 
-# Editor interattivo con la colonna "Lavoro"
+st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_cicli_corrente
+
+# Editor interattivo con Serie, Lavoro e Recupero
 df_cicli_modificato = st.data_editor(
     df_cicli_corrente,
     num_rows="fixed",
     use_container_width=True,
-    key=f"editor_cicli_{anno_cicli}_{mese_cicli}_lavoro",
+    key=f"editor_cicli_{anno_cicli}_{mese_cicli}_serie_lavoro_rec",
     column_config={
         "Cicli": st.column_config.TextColumn("Cicli", required=False),
         "Allenamento": st.column_config.TextColumn("Allenamento", required=True),
         "Tipo": st.column_config.TextColumn("Tipo", required=True),
+        "Serie": st.column_config.TextColumn("Serie", required=False),
         "Lavoro": st.column_config.TextColumn("Lavoro", required=False),
         "Watt": st.column_config.TextColumn("Watt", required=False),
         "Recupero": st.column_config.TextColumn("Recupero", required=False),
@@ -400,7 +405,7 @@ if not df_cicli_modificato.equals(df_cicli_corrente):
 col_btn1, col_btn2 = st.columns(2)
 
 with col_btn1:
-    if st.button("📥 Esporta Tabella in PDF", use_container_width=True, key="btn_pdf_cicli_lavoro"):
+    if st.button("📥 Esporta Tabella in PDF", use_container_width=True, key="btn_pdf_cicli_serie_lavoro_rec"):
         from fpdf import FPDF
         import tempfile
 
@@ -419,8 +424,8 @@ with col_btn1:
         pdf.set_fill_color(43, 108, 176)
         pdf.set_text_color(255, 255, 255)
         
-        headers = ["Cicli", "Allenamento", "Tipo", "Lavoro", "Watt", "Recupero"]
-        widths = [20, 40, 60, 25, 20, 25]
+        headers = ["Cicli", "Allenamento", "Tipo", "Serie", "Lavoro", "Watt", "Recupero"]
+        widths = [18, 35, 45, 18, 22, 18, 25]
         
         for i, h in enumerate(headers):
             pdf.cell(widths[i], 8, h, border=1, fill=True, align="C")
@@ -434,9 +439,10 @@ with col_btn1:
             pdf.cell(widths[0], 7, str(row.get('Cicli', '')), border=1, align="C")
             pdf.cell(widths[1], 7, str(row.get('Allenamento', '')), border=1, align="L")
             pdf.cell(widths[2], 7, str(row.get('Tipo', '')), border=1, align="L")
-            pdf.cell(widths[3], 7, str(row.get('Lavoro', '')), border=1, align="C")
-            pdf.cell(widths[4], 7, str(row.get('Watt', '')), border=1, align="C")
-            pdf.cell(widths[5], 7, str(row.get('Recupero', '')), border=1, align="C")
+            pdf.cell(widths[3], 7, str(row.get('Serie', '')), border=1, align="C")
+            pdf.cell(widths[4], 7, str(row.get('Lavoro', '')), border=1, align="C")
+            pdf.cell(widths[5], 7, str(row.get('Watt', '')), border=1, align="C")
+            pdf.cell(widths[6], 7, str(row.get('Recupero', '')), border=1, align="C")
             pdf.ln()
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
@@ -450,21 +456,21 @@ with col_btn1:
                 file_name=f"cicli_allenamento_{mese_cicli}_{anno_cicli}.pdf",
                 mime="application/pdf",
                 use_container_width=True,
-                key="dl_pdf_file_cicli_lavoro"
+                key="dl_pdf_file_cicli_serie_lavoro_rec"
             )
         st.success("PDF generato con successo! Clicca sopra per scaricarlo.")
 
 with col_btn2:
-    if st.button("🗑️ Ripristina Tabella Iniziale", use_container_width=True, key="btn_del_cicli_lavoro"):
+    if st.button("🗑️ Ripristina Tabella Iniziale", use_container_width=True, key="btn_del_cicli_serie_lavoro_rec"):
         st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = pd.DataFrame([
-            {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Lavoro": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Lavoro": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Lavoro": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Lavoro": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Lavoro": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Lavoro": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Lavoro": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Lavoro": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
+            {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
         ])
         st.toast(f"Tabella di {mese_cicli} {anno_cicli} ripristinata allo stato iniziale!", icon="🔄")
         st.rerun()
