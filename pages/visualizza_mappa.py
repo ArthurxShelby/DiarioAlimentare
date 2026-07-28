@@ -8,7 +8,6 @@ map_url = st.session_state.get("map_url_to_view")
 activity_title = st.session_state.get("activity_title_to_view", "Dettaglio Tracciato")
 activity_date = st.session_state.get("activity_date_to_view", "")
 
-# Mostriamo nome e data vicini nel titolo
 titolo_completo = f"{activity_title} ({activity_date})" if activity_date else activity_title
 st.title(f"🗺️ {titolo_completo}")
 
@@ -66,7 +65,6 @@ try:
         
         elev_str = f"{int(total_elevation_gain)} m" if total_elevation_gain else "N/D"
 
-        # Ordine richiesto: Distanza, Dislivello D+, Tempo
         col1, col2, col3 = st.columns(3)
         col1.metric("Distanza", km_dist)
         col2.metric("Dislivello Positivo (D+)", elev_str)
@@ -75,30 +73,36 @@ try:
         st.markdown("---")
 
         if latlons:
+            # Riga superiore con intestazione e selettore di stile stile Google Maps
+            col_map_title, col_style_sel = st.columns([2, 2])
+            with col_map_title:
+                st.subheader("Tracciato GPS")
+            with col_style_sel:
+                stile_mappa = st.radio(
+                    "Stile Mappa",
+                    ["Stradale (OpenStreetMap)", "Topografica", "Satellite"],
+                    horizontal=True,
+                    label_visibility="collapsed"
+                )
+
             start_coord = latlons[0]
-            m = folium.Map(location=start_coord, zoom_start=13)
             
-            # Aggiunta layer Topografico / Ciclistico
-            folium.TileLayer(
-                'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-                attr='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
-                name='Topografica (Ciclistica)'
-            ).add_to(m)
+            # Selezione dell'URL del tile in base alla scelta dell'utente
+            if stile_mappa == "Topografica":
+                tile_url = 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'
+                tile_attr = 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap (CC-BY-SA)'
+            elif stile_mappa == "Satellite":
+                tile_url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                tile_attr = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP'
+            else:
+                tile_url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                tile_attr = '&copy; OpenStreetMap contributors'
 
-            # Aggiunta layer Satellite di ESRI
-            folium.TileLayer(
-                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                attr='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-                name='Satellite (Esri)'
-            ).add_to(m)
-
+            m = folium.Map(location=start_coord, zoom_start=13, tiles=tile_url, attr=tile_attr)
+            
             folium.PolyLine(latlons, color="blue", weight=4, opacity=0.8).add_to(m)
-            
             folium.Marker(latlons[0], popup="Partenza", icon=folium.Icon(color="green", icon="play")).add_to(m)
             folium.Marker(latlons[-1], popup="Arrivo", icon=folium.Icon(color="red", icon="stop")).add_to(m)
-
-            # Controllo per selezionare i layer sulla mappa
-            folium.LayerControl().add_to(m)
 
             st_folium(m, width=1200, height=600)
         else:
