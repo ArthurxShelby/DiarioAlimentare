@@ -82,26 +82,7 @@ try:
         st.markdown("---")
 
         if lats and lons:
-            # Generazione preventiva del GPX fuori dalle colonne per massima stabilità
-            righe_gpx = [
-                '<?xml version="1.0" encoding="UTF-8"?>',
-                '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
-                '  <trk>',
-                f'    <name>{activity_title}</name>',
-                '    <trkseg>'
-            ]
-            for lat, lon in zip(lats, lons):
-                righe_gpx.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
-            righe_gpx.extend([
-                '    </trkseg>',
-                '  </trk>',
-                '</gpx>'
-            ])
-            contenuto_gpx = "\n".join(righe_gpx)
-
-            nome_file_sicuro = "".join(c for c in activity_title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
-
-            c1, c2, c3 = st.columns([3, 2, 2])
+            c1, c2 = st.columns([4, 2])
             with c1:
                 st.subheader("Tracciato GPS")
             with c2:
@@ -109,14 +90,6 @@ try:
                     "Stile Mappa",
                     ["Stradale (OpenStreetMap)", "Satellite (ArcGIS)"],
                     label_visibility="collapsed"
-                )
-            with c3:
-                st.download_button(
-                    label="📥 Scarica GPX",
-                    data=contenuto_gpx,
-                    file_name=f"{nome_file_sicuro}.gpx",
-                    mime="application/gpx+xml",
-                    use_container_width=True
                 )
 
             # Configurazione delle tile layer di sfondo per Plotly
@@ -190,4 +163,3 @@ except Exception as e:
 st.markdown("---")
 if st.button("⬅️ Torna alla Gestione Uscite"):
     st.switch_page("pages/uscite.py")
-```[cite: 2]
