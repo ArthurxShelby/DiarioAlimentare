@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import requests
 import folium
+import gpxpy
+import gpxpy.gpx
 from streamlit_folium import st_folium
 from supabase import create_client, Client
 
@@ -18,89 +20,45 @@ except Exception as e:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- 3. Funzione di Parsing Flessibile ---
-def get_coordinates_from_url(url):
-    """Estrae le coordinate gestendo in modo flessibile qualsiasi struttura JSON"""
+# --- 3. Funzione di Parsing GPX con gpxpy ---
+def get_coordinates_from_gpx_url(url):
+    """Scarica il file GPX e ne estrae i punti di latitudine e longitudine"""
     try:
         response = requests.get(url)
         if response.status_code != 200:
             return None
             
-        try:
-            data = response.json()
-        except Exception:
-            return None
-            
-        if not data:
-            return None
-            
+        gpx_content = response.content
+        gpx = gpxpy.parse(gpx_content)
+        
         lat_values = []
         lon_values = []
+        
+        for track in gpx.tracks:
+            for segment in track.segments:
+                for point in segment.points:
+                    lat_values.append(point.latitude)
+                    lon_values.append(point.longitude)
+                    
+        # Se non ci sono tracce, proviamo a leggere i waypoint o i route se presenti
+        if not lat_values:
+            for route in gpx.routes:
+                for point in route.points:
+                    lat_values.append(point.latitude)
+                    lon_values.append(point.longitude)
 
-        # CASO 1: Se data è una lista
-        if isinstance(data, list):
-            if len(data) > 0 and isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
-                for item in data:
-                    lat_values.append(item[0])
-                    lon_values.append(item[1])
-            elif len(data) > 0 and isinstance(data[0], dict):
-                for item in data:
-                    lat = item.get('lat') or item.get('latitude')
-                    lon = item.get('lon') or item.get('lng') or item.get('longitude')
-                    if lat is not None and lon is not None:
-                        lat_values.append(lat)
-                        lon_values.append(lon)
-            else:
-                try:
-                    numeric_data = [float(x) for x in data]
-                    n = len(numeric_data) // 2
-                    if n > 0:
-                        lat_values = numeric_data[:n]
-                        lon_values = numeric_data[n:2*n]
-                except Exception:
-                    pass
+        if not lat_values or not lon_values:
+            return None
 
-        # CASO 2: Se data è un dizionario
-        elif isinstance(data, dict):
-            inner_data = data.get('data') or data.get('latlng') or data.get('points') or data.get('coordinates')
-            if isinstance(inner_data, list):
-                return get_coordinates_from_url_helper(inner_data)
-
-            if 'lat' in data and ('lon' in data or 'lng' in data):
-                lat_values = data['lat']
-                lon_values = data['lon'] or data['lng']
-
-        if isinstance(lat_values, list) and isinstance(lon_values, list) and len(lat_values) == len(lon_values) and len(lat_values) > 0:
-            df = pd.DataFrame({'lat': lat_values, 'lon': lon_values})
-            df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
-            df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
-            df = df.dropna()
-            return df if not df.empty else None
-
-        return None
-    except Exception as e:
-        st.error(f"Errore durante il parsing del tracciato: {e}")
-        return None
-
-def get_coordinates_from_url_helper(inner_data):
-    """Supporto interno per sotto-liste"""
-    lat_v, lon_v = [], []
-    for item in inner_data:
-        if isinstance(item, (list, tuple)) and len(item) >= 2:
-            lat_v.append(item[0])
-            lon_v.append(item[1])
-        elif isinstance(item, dict):
-            lat = item.get('lat') or item.get('latitude')
-            lon = item.get('lon') or item.get('lng') or item.get('longitude')
-            if lat is not None and lon is not None:
-                lat_v.append(lat)
-                lon_v.append(lon)
-    if lat_v and lon_v:
-        df = pd.DataFrame({'lat': lat_v, 'lon': lon_v})
+        df = pd.DataFrame({'lat': lat_values, 'lon': lon_values})
         df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
         df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
-        return df.dropna()
-    return None
+        df = df.dropna()
+        
+        return df if not df.empty else None
+    except Exception as e:
+        st.error(f"Errore durante il parsing del file GPX: {e}")
+        return None
 
 # --- 4. Logica dell'Interfaccia ---
 st.title("🗺️ Dettaglio Tracciato - Trieste Ciclismo su strada")
@@ -131,16 +89,21 @@ if map_url:
             st.markdown("---")
             st.subheader("Tracciato Geografico Interattivo")
             
-            # Elaborazione dei dati grezzi
-            df_coords = get_coordinates_from_url(map_url)
+            # Elaborazione dei dati GPX
+            df_coords = get_coordinates_from_gpx_url(map_url)
             
             if df_coords is not None and not df_coords.empty:
+                # Calcoliamo il punto centrale della mappa in base alle coordinate reali
                 center_lat = df_coords['lat'].mean()
                 center_lon = df_coords['lon'].mean()
                 
-                m = folium.Map(location=[center_lat, center_lon], zoom_start=11, tiles="OpenStreetMap")
+                # Creazione della mappa interattiva con Folium
+                m = folium.Map(location=[center_lat, center_lon], zoom_start=12, tiles="OpenStreetMap")
+                
+                # Estrazione dei punti sotto forma di lista di tuple [lat, lon]
                 points = list(zip(df_coords['lat'], df_coords['lon']))
                 
+                # Disegno della polilinea del percorso
                 folium.PolyLine(
                     points,
                     color="#ff4b4b",
@@ -148,9 +111,10 @@ if map_url:
                     opacity=0.8
                 ).add_to(m)
                 
+                # Renderizzazione della mappa all'interno di Streamlit
                 st_folium(m, width=1200, height=600)
             else:
-                st.warning("Impossibile elaborare il tracciato GPS dai dati ricevuti.")
+                st.warning("Impossibile elaborare il tracciato GPX dai dati ricevuti.")
                 
         else:
             st.warning("Nessuna attività trovata nel database.")
