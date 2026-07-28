@@ -196,12 +196,10 @@ if activities_db:
         min_data = df_activities["data_dt"].min().date()
         max_data = df_activities["data_dt"].max().date()
         
-        # Manteniamo min_value e max_value basati sui dati reali presenti nel DB
+        # Senza min_value e max_value, il menu degli anni e dei mesi sarà sempre completamente interattivo
         intervallo_date = st.date_input(
             "📅 Filtra per periodo",
-            value=(min_data, max_data),
-            min_value=min_data,
-            max_value=max_data
+            value=(min_data, max_data)
         )
 
     # Applicazione dei filtri combinati
