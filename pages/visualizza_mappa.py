@@ -78,10 +78,27 @@ try:
             start_coord = latlons[0]
             m = folium.Map(location=start_coord, zoom_start=13)
             
+            # Aggiunta layer Topografico / Ciclistico
+            folium.TileLayer(
+                'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+                attr='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
+                name='Topografica (Ciclistica)'
+            ).add_to(m)
+
+            # Aggiunta layer Satellite di ESRI
+            folium.TileLayer(
+                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                attr='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                name='Satellite (Esri)'
+            ).add_to(m)
+
             folium.PolyLine(latlons, color="blue", weight=4, opacity=0.8).add_to(m)
             
             folium.Marker(latlons[0], popup="Partenza", icon=folium.Icon(color="green", icon="play")).add_to(m)
             folium.Marker(latlons[-1], popup="Arrivo", icon=folium.Icon(color="red", icon="stop")).add_to(m)
+
+            # Controllo per selezionare i layer sulla mappa
+            folium.LayerControl().add_to(m)
 
             st_folium(m, width=1200, height=600)
         else:
