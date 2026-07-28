@@ -80,17 +80,9 @@ try:
             with c2:
                 stile_mappa = st.selectbox(
                     "Stile Mappa",
-                    ["Stradale (OpenStreetMap)", "Satellite (ArcGIS)"],
+                    ["Stradale (OpenStreetMap)", "Satellite (ArcGIS con etichette)"],
                     label_visibility="collapsed"
                 )
-
-            # Configurazione delle tile layer di sfondo per Plotly
-            if "Satellite" in stile_mappa:
-                basemap_style = "white-bg"
-                tile_source = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            else:
-                basemap_style = "open-street-map"
-                tile_source = None
 
             fig = go.Figure()
 
@@ -113,18 +105,31 @@ try:
                 name='Marker'
             ))
 
-            mapbox_config = dict(
-                style=basemap_style,
-                center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
-                zoom=11
-            )
-
-            if tile_source:
-                mapbox_config["layers"] = [{
-                    "sourcetype": "raster",
-                    "source": [tile_source],
-                    "below": "traces"
-                }]
+            if "Satellite" in stile_mappa:
+                # Base satellitare + layer trasparente superiore con i nomi delle località (CartoDB labels)
+                mapbox_config = dict(
+                    style="white-bg",
+                    center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
+                    zoom=11,
+                    layers=[
+                        {
+                            "sourcetype": "raster",
+                            "source": ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+                            "below": "traces"
+                        },
+                        {
+                            "sourcetype": "raster",
+                            "source": ["https://cartodb-basemaps-a.global.ssl.fastly.net/rastertiles/voyager_only_labels/{z}/{x}/{y}.png"],
+                            "below": "traces"
+                        }
+                    ]
+                )
+            else:
+                mapbox_config = dict(
+                    style="open-street-map",
+                    center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
+                    zoom=11
+                )
 
             fig.update_layout(
                 mapbox=mapbox_config,
@@ -133,7 +138,6 @@ try:
                 showlegend=False
             )
 
-            # Disabilitiamo i pulsanti di zoom (+/-) mantenendo però la navigazione e lo zoom a rotellina/pinch attivi
             st.plotly_chart(
                 fig, 
                 use_container_width=True, 
