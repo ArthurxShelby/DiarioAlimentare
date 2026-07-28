@@ -80,22 +80,21 @@ try:
             with c2:
                 stile_mappa = st.selectbox(
                     "Stile Mappa",
-                    ["Stradale (OpenStreetMap)", "Satellite (CartoDB)", "Terreno (Stamen)"],
+                    ["Stradale (OpenStreetMap)", "Satellite (ArcGIS)"],
                     label_visibility="collapsed"
                 )
 
-            # Mappatura degli stili cartografici gratuiti supportati da Plotly
+            # Configurazione delle tile layer di sfondo per Plotly
             if "Satellite" in stile_mappa:
-                mapbox_style = "carto-positron" # Sostituibile con tile raster se preferito, usiamo stili interni stabili
                 basemap_style = "white-bg"
-            elif "Terreno" in stile_mappa:
-                basemap_style = "open-street-map"
+                tile_source = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             else:
                 basemap_style = "open-street-map"
+                tile_source = None
 
             fig = go.Figure()
 
-            # Aggiunta del tracciato GPS sopra la mappa
+            # Tracciato GPS
             fig.add_trace(go.Scattermapbox(
                 lat=lats,
                 lon=lons,
@@ -104,7 +103,7 @@ try:
                 name='Tracciato'
             ))
 
-            # Marker di partenza e arrivo
+            # Marker Partenza e Arrivo
             fig.add_trace(go.Scattermapbox(
                 lat=[lats[0], lats[-1]],
                 lon=[lons[0], lons[-1]],
@@ -114,19 +113,32 @@ try:
                 name='Marker'
             ))
 
-            # Configurazione del layout pulito, centrato e senza pulsanti zoom visibili
+            mapbox_config = dict(
+                style=basemap_style,
+                center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
+                zoom=11
+            )
+
+            if tile_source:
+                mapbox_config["layers"] = [{
+                    "sourcetype": "raster",
+                    "source": [tile_source],
+                    "below": "traces"
+                }]
+
             fig.update_layout(
-                mapbox=dict(
-                    style=basemap_style,
-                    center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
-                    zoom=11
-                ),
+                mapbox=mapbox_config,
                 margin=dict(l=0, r=0, t=0, b=0),
                 height=600,
                 showlegend=False
             )
 
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            # Disabilitiamo i pulsanti di zoom (+/-) mantenendo però la navigazione e lo zoom a rotellina/pinch attivi
+            st.plotly_chart(
+                fig, 
+                use_container_width=True, 
+                config={'displayModeBar': False, 'scrollZoom': True}
+            )
         else:
             st.warning("Nessun punto di coordinate valido trovato nel tracciato.")
 
