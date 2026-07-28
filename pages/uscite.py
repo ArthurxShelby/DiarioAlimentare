@@ -205,31 +205,50 @@ if activities_db:
                     st.success("Sincronizzazione completata! Ricarica la pagina.")
                     st.rerun()
 
+    # --- BARRA DI RICERCA AL VOLO ---
+    ricerca = st.text_input(
+        "🔍 Cerca uscita al volo",
+        placeholder="Digita il nome dell'uscita o la data (es. 'Soglia' o '2026-07-11')..."
+    ).lower().strip()
+
+    # Filtraggio del dataframe in base alla ricerca (per titolo o data)
+    if ricerca:
+        df_filtrato = df_activities[
+            df_activities["titolo"].str.lower().str.contains(ricerca, na=False) | 
+            df_activities["data"].str.contains(ricerca, na=False)
+        ]
+    else:
+        df_filtrato = df_activities
+
     # Lista attività con scroll e caratteri ingranditi
     with st.container(height=650):
-        for index, row in df_activities.iterrows():
-            act_title = row.get("titolo", "Uscita senza titolo")
-            act_date = row.get("data", "")
-            act_dist = row.get("distanza", 0)
-            act_time = row.get("tempo", "00:00:00")
-            act_elev = row.get("dislivello", 0)
-            map_url = row.get("mappa")
-            
-            with st.container(border=True):
-                col_info, col_btn = st.columns([4, 1])
-                with col_info:
-                    st.markdown(f"<h3 style='margin: 0; padding-bottom: 5px;'>{act_title} <span style='font-size: 1.1rem; color: #999;'>({act_date})</span></h3>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size: 1.2rem; margin: 0;'>Distanza: <b>{act_dist} km</b> &nbsp;|&nbsp; D+: <b>{act_elev} m</b> &nbsp;|&nbsp; Tempo: <b>{act_time}</b></p>", unsafe_allow_html=True)
-                with col_btn:
-                    st.write("") 
-                    if map_url:
-                        if st.button("🔍 Apri Mappa", key=f"map_btn_{row['activity_id']}", use_container_width=True):
-                            st.session_state["map_url_to_view"] = map_url
-                            st.session_state["activity_title_to_view"] = act_title
-                            st.session_state["activity_date_to_view"] = act_date
-                            st.switch_page("pages/visualizza_mappa.py")
-                    else:
-                        st.caption("Mappa non disponibile")
+        if len(df_filtrato) == 0:
+            st.info("Nessuna uscita corrisponde alla ricerca effettuata.")
+        else:
+            for index, row in df_filtrato.iterrows():
+                act_title = row.get("titolo", "Uscita senza titolo")
+                act_date = row.get("data", "")
+                act_dist = row.get("distanza", 0)
+                act_time = row.get("tempo", "00:00:00")
+                act_elev = row.get("dislivello", 0)
+                map_url = row.get("mappa")
+                
+                with st.container(border=True):
+                    col_info, col_btn = st.columns([4, 1])
+                    with col_info:
+                        st.markdown(f"<h3 style='margin: 0; padding-bottom: 5px;'>{act_title} <span style='font-size: 1.1rem; color: #999;'>({act_date})</span></h3>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size: 1.2rem; margin: 0;'>Distanza: <b>{act_dist} km</b> &nbsp;|&nbsp; D+: <b>{act_elev} m</b> &nbsp;|&nbsp; Tempo: <b>{act_time}</b></p>", unsafe_allow_html=True)
+                    with col_btn:
+                        st.write("") 
+                        if map_url:
+                            if st.button("🔍 Apri Mappa", key=f"map_btn_{row['activity_id']}", use_container_width=True):
+                                st.session_state["map_url_to_view"] = map_url
+                                st.session_state["activity_title_to_view"] = act_title
+                                st.session_state["activity_date_to_view"] = act_date
+                                st.switch_page("pages/visualizza_mappa.py")
+                        else:
+                            st.caption("Mappa non disponibile")
 
 else:
     st.info("Nessuna attività trovata su Supabase. Sincronizza i dati.")
+```[cite: 5]
