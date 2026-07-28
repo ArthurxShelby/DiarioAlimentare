@@ -128,81 +128,19 @@ if activities_db:
     st.markdown("---")
     
     col_tab1, col_tab2 = st.columns(2)
-    
     with col_tab1:
         st.subheader("📅 Totali per Anno")
         df_anno = df_activities.groupby("anno")[["distanza", "dislivello"]].sum().reset_index()
         df_anno.columns = ["Anno", "Km Totali", "Dislivello Totale (m)"]
         df_anno = df_anno.sort_values("Anno", ascending=False)
-        
-        # Generazione HTML personalizzato con font grande
-        html_anno = df_anno.to_html(index=False, classes="custom-table")
-        st.markdown(f"""
-            <style>
-                .custom-table {{
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 1.25rem;
-                    text-align: left;
-                }}
-                .custom-table th {{
-                    background-color: #1e1e1e;
-                    color: #ffffff;
-                    padding: 12px;
-                    font-size: 1.3rem;
-                    border-bottom: 2px solid #444;
-                }}
-                .custom-table td {{
-                    padding: 12px;
-                    border-bottom: 1px solid #333;
-                    color: #f0f0f0;
-                }}
-            </style>
-            {html_anno}
-        """, unsafe_allow_html=True)
+        st.dataframe(df_anno, use_container_width=True, hide_index=True)
         
     with col_tab2:
         st.subheader("📆 Totali per Mese")
         df_mese = df_activities.groupby("mese")[["distanza", "dislivello"]].sum().reset_index()
         df_mese.columns = ["Mese", "Km Totali", "Dislivello Totale (m)"]
         df_mese = df_mese.sort_values("Mese", ascending=False)
-        
-        # Generazione HTML con scroll e font grande per i mesi
-        html_mese = df_mese.to_html(index=False, classes="custom-table-mese")
-        st.markdown(f"""
-            <style>
-                .table-container {{
-                    max-height: 420px;
-                    overflow-y: auto;
-                    border: 1px solid #333;
-                    border-radius: 5px;
-                }}
-                .custom-table-mese {{
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 1.25rem;
-                    text-align: left;
-                }}
-                .custom-table-mese th {{
-                    background-color: #1e1e1e;
-                    color: #ffffff;
-                    padding: 12px;
-                    font-size: 1.3rem;
-                    position: sticky;
-                    top: 0;
-                    z-index: 1;
-                    border-bottom: 2px solid #444;
-                }}
-                .custom-table-mese td {{
-                    padding: 12px;
-                    border-bottom: 1px solid #333;
-                    color: #f0f0f0;
-                }}
-            </style>
-            <div class="table-container">
-                {html_mese}
-            </div>
-        """, unsafe_allow_html=True)
+        st.dataframe(df_mese, use_container_width=True, hide_index=True, height=450)
     
     st.markdown("---")
     
@@ -258,6 +196,7 @@ if activities_db:
         min_data = df_activities["data_dt"].min().date()
         max_data = df_activities["data_dt"].max().date()
         
+        # Calendario con range min e max personalizzati in base all'inizio raccolta e data futura
         intervallo_date = st.date_input(
             "📅 Filtra per periodo",
             value=(min_data, max_data),
@@ -265,14 +204,17 @@ if activities_db:
             max_value=date(2040, 12, 31)
         )
 
+    # Applicazione dei filtri combinati
     df_filtrato = df_activities.copy()
 
+    # Filtro testuale
     if ricerca:
         df_filtrato = df_filtrato[
             df_filtrato["titolo"].str.lower().str.contains(ricerca, na=False) | 
             df_filtrato["data"].str.contains(ricerca, na=False)
         ]
 
+    # Filtro per intervallo date
     if isinstance(intervallo_date, tuple) and len(intervallo_date) == 2:
         data_inizio, data_fine = intervallo_date
         df_filtrato = df_filtrato[
@@ -280,6 +222,7 @@ if activities_db:
             (df_filtrato["data_dt"].dt.date <= data_fine)
         ]
 
+    # Lista attività con scroll e caratteri ingranditi
     with st.container(height=650):
         if len(df_filtrato) == 0:
             st.info("Nessuna uscita corrisponde ai filtri di ricerca selezionati.")
