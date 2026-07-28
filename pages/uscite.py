@@ -51,48 +51,15 @@ def safe_int(val):
 # --- FUNZIONI GPX AGGIORNATE ---
 
 def fetch_activity_gpx(activity_id, api_key):
-    """
-    Tenta di scaricare il flusso latlng e convertirlo in GPX. 
-    Se l'endpoint non è disponibile (404), restituisce None senza bloccare nulla.
-    """
     url = f"https://intervals.icu/api/v1/activity/{activity_id}/streams/latlng"
     auth = ("API_KEY", api_key.strip())
     try:
         response = requests.get(url, auth=auth)
+        st.write(f"ID {activity_id} - Status: {response.status_code}") # <-- AGGIUNTO PER DIAGNOSTICA
         if response.status_code == 200:
             data = response.json()
-            points_list = []
-            if isinstance(data, list):
-                for item in data:
-                    if isinstance(item, dict) and 'data' in item:
-                        points_list = item['data']
-                        break
-                if not points_list:
-                    points_list = data
-            elif isinstance(data, dict):
-                points_list = data.get('data', [])
-
-            if not points_list:
-                return None
-
-            gpx = gpxpy.gpx.GPX()
-            gpx_track = gpxpy.gpx.GPXTrack()
-            gpx.tracks.append(gpx_track)
-            gpx_segment = gpxpy.gpx.GPXTrackSegment()
-            gpx_track.segments.append(gpx_segment)
-
-            for pt in points_list:
-                if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                    lat, lon = pt[0], pt[1]
-                    if lat is not None and lon is not None:
-                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
-
-            return gpx.to_xml().encode('utf-8')
-        else:
-            # Se dà 404 o altro errore, restituiamo semplicemente None in silenzio
-            return None
-    except Exception:
-        return None
+            st.write(data[:2] if isinstance(data, list) else "Dizionario ricevuto") # <-- DIAGNOSTICA
+            # ... resto del codice ...
 
 def upload_gpx_to_supabase(activity_id, gpx_bytes):
     """
