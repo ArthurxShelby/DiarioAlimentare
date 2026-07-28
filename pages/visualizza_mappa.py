@@ -5,9 +5,12 @@ import folium
 from streamlit_folium import st_folium
 
 map_url = st.session_state.get("map_url_to_view")
-activity_title = st.session_state.get("activity_title_to_view", "Dettaglio Tracciato Interattivo")
+activity_title = st.session_state.get("activity_title_to_view", "Dettaglio Tracciato")
+activity_date = st.session_state.get("activity_date_to_view", "")
 
-st.title(f"🗺️ {activity_title}")
+# Mostriamo nome e data vicini nel titolo
+titolo_completo = f"{activity_title} ({activity_date})" if activity_date else activity_title
+st.title(f"🗺️ {titolo_completo}")
 
 if not map_url:
     st.warning("Nessun tracciato selezionato. Torna alla pagina Uscite e seleziona un'attività.")
@@ -63,10 +66,11 @@ try:
         
         elev_str = f"{int(total_elevation_gain)} m" if total_elevation_gain else "N/D"
 
+        # Ordine richiesto: Distanza, Dislivello D+, Tempo
         col1, col2, col3 = st.columns(3)
         col1.metric("Distanza", km_dist)
-        col2.metric("Tempo di Percorrenza", time_str)
-        col3.metric("Dislivello Positivo", elev_str)
+        col2.metric("Dislivello Positivo (D+)", elev_str)
+        col3.metric("Tempo di Percorrenza", time_str)
 
         st.markdown("---")
 
