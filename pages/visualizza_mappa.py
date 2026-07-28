@@ -5,7 +5,9 @@ import folium
 from streamlit_folium import st_folium
 
 map_url = st.session_state.get("map_url_to_view")
-fallback_title = st.session_state.get("activity_title_to_view", "Dettaglio Tracciato Interattivo")
+activity_title = st.session_state.get("activity_title_to_view", "Dettaglio Tracciato Interattivo")
+
+st.title(f"🗺️ {activity_title}")
 
 if not map_url:
     st.warning("Nessun tracciato selezionato. Torna alla pagina Uscite e seleziona un'attività.")
@@ -22,7 +24,6 @@ try:
         distance_meters = 0
         moving_time = 0
         total_elevation_gain = 0
-        json_activity_name = None
         
         if isinstance(data, list):
             for stream in data:
@@ -52,14 +53,6 @@ try:
                                 if diff > 0:
                                     gain += diff
                             total_elevation_gain = gain
-                    
-                    if "name" in stream and stream.get("name"):
-                        json_activity_name = stream.get("name")
-        elif isinstance(data, dict):
-            json_activity_name = data.get("name") or data.get("title")
-
-        final_title = json_activity_name if json_activity_name else fallback_title
-        st.title(f"🗺️ {final_title}")
 
         km_dist = f"{distance_meters / 1000:.2f} km" if distance_meters else "N/D"
         
