@@ -49,7 +49,6 @@ def safe_int(val):
         return None
 
 # --- FUNZIONI GPX AGGIORNATE ---
-import gpxpy.gpx
 
 def fetch_activity_gpx(activity_id, api_key):
     """
