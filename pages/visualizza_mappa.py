@@ -92,18 +92,22 @@ try:
                     label_visibility="collapsed"
                 )
             with c3:
-                # Generazione dinamica del contenuto GPX
-                gpx_content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">
-  <trk>
-    <name>{activity_title}</name>
-    <trkseg>"""
+                # Generazione dinamica del contenuto GPX senza indentazioni anomale
+                gpx_righe = [
+                    '<?xml version="1.0" encoding="UTF-8"?>',
+                    '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
+                    '  <trk>',
+                    f'    <name>{activity_title}</name>',
+                    '    <trkseg>'
+                ]
                 for lat, lon in zip(lats, lons):
-                    gpx_content += f'\n      <trkpt lat="{lat}" lon="{lon}"></trkpt>'
-                gpx_content += """
-    </trkseg>
-  </trk>
-</gpx>"""
+                    gpx_righe.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
+                gpx_righe.extend([
+                    '    </trkseg>',
+                    '  </trk>',
+                    '</gpx>'
+                ])
+                gpx_content = "\n".join(gpx_righe)
 
                 filename_safe = "".join(c for c in activity_title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
                 
