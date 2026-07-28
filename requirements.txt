@@ -4,3 +4,4 @@ supabase
 fpdf2
 folium
 streamlit-folium
+gpxpy
