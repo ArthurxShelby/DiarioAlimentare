@@ -52,7 +52,8 @@ def safe_int(val):
 
 def fetch_activity_gpx(activity_id, api_key):
     """
-    Scarica il flusso latlng da Intervals.icu e lo converte in un file GPX valido.
+    Tenta di scaricare il flusso latlng e convertirlo in GPX. 
+    Se l'endpoint non è disponibile (404), restituisce None senza bloccare nulla.
     """
     url = f"https://intervals.icu/api/v1/activity/{activity_id}/streams/latlng"
     auth = ("API_KEY", api_key.strip())
@@ -60,7 +61,6 @@ def fetch_activity_gpx(activity_id, api_key):
         response = requests.get(url, auth=auth)
         if response.status_code == 200:
             data = response.json()
-            # Intervals restituisce i dati dei flussi, cerchiamo la lista di coordinate
             points_list = []
             if isinstance(data, list):
                 for item in data:
@@ -75,7 +75,6 @@ def fetch_activity_gpx(activity_id, api_key):
             if not points_list:
                 return None
 
-            # Creiamo un file GPX in-memory usando gpxpy
             gpx = gpxpy.gpx.GPX()
             gpx_track = gpxpy.gpx.GPXTrack()
             gpx.tracks.append(gpx_track)
@@ -90,10 +89,10 @@ def fetch_activity_gpx(activity_id, api_key):
 
             return gpx.to_xml().encode('utf-8')
         else:
-            st.warning(f"Intervals API Stream error {response.status_code} per ID {activity_id}")
-    except Exception as e:
-        st.warning(f"Eccezione conversione GPX per ID {activity_id}: {e}")
-    return None
+            # Se dà 404 o altro errore, restituiamo semplicemente None in silenzio
+            return None
+    except Exception:
+        return None
 
 def upload_gpx_to_supabase(activity_id, gpx_bytes):
     """
