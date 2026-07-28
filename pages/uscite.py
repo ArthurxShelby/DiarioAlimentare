@@ -48,23 +48,50 @@ def safe_int(val):
     except (ValueError, TypeError):
         return None
 
-# --- FUNZIONI GPX AGGIORNATE ---
-
+# --- FUNZIONE GPX SICURA ---
 def fetch_activity_gpx(activity_id, api_key):
+    """
+    Tenta di scaricare il flusso latlng e convertirlo in GPX in modo sicuro.
+    """
     url = f"https://intervals.icu/api/v1/activity/{activity_id}/streams/latlng"
     auth = ("API_KEY", api_key.strip())
     try:
         response = requests.get(url, auth=auth)
-        st.write(f"ID {activity_id} - Status: {response.status_code}") # <-- AGGIUNTO PER DIAGNOSTICA
         if response.status_code == 200:
             data = response.json()
-            st.write(data[:2] if isinstance(data, list) else "Dizionario ricevuto") # <-- DIAGNOSTICA
-            # ... resto del codice ...
+            points_list = []
+            if isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict) and 'data' in item:
+                        points_list = item['data']
+                        break
+                if not points_list:
+                    points_list = data
+            elif isinstance(data, dict):
+                points_list = data.get('data', [])
+
+            if not points_list:
+                return None
+
+            gpx = gpxpy.gpx.GPX()
+            gpx_track = gpxpy.gpx.GPXTrack()
+            gpx.tracks.append(gpx_track)
+            gpx_segment = gpxpy.gpx.GPXTrackSegment()
+            gpx_track.segments.append(gpx_segment)
+
+            for pt in points_list:
+                if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                    lat, lon = pt[0], pt[1]
+                    if lat is not None and lon is not None:
+                        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+
+            return gpx.to_xml().encode('utf-8')
+        else:
+            return None
+    except Exception:
+        return None
 
 def upload_gpx_to_supabase(activity_id, gpx_bytes):
-    """
-    Gestisce l'upload del file GPX su Supabase Storage.
-    """
     if not gpx_bytes:
         return None
     
@@ -79,10 +106,9 @@ def upload_gpx_to_supabase(activity_id, gpx_bytes):
         public_url = supabase.storage.from_(BUCKET_NAME).get_public_url(file_path)
         return public_url
     except Exception as e:
-        st.error(f"Errore upload GPX Supabase per {activity_id}: {e}")
         try:
             return supabase.storage.from_(BUCKET_NAME).get_public_url(file_path)
-        except Exception as ex:
+        except Exception:
             return None
 
 @st.cache_data(ttl=1)
@@ -121,7 +147,6 @@ if activities_db:
     
     df_activities = pd.DataFrame(activities_db)
     
-    # --- AGGREGAZIONI E STATISTICHE ---
     df_activities["data_dt"] = pd.to_datetime(df_activities["data"])
     df_activities["anno"] = df_activities["data_dt"].dt.year
     df_activities["mese"] = df_activities["data_dt"].dt.strftime("%Y-%m")
@@ -201,9 +226,8 @@ if activities_db:
         }
     )
     
-    # Pulsante per aggiornare/riscaricare le uscite e i GPX da Intervals a Supabase
     if st.button("🔄 Aggiorna uscite da Intervals.icu", key="btn_aggiorna_intervals", use_container_width=True):
-        with st.spinner("Sincronizzazione GPX da Intervals.icu in corso..."):
+        with st.spinner("Sincronizzazione in corso..."):
             activities_ext = fetch_intervals_activities(ATHLETE_ID, API_KEY)
             if activities_ext:
                 for act in activities_ext:
@@ -219,7 +243,6 @@ if activities_db:
                     else:
                         form_val = act.get("form") or act.get("icu_form") or act.get("icu_tsb")
                         
-                    # SCARICA E CARICA IL GPX ANZICHE IL JSON
                     gpx_bytes = fetch_activity_gpx(act_id, API_KEY)
                     public_url = upload_gpx_to_supabase(act_id, gpx_bytes) if gpx_bytes else None
                     
@@ -238,7 +261,7 @@ if activities_db:
                         "mappa": public_url
                     }
                     supabase.table("uscite").upsert(row_data, on_conflict="activity_id").execute()
-                st.success("Sincronizzazione GPX completata! Ricarica la pagina.")
+                st.success("Sincronizzazione completata! Ricarica la pagina.")
                 st.rerun()
 
 else:
