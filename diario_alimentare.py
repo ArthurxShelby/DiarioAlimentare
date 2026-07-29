@@ -460,6 +460,16 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
         obj_grassi = round((obj_kcal * 0.25) / 9, 1)
         st.sidebar.markdown("**Modalità Attiva:**\n*Calcolo Mifflin-St Jeor Standard*")
     else:
+        # Aggiungiamo uno stile CSS per gestire l'altezza e lo scroll del menu a tendina nella sidebar
+        st.markdown("""
+            <style>
+                [data-baseweb="popover"] {
+                    max-height: 250px !important;
+                    overflow-y: auto !important;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+
         # Menu a discesa per le 5 giornate tipo
         giornata_tipo_scelta = st.sidebar.selectbox(
             "Seleziona Giornata Tipo:",
