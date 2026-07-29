@@ -82,7 +82,7 @@ if act_id:
                             stream_types_found.append(s["type"])
                     
                     if stream_types_found:
-                        st.info( اقتصادي / Tipi di dati disponibili: " + ", ".join(stream_types_found))
+                        st.info("Tipi di dati disponibili: " + ", ".join(stream_types_found))
                         
                         # Mostriamo grafici rapidi se ci sono dati di potenza o frequenza cardiaca
                         for s in all_streams:
