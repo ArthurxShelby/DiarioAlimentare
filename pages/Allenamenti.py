@@ -192,8 +192,13 @@ if is_proprietario:
 
                 if all(col in df_caricato.columns for col in colonne_attese):
                     df_filtrato = df_caricato[colonne_attese].copy()
+                    # Salva nel database di sessione e sul cloud
                     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_filtrato
                     salva_database()
+                    
+                    # AGGIORNAMENTO IMMEDIATO DELLA VARIABILE VISIVA
+                    df_da_mostrare = df_filtrato
+                    
                     st.success(f"File CSV caricato e salvato con successo per {mese_selezionato} {anno_selezionato}!")
                 else:
                     st.error(f"Il file CSV non contiene le colonne corrette. Colonne trovate: {list(df_caricato.columns)}. Attese: {colonne_attese}")
