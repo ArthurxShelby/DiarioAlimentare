@@ -164,6 +164,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
         st.markdown("---")
         
         with st.container(height=550):
+            with st.container(height=650):
             for idx, act in enumerate(st.session_state["custom_activities"]):
                 act_id = str(act.get("id"))
                 act_title = act.get("name", "Uscita senza titolo")
@@ -172,66 +173,95 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                 act_time = timedelta_to_str(act.get("moving_time", 0))
                 act_elev = safe_int(act.get("total_elevation_gain")) or 0
                 
-                key_map_state = f"map_open_{act_id}_{idx}"
-                if key_map_state not in st.session_state:
-                    st.session_state[key_map_state] = False
+                # Chiave unica in sessione per gestire l'apertura/chiusura dell'anteprima
+                key_toggle = f"show_map_{act_id}_{idx}"
+                if key_toggle not in st.session_state:
+                    st.session_state[key_toggle] = False
                 
                 with st.container(border=True):
-                    col_info, col_btn = st.columns([4, 1])
+                    col_info, col_btn1, col_btn2 = st.columns([3, 1, 1])
                     with col_info:
                         st.markdown(f"<h3 style='margin: 0; padding-bottom: 5px;'>{act_title} <span style='font-size: 1.1rem; color: #999;'>({act_date})</span></h3>", unsafe_allow_html=True)
                         st.markdown(f"<p style='font-size: 1.2rem; margin: 0;'>Distanza: <b>{act_dist} km</b> &nbsp;|&nbsp; D+: <b>{act_elev} m</b> &nbsp;|&nbsp; Tempo: <b>{act_time}</b></p>", unsafe_allow_html=True)
-                    with col_btn:
+                    with col_btn1:
                         st.write("") 
-                        if st.button("🔍 Apri Mappa", key=f"btn_custom_{act_id}_{idx}", use_container_width=True):
+                        # Pulsante per aprire l'anteprima rapida qui sotto
+                        btn_label = "🗺️ Nascondi Mappa" if st.session_state[key_toggle] else "🗺️ Anteprima Mappa"
+                        if st.button(btn_label, key=f"btn_preview_{act_id}_{idx}", use_container_width=True):
+                            st.session_state[key_toggle] = not st.session_state[key_toggle]
+                            st.rerun()
+                    with col_btn2:
+                        st.write("") 
+                        if st.button("🔍 Pagina Dedicata", key=f"btn_custom_{act_id}_{idx}", use_container_width=True):
                             st.session_state["selected_activity_id"] = act_id
                             st.session_state["selected_activity_title"] = act_title
                             st.session_state["selected_activity_date"] = act_date
                             st.switch_page("pages/visualizza_mappa.py")
 
-                    if st.session_state[key_map_state]:
+                    # Se l'utente ha cliccato "Anteprima Mappa", scarichiamo i flussi e disegnamo con Plotly
+                    if st.session_state[key_toggle]:
                         st.markdown("---")
-                        st.markdown("#### 🗺️ Anteprima Percorso")
                         
-                        url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams.json?types=latlng"
+                        clean_id = ''.join(c for c in act_id if c.isdigit())
+                        target_url = f"https://intervals.icu/api/v1/activity/{clean_id}/streams"
                         auth_streams = ("API_KEY", API_KEY.strip())
                         
-                        with st.spinner("Caricamento tracciato GPS in corso..."):
+                        with st.spinner("Caricamento tracciato in corso..."):
                             try:
-                                resp_streams = requests.get(url_streams, auth=auth_streams)
-                                
-                                # DEBUG: Mostriamo lo status code e il contenuto grezzo per capire cosa arriva
-                                st.write(f"Status API Streams: {resp_streams.status_code}")
-                                data_grezza = resp_streams.json()
-                                st.write("Contenuto ricevuto:", data_grezza)
-                                
-                                decoded_coordinates = []
-                                
-                                if resp_streams.status_code == 200:
-                                    streams_list = data_grezza if isinstance(data_grezza, list) else [data_grezza]
+                                resp_streams = requests.get(target_url, auth=auth_streams)
+                                if resp_streams.status_code == 404 and act_id != clean_id:
+                                    target_url = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
+                                    resp_streams = requests.get(target_url, auth=auth_streams)
                                     
-                                    for stream in streams_list:
-                                        if isinstance(stream, dict):
-                                            # Stampiamo i tipi di flussi disponibili trovati nell'oggetto
-                                            st.write(f"Trovato flusso tipo: {stream.get('type')}")
-                                            if stream.get("type") == "latlng":
-                                                latlngs = stream.get("data", [])
-                                                for pt in latlngs:
-                                                    if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                                                        if pt[0] is not None and pt[1] is not None:
-                                                            decoded_coordinates.append((float(pt[0]), float(pt[1])))
-                                                break
-
-                                if decoded_coordinates:
-                                    m = folium.Map(location=decoded_coordinates[0], zoom_start=13, tiles="CartoDB positron")
-                                    folium.PolyLine(
-                                        decoded_coordinates, 
-                                        color="#ff4b4b", 
-                                        weight=4, 
-                                        opacity=0.8
-                                    ).add_to(m)
-                                    st_folium(m, width=700, height=350, key=f"folium_render_{act_id}_{idx}")
+                                if resp_streams.status_code == 200:
+                                    data = resp_streams.json()
+                                    lats, lons = [], []
+                                    
+                                    if isinstance(data, list):
+                                        for stream in data:
+                                            if isinstance(stream, dict):
+                                                stype = stream.get("type")
+                                                if stype in ["latlng", "lating"]:
+                                                    lat_data = stream.get("data", [])
+                                                    lon_data = stream.get("data2", [])
+                                                    
+                                                    if isinstance(lat_data, list) and isinstance(lon_data, list) and len(lat_data) == len(lon_data) and len(lat_data) > 0:
+                                                        for lat, lon in zip(lat_data, lon_data):
+                                                            if lat is not None and lon is not None:
+                                                                lats.append(float(lat))
+                                                                lons.append(float(lon))
+                                                    elif isinstance(lat_data, list) and len(lat_data) > 0:
+                                                        for pt in lat_data:
+                                                            if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                                                                if pt[0] is not None and pt[1] is not None:
+                                                                    lats.append(float(pt[0]))
+                                                                    lons.append(float(pt[1]))
+                                                                    
+                                    if lats and lons:
+                                        import plotly.graph_objects as go
+                                        fig = go.Figure()
+                                        fig.add_trace(go.Scattermapbox(
+                                            lat=lats, lon=lons, mode='lines',
+                                            line=dict(width=4, color='dodgerblue'), name='Tracciato'
+                                        ))
+                                        fig.add_trace(go.Scattermapbox(
+                                            lat=[lats[0], lats[-1]], lon=[lons[0], lons[-1]], mode='markers',
+                                            marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
+                                        ))
+                                        fig.update_layout(
+                                            mapbox=dict(
+                                                style="open-street-map",
+                                                center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
+                                                zoom=11
+                                            ),
+                                            margin=dict(l=0, r=0, t=0, b=0),
+                                            height=450,
+                                            showlegend=False
+                                        )
+                                        st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
+                                    else:
+                                        st.warning("Nessun punto di coordinate valido trovato in questa attività.")
                                 else:
-                                    st.warning("Nessun flusso di coordinate GPS (latlng) disponibile per questa attività su Intervals.")
+                                    st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_streams.status_code})")
                             except Exception as e:
-                                st.error(f"Errore durante il recupero della mappa: {e}")
+                                st.error(f"Errore durante il caricamento della mappa: {e}")
