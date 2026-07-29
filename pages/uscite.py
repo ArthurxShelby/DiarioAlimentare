@@ -41,35 +41,6 @@ def safe_int(val):
     except (ValueError, TypeError):
         return None
 
-# Funzione interna per decodificare la polilinea senza librerie esterne
-def decode_polyline(polyline_str):
-    points = []
-    index, lat, lng = 0, 0, 0
-    length = len(polyline_str)
-    while index < length:
-        shift, result = 0, 0
-        while True:
-            b = ord(polyline_str[index]) - 63
-            index += 1
-            result |= (b & 0x1f) << shift
-            shift += 5
-            if b < 0x20:
-                break
-        dlat = ~(result >> 1) if (result & 1) else (result >> 1)
-        lat += dlat
-        shift, result = 0, 0
-        while True:
-            b = ord(polyline_str[index]) - 63
-            index += 1
-            result |= (b & 0x1f) << shift
-            shift += 5
-            if b < 0x20:
-                break
-        dlng = ~(result >> 1) if (result & 1) else (result >> 1)
-        lng += dlng
-        points.append((lat / 1e5, lng / 1e5))
-    return points
-
 # --- 1. STATISTICHE DINAMICHE DIRETTAMENTE DA INTERVALS (Dal 15/11/2025) ---
 with st.spinner("Sincronizzazione dati da Intervals.icu in corso..."):
     url_global = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
@@ -235,24 +206,35 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                         st.markdown("---")
                         st.markdown("#### 🗺️ Anteprima Percorso")
                         
-                        map_data = act.get('map', {})
-                        summary_polyline = map_data.get('summary_polyline') or map_data.get('polyline')
+                        url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
+                        auth_streams = ("API_KEY", API_KEY.strip())
                         
-                        if summary_polyline:
+                        with st.spinner("Caricamento tracciato GPS in corso..."):
                             try:
-                                decoded_coordinates = decode_polyline(summary_polyline)
-                                if decoded_coordinates:
-                                    m = folium.Map(location=decoded_coordinates[0], zoom_start=13, tiles="CartoDB positron")
-                                    folium.PolyLine(
-                                        decoded_coordinates, 
-                                        color="#ff4b4b", 
-                                        weight=4, 
-                                        opacity=0.8
-                                    ).add_to(m)
-                                    st_folium(m, width=700, height=350, key=f"folium_render_{act_id}_{idx}")
+                                resp_streams = requests.get(url_streams, auth=auth_streams)
+                                if resp_streams.status_code == 200:
+                                    streams_data = resp_streams.json()
+                                    
+                                    decoded_coordinates = []
+                                    for stream in streams_data:
+                                        if stream.get("type") == "latlng":
+                                            latlngs = stream.get("data", [])
+                                            if latlngs:
+                                                decoded_coordinates = [(pt[0], pt[1]) for pt in latlngs if len(pt) >= 2]
+                                                break
+
+                                    if decoded_coordinates:
+                                        m = folium.Map(location=decoded_coordinates[0], zoom_start=13, tiles="CartoDB positron")
+                                        folium.PolyLine(
+                                            decoded_coordinates, 
+                                            color="#ff4b4b", 
+                                            weight=4, 
+                                            opacity=0.8
+                                        ).add_to(m)
+                                        st_folium(m, width=700, height=350, key=f"folium_render_{act_id}_{idx}")
+                                    else:
+                                        st.warning("Nessun flusso di coordinate GPS (latlng) disponibile per questa attività su Intervals.")
                                 else:
-                                    st.warning("Impossibile decodificare le coordinate GPS per questa attività.")
+                                    st.warning("Impossibile recuperare i dati cartografici per questa attività.")
                             except Exception as e:
-                                st.error(f"Errore nel rendering della mappa: {e}")
-                        else:
-                            st.warning("Nessun tracciato GPS (polyline) disponibile per questa attività.")
+                                st.error(f"Errore durante il recupero della mappa: {e}")
