@@ -190,7 +190,7 @@ if is_proprietario:
         salva_database()
         st.rerun()
 
-    # 2. Gli expander (CSV e Pulizia) posizionati ESATTAMENTE SOTTO LA TABELLA come da screenshot
+    # 2. Gli expander (CSV e Pulizia) posizionati sotto la tabella
     with st.expander("📂 Integra o carica piano di lavoro tramite file CSV", expanded=False):
         st.write(f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**.")
         
@@ -298,7 +298,12 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 4. SECONDA TABELLA: PROGRAMMAZIONE CICLI (SINCRONIZZATA AUTOMATICAMENTE) ---
 st.subheader("📋 Programmazione Cicli di Allenamento (Perpetua)")
-st.write(f"I dati sottostanti si sincronizzano automaticamente con il periodo selezionato in alto: **{mese_selezionato} {anno_selezionato}**.")
+# Sottotitolo con font ingrandito tramite HTML span style
+st.markdown(
+    f"I dati sottostanti si sincronizzano automaticamente con il periodo selezionato in alto: "
+    f"<span style='font-size: 1.15rem; font-weight: bold;'>{mese_selezionato} {anno_selezionato}</span>.",
+    unsafe_allow_html=True
+)
 
 df_struttura_fissa = pd.DataFrame([
     {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata"},
