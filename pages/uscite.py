@@ -97,42 +97,37 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza URL Definitiva) ---
+# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza Corretta) ---
 
-# Leggiamo direttamente dai parametri URL per mantenere la memoria dopo il riavvio
-try:
-    url_start = st.query_params.get("exp_start")
-    if url_start:
-        st.session_state["exp_start"] = datetime.strptime(url_start, "%Y-%m-%d").date()
-except Exception:
-    pass
+# Inizializziamo le date salvate nella sessione se non esistono
+if "saved_start" not in st.session_state:
+    # Controlliamo se ci sono nella URL
+    try:
+        url_start = st.query_params.get("exp_start")
+        st.session_state["saved_start"] = datetime.strptime(url_start, "%Y-%m-%d").date() if url_start else date(2026, 1, 1)
+    except Exception:
+        st.session_state["saved_start"] = date(2026, 1, 1)
 
-try:
-    url_end = st.query_params.get("exp_end")
-    if url_end:
-        st.session_state["exp_end"] = datetime.strptime(url_end, "%Y-%m-%d").date()
-except Exception:
-    pass
-
-# Fallback se la sessione è vuota
-if "exp_start" not in st.session_state:
-    st.session_state["exp_start"] = date(2026, 1, 1)
-if "exp_end" not in st.session_state:
-    st.session_state["exp_end"] = date.today()
+if "saved_end" not in st.session_state:
+    try:
+        url_end = st.query_params.get("exp_end")
+        st.session_state["saved_end"] = datetime.strptime(url_end, "%Y-%m-%d").date() if url_end else date.today()
+    except Exception:
+        st.session_state["saved_end"] = date.today()
 
 with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato)", expanded=False):
     st.write("Seleziona un periodo qualsiasi per estrarre dal flusso di Intervals tutte le attività, consultare i metri e aprire le relative mappe in tempo reale.")
     
     col_c1, col_c2 = st.columns(2)
     with col_c1:
-        data_inizio_custom = st.date_input("Data Inizio Range", value=st.session_state["exp_start"], key="exp_start")
+        data_inizio_custom = st.date_input("Data Inizio Range", value=st.session_state["saved_start"], key="widget_start")
     with col_c2:
-        data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["exp_end"], key="exp_end")
+        data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["saved_end"], key="widget_end")
         
     if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
-        # Salviamo in modo permanente nella URL e nella sessione
-        st.session_state["exp_start"] = data_inizio_custom
-        st.session_state["exp_end"] = data_fine_custom
+        # Salviamo le date scelte in modo permanente nello stato e nella URL
+        st.session_state["saved_start"] = data_inizio_custom
+        st.session_state["saved_end"] = data_fine_custom
         st.query_params["exp_start"] = data_inizio_custom.strftime("%Y-%m-%d")
         st.query_params["exp_end"] = data_fine_custom.strftime("%Y-%m-%d")
         
