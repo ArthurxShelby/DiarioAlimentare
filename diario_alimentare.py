@@ -448,19 +448,11 @@ tdee = bmr * pal_val
 # --- LOGICA DI CALCOLO MACRONUTRIENTI (GIORNATE TIPO / MIFFLIN) ---
 if is_proprietario and atleta_corrente == "Atleta Principale":
     st.sidebar.markdown("### ⚙️ Gestione Calcolo Macronutrienti")
-
-    # Utilizziamo una chiave persistente in st.session_state per la modalità di calcolo
-    if "modo_calcolo_principale" not in st.session_state:
-        st.session_state.modo_calcolo_principale = "Giornata Tipo"
-
-    scelta_modo = st.sidebar.radio(
-        "Seleziona Modalità di Calcolo:",
-        ["Giornata Tipo", "Mifflin-St Jeor Standard"],
-        key="radio_modo_calcolo"
-    )
-    st.session_state.modo_calcolo_principale = scelta_modo
-
-    if st.session_state.modo_calcolo_principale == "Mifflin-St Jeor Standard":
+    
+    # Checkbox per attivare Mifflin escludendo le giornate tipo
+    usa_mifflin_proprietario = st.sidebar.checkbox("Usa calcolo Mifflin-St Jeor (Esclude giornate tipo)", value=False)
+    
+    if usa_mifflin_proprietario:
         obj_kcal = round(tdee, 0)
         obj_carbo = round((obj_kcal * 0.50) / 4, 1)
         obj_prot = round((obj_kcal * 0.25) / 4, 1)
@@ -475,25 +467,24 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
                 "3) Giornata bici specifica",
                 "4) Giornata bici",
                 "5) Giornata pesi",
-            ],
-            key="radio_giornata_tipo"
+            ]
         )
         
         # Paletti fissi basati sul peso corporeo (75 kg)
-        obj_prot = round(peso * 2.0, 1)    # 150 g fissi (600 kcal)
-        obj_grassi = round(peso * 0.9, 1)  # ~68 g fissi (~612 kcal)
+        obj_prot = round(peso * 2.0, 1)    # 150 g fissi (600 kcal)[cite: 3]
+        obj_grassi = round(peso * 0.9, 1)  # ~68 g fissi (~612 kcal)[cite: 3]
         
         # Assegnazione carboidrati e kcal totali in base alla logica stabilita
         if "1) Giornata scarico/riposo" in giornata_tipo_scelta:
-            obj_carbo = 180.0
+            obj_carbo = 180.0  #[cite: 3]
         elif "2) Giornata bici intensa" in giornata_tipo_scelta:
-            obj_carbo = 400.0  # Valore medio nel range 380-420 g
+            obj_carbo = 400.0  # Valore medio nel range 380-420 g[cite: 3]
         elif "3) Giornata bici specifica" in giornata_tipo_scelta:
-            obj_carbo = 300.0  # Valore medio nel range 280-320 g
+            obj_carbo = 300.0  # Valore medio nel range 280-320 g[cite: 3]
         elif "4) Giornata bici" in giornata_tipo_scelta:
-            obj_carbo = 270.0  # Giornata bici meno intensa / Domenica (≈ 260-280 g)
+            obj_carbo = 270.0  # Giornata bici meno intensa / Domenica (≈ 260-280 g)[cite: 3]
         else: # 5) Giornata pesi
-            obj_carbo = 250.0  # Valore medio nel range 240-260 g
+            obj_carbo = 250.0  # Valore medio nel range 240-260 g[cite: 3]
             
         # Calcolo calorico totale derivato dalla somma dei tre macronutrienti
         cal_prot = obj_prot * 4
@@ -511,8 +502,7 @@ else:
         "Seleziona Profilo / Calcolo:",
         [
             "Calcolo Standard Mifflin-St Jeor",
-        ],
-        key="radio_altro_utente"
+        ]
     )
 
     if "Calcolo Standard Mifflin-St Jeor" in profilo_altro_utente:
