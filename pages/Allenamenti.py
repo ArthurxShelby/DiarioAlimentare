@@ -163,10 +163,11 @@ else:
 st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_base_mese
 df_da_mostrare = df_base_mese
 
-# --- 3. PRIMA TABELLA: GESTIONE E MODIFICA ALLENAMENTI (CSV & EDITOR) ---
+# --- 3. PRIMA TABELLA: GESTIONE E MODIFICA ALLENAMENTI (INTESTAZIONE + MENU A TENDINA + EDITOR) ---
 st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
 
 if is_proprietario:
+    # --- MENU A TENDINA 1: CARICAMENTO CSV (POSIZIONATO SUBITO SOTTO L'INTESTAZIONE) ---
     with st.expander("📂 Integra o carica piano di lavoro tramite file CSV", expanded=False):
         st.write(f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**.")
         
@@ -195,18 +196,17 @@ if is_proprietario:
                     salva_database()
                     
                     df_da_mostrare = df_filtrato
-                    
+                    st.session_state.version_editor += 1
                     st.success(f"File CSV caricato e salvato con successo per {mese_selezionato} {anno_selezionato}!")
+                    st.rerun()
                 else:
                     st.error(f"Il file CSV non contiene le colonne corrette. Colonne trovate: {list(df_caricato.columns)}. Attese: {colonne_attese}")
             except Exception as e:
                 st.error(f"Errore nella lettura del file CSV: {e}")
 
-# --- PANNELLO DI CANCELLAZIONE AVANZATO ---
-if is_proprietario:
-    with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
+    # --- MENU A TENDINA 2: PANNELLO DI PULIZIA (SUBITO SOTTO IL CSV) ---
+    with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)", expanded=False):
         
-        # --- SEZIONE 1: CANCELLAZIONE RAPIDA MESE ATTIVO ---
         st.markdown(f"### Svuota solo il mese in evidenza: **{mese_selezionato} {anno_selezionato}**")
         if st.button(f"🗑️ Svuota dati di {mese_selezionato} {anno_selezionato}", type="primary", key="btn_svuota_mese_singolo"):
             try:
@@ -227,7 +227,6 @@ if is_proprietario:
 
         st.markdown("---")
 
-        # --- SEZIONE 2: CANCELLAZIONE INTERVALLO DATE ---
         st.markdown("### Svuota un intervallo esatto basato su date specifiche")
         col_d1, col_d2 = st.columns(2)
         with col_d1:
@@ -274,7 +273,7 @@ if is_proprietario:
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
 
-if is_proprietario:
+    # --- TABELLA PRINCIPALE DI MODIFICA (POSIZIONATA SUBITO SOTTO I DUE MENU A TENDINA) ---
     df_modificato = st.data_editor(
         df_da_mostrare,
         num_rows="dynamic",
@@ -303,7 +302,6 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.subheader("📋 Programmazione Cicli di Allenamento (Perpetua)")
 st.write(f"I dati sottostanti si sincronizzano automaticamente con il periodo selezionato in alto: **{mese_selezionato} {anno_selezionato}**.")
 
-# Struttura fissa statica
 df_struttura_fissa = pd.DataFrame([
     {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata"},
     {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico"},
@@ -315,12 +313,10 @@ df_struttura_fissa = pd.DataFrame([
     {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico"},
 ])
 
-# Recuperiamo i dati direttamente dalla tabella superiore attiva
 df_fonte_dati = st.session_state.database_allenamenti.get(anno_selezionato, {}).get(mese_selezionato, pd.DataFrame())
 if isinstance(df_fonte_dati, list):
     df_fonte_dati = pd.DataFrame(df_fonte_dati)
 
-# Creazione delle colonne dinamiche
 colonne_dinamiche = [("Watt", "Watt"), ("Serie", "Serie"), ("Lavoro (min)", "Lavoro (min)"), ("Recupero (min)", "Recupero (min)")]
 for col_db, col_label in colonne_dinamiche:
     valori = []
@@ -332,7 +328,6 @@ for col_db, col_label in colonne_dinamiche:
             valori.append("")
     df_struttura_fissa[col_label] = valori
 
-# Visualizzazione della tabella unificata con etichetta "Serie"
 st.data_editor(
     df_struttura_fissa,
     num_rows="fixed",
