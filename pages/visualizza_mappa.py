@@ -37,19 +37,23 @@ if act_id:
                 for stream in all_streams:
                     if isinstance(stream, dict) and stream.get("type") == "latlng":
                         latlngs = stream.get("data", [])
-                        st.write(f"📊 Numero di punti grezzi trovati in latlng: {len(latlngs)}")
-                        for pt in latlngs:
-                            if pt and isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                                try:
-                                    lat, lon = float(pt[0]), float(pt[1])
-                                    coordinates.append((lat, lon))
-                                except (ValueError, TypeError):
-                                    continue
-                            elif pt and isinstance(pt, dict):
-                                lat = pt.get("lat") or pt.get("latitude")
-                                lon = pt.get("lng") or pt.get("lon") or pt.get("longitude")
-                                if lat is not None and lon is not None:
-                                    coordinates.append((float(lat), float(lon)))
+                        st.write(f"📊 Punti trovati: {len(latlngs)}")
+                        if len(latlngs) > 0:
+                            st.write(f"🔍 Esempio del primo punto grezzo: {latlngs[0]} (tipo: {type(latlngs[0])})")
+                            
+                            # Estrazione flessibile basata sul tipo effettivo del punto
+                            for pt in latlngs:
+                                if pt is not None:
+                                    if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                                        try:
+                                            coordinates.append((float(pt[0]), float(pt[1])))
+                                        except (ValueError, TypeError):
+                                            continue
+                                    elif isinstance(pt, dict):
+                                        lat = pt.get("lat") or pt.get("latitude")
+                                        lon = pt.get("lng") or pt.get("lon") or pt.get("longitude")
+                                        if lat is not None and lon is not None:
+                                            coordinates.append((float(lat), float(lon)))
                         break
             
             # --- RENDER MAPPA O GRAFICI ---
@@ -64,7 +68,7 @@ if act_id:
                 ).add_to(m)
                 st_folium(m, width=1000, height=550, key="folium_map_page_render")
             else:
-                st.warning("⚠️ Nessun tracciato GPS (latlng) valido estratto dai punti.")
+                st.warning("⚠️ Nessun tracciato GPS valido estratto.")
                 if all_streams:
                     st.markdown("### 📊 Metriche e Flussi Registrati:")
                     for s in all_streams:
