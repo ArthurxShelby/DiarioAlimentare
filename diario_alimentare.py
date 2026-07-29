@@ -497,13 +497,14 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
 else:
     # Sezione per altri utenti (o se il proprietario seleziona un altro atleta) con menu a discesa dedicato
     st.sidebar.markdown("### ⚙️ Profilo Altri Utenti")
-    profilo_altro_utente = st.sidebar.selectbox(
+    
+    # Sostituiamo il selectbox con st.radio per avere tutte le opzioni fisse e perfettamente visibili
+    profilo_scelto = st.sidebar.radio(
         "Seleziona Profilo / Calcolo:",
         [
             "Calcolo Standard Mifflin-St Jeor",
             "Mantenimento Leggero",
-            "Fase Definizione",
-            "Fase Massa"
+            # Aggiungi qui eventuali altre opzioni del menu se presenti
         ]
     )
     
