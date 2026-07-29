@@ -498,13 +498,13 @@ else:
     # Sezione per altri utenti (o se il proprietario seleziona un altro atleta) con menu a discesa dedicato
     st.sidebar.markdown("### ⚙️ Profilo Altri Utenti")
     
-    # Sostituiamo il selectbox con st.radio per avere tutte le opzioni fisse e perfettamente visibili
-    profilo_scelto = st.sidebar.radio(
+    profilo_altro_utente = st.sidebar.radio(
         "Seleziona Profilo / Calcolo:",
         [
             "Calcolo Standard Mifflin-St Jeor",
             "Mantenimento Leggero",
-            # Aggiungi qui eventuali altre opzioni del menu se presenti
+            "Definizione",
+            "Massa",
         ]
     )
     
