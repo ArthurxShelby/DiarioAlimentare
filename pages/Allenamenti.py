@@ -202,6 +202,55 @@ if is_proprietario:
         salva_database()
         st.rerun()
 
+st.markdown("<br>", unsafe_allow_html=True)
+
+# --- PANNELLO DI CANCELLAZIONE AVANZATO (RIPRISTINATO) ---
+if is_proprietario:
+    with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
+        st.write("Seleziona un intervallo esatto basato su date specifiche per svuotare i dati.")
+
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            data_inizio_del = st.date_input("Data Inizio Periodo", value=datetime.date(2026, 1, 1), key="data_ini_del")
+        with col_d2:
+            data_fine_del = st.date_input("Data Fine Periodo", value=datetime.date(2026, 12, 31), key="data_fin_del")
+
+        if st.button("🚨 Svuota dati per il periodo selezionato"):
+            if data_inizio_del > data_fine_del:
+                st.error("La data di inizio non può essere successiva alla data di fine.")
+            else:
+                try:
+                    anno_inizio_del = data_inizio_del.year
+                    anno_fine_del = data_fine_del.year
+                    idx_m_ini = data_inizio_del.month - 1
+                    idx_m_fin = data_fine_del.month - 1
+
+                    for anno_target_num in range(anno_inizio_del, anno_fine_del + 1):
+                        anno_target = str(anno_target_num)
+                        if anno_target not in st.session_state.database_allenamenti:
+                            continue
+
+                        start_idx = idx_m_ini if anno_target_num == anno_inizio_del else 0
+                        end_idx = idx_m_fin if anno_target_num == anno_fine_del else 11
+
+                        mesi_da_pulire = elenco_mesi_completo[start_idx : end_idx + 1]
+
+                        for m in mesi_da_pulire:
+                            if m in st.session_state.database_allenamenti[anno_target]:
+                                st.session_state.database_allenamenti[anno_target][m] = pd.DataFrame(
+                                    columns=[
+                                        "Settimana", "Giorno", "Esercizio / Nome", "Watt",
+                                        "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
+                                    ]
+                                )
+
+                    salva_database()
+                    st.session_state.version_editor += 1
+                    st.toast("Dati svuotati e sincronizzati con successo!", icon="🗑️")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Errore durante la pulizia: {e}")
+
 st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
 # --- 4. SECONDA TABELLA: PROGRAMMAZIONE CICLI (CAMPI STATICI + DINAMICI ALIMENTATI DALLA TABELLA SOPRA) ---
