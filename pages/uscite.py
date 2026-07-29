@@ -219,9 +219,11 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                     for stream in streams_data:
                                         if stream.get("type") == "latlng":
                                             latlngs = stream.get("data", [])
-                                            if latlngs:
-                                                decoded_coordinates = [(pt[0], pt[1]) for pt in latlngs if len(pt) >= 2]
-                                                break
+                                            for pt in latlngs:
+                                                if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                                                    if pt[0] is not None and pt[1] is not None:
+                                                        decoded_coordinates.append((float(pt[0]), float(pt[1])))
+                                            break
 
                                     if decoded_coordinates:
                                         m = folium.Map(location=decoded_coordinates[0], zoom_start=13, tiles="CartoDB positron")
