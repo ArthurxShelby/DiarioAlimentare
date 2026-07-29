@@ -459,7 +459,6 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
         obj_grassi = round((obj_kcal * 0.25) / 9, 1)
         st.sidebar.markdown("**Modalità Attiva:**\n*Calcolo Mifflin-St Jeor Standard*")
     else:
-        # Sostituiamo il selectbox con st.radio per avere tutte le 5 opzioni fisse e visibili
         giornata_tipo_scelta = st.sidebar.radio(
             "Seleziona Giornata Tipo:",
             [
@@ -471,27 +470,28 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
             ]
         )
         
-        obj_prot = round(peso * 2.2, 1)
+        # Paletti fissi basati sul peso corporeo (75 kg)
+        obj_prot = round(peso * 2.0, 1)    # 150 g fissi (600 kcal)[cite: 3]
+        obj_grassi = round(peso * 0.9, 1)  # ~68 g fissi (~612 kcal)[cite: 3]
         
+        # Assegnazione carboidrati e kcal totali in base alla logica stabilita
         if "1) Giornata scarico/riposo" in giornata_tipo_scelta:
-            obj_kcal = round(tdee * 1.0, 0)
-            obj_carbo = round(peso * 3.0, 1)
+            obj_carbo = 180.0  #[cite: 3]
         elif "2) Giornata bici intensa" in giornata_tipo_scelta:
-            obj_kcal = round(tdee * 1.35, 0)
-            obj_carbo = round(peso * 7.5, 1)
+            obj_carbo = 400.0  # Valore medio nel range 380-420 g[cite: 3]
         elif "3) Giornata bici specifica" in giornata_tipo_scelta:
-            obj_kcal = round(tdee * 1.20, 0)
-            obj_carbo = round(peso * 6.0, 1)
+            obj_carbo = 300.0  # Valore medio nel range 280-320 g[cite: 3]
         elif "4) Giornata bici" in giornata_tipo_scelta:
-            obj_kcal = round(tdee * 1.15, 0)
-            obj_carbo = round(peso * 5.0, 1)
+            obj_carbo = 270.0  # Giornata bici meno intensa / Domenica (≈ 260-280 g)[cite: 3]
         else: # 5) Giornata pesi
-            obj_kcal = round(tdee * 1.08, 0)
-            obj_carbo = round(peso * 4.0, 1)
+            obj_carbo = 250.0  # Valore medio nel range 240-260 g[cite: 3]
             
-        cal_prot_c = obj_prot * 4
-        cal_carb_c = obj_carbo * 4
-        obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 45.0)
+        # Calcolo calorico totale derivato dalla somma dei tre macronutrienti
+        cal_prot = obj_prot * 4
+        cal_carb = obj_carbo * 4
+        cal_grassi = obj_grassi * 9
+        obj_kcal = round(cal_prot + cal_carb + cal_grassi, 0)
+        
         st.sidebar.markdown(f"**Giornata Tipo Attiva:**\n*{giornata_tipo_scelta}*")
 
 else:
