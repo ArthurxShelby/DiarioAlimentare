@@ -183,10 +183,11 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                         st.markdown(f"<p style='font-size: 1.2rem; margin: 0;'>Distanza: <b>{act_dist} km</b> &nbsp;|&nbsp; D+: <b>{act_elev} m</b> &nbsp;|&nbsp; Tempo: <b>{act_time}</b></p>", unsafe_allow_html=True)
                     with col_btn:
                         st.write("") 
-                        testo_bottone = "Nascondi Mappa" if st.session_state[key_map_state] else "🔍 Apri Mappa"
-                        if st.button(testo_bottone, key=f"btn_custom_{act_id}_{idx}", use_container_width=True):
-                            st.session_state[key_map_state] = not st.session_state[key_map_state]
-                            st.rerun()
+                        if st.button("🔍 Apri Mappa", key=f"btn_custom_{act_id}_{idx}", use_container_width=True):
+                            st.session_state["selected_activity_id"] = act_id
+                            st.session_state["selected_activity_title"] = act_title
+                            st.session_state["selected_activity_date"] = act_date
+                            st.switch_page("pages/visualizza_mappa.py")
 
                     if st.session_state[key_map_state]:
                         st.markdown("---")
