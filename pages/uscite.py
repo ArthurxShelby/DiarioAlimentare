@@ -199,20 +199,28 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                         with st.spinner("Caricamento tracciato GPS in corso..."):
                             try:
                                 resp_streams = requests.get(url_streams, auth=auth_streams)
+                                
+                                # DEBUG: Mostriamo lo status code e il contenuto grezzo per capire cosa arriva
+                                st.write(f"Status API Streams: {resp_streams.status_code}")
+                                data_grezza = resp_streams.json()
+                                st.write("Contenuto ricevuto:", data_grezza)
+                                
                                 decoded_coordinates = []
                                 
                                 if resp_streams.status_code == 200:
-                                    streams_data = resp_streams.json()
-                                    streams_list = streams_data if isinstance(streams_data, list) else [streams_data]
+                                    streams_list = data_grezza if isinstance(data_grezza, list) else [data_grezza]
                                     
                                     for stream in streams_list:
-                                        if isinstance(stream, dict) and stream.get("type") == "latlng":
-                                            latlngs = stream.get("data", [])
-                                            for pt in latlngs:
-                                                if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                                                    if pt[0] is not None and pt[1] is not None:
-                                                        decoded_coordinates.append((float(pt[0]), float(pt[1])))
-                                            break
+                                        if isinstance(stream, dict):
+                                            # Stampiamo i tipi di flussi disponibili trovati nell'oggetto
+                                            st.write(f"Trovato flusso tipo: {stream.get('type')}")
+                                            if stream.get("type") == "latlng":
+                                                latlngs = stream.get("data", [])
+                                                for pt in latlngs:
+                                                    if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                                                        if pt[0] is not None and pt[1] is not None:
+                                                            decoded_coordinates.append((float(pt[0]), float(pt[1])))
+                                                break
 
                                 if decoded_coordinates:
                                     m = folium.Map(location=decoded_coordinates[0], zoom_start=13, tiles="CartoDB positron")
