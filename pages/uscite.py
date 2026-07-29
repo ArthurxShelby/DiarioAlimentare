@@ -192,7 +192,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                         st.markdown("---")
                         st.markdown("#### 🗺️ Anteprima Percorso")
                         
-                        url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
+                        url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams.json?types=latlng"
                         auth_streams = ("API_KEY", API_KEY.strip())
                         
                         with st.spinner("Caricamento tracciato GPS in corso..."):
