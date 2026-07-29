@@ -202,31 +202,6 @@ if is_proprietario:
             except Exception as e:
                 st.error(f"Errore nella lettura del file CSV: {e}")
 
-if is_proprietario:
-    df_modificato = st.data_editor(
-        df_da_mostrare,
-        num_rows="dynamic",
-        use_container_width=True,
-        key=f"editor_finale_{anno_selezionato}_{mese_selezionato}_{st.session_state.version_editor}",
-        column_config={
-            "Settimana": st.column_config.TextColumn("Settimana", required=True),
-            "Giorno": st.column_config.TextColumn("Giorno", required=True),
-            "Esercizio / Nome": st.column_config.TextColumn("Esercizio / Nome", required=True),
-            "Watt": st.column_config.NumberColumn("Watt", min_value=0, max_value=1000, step=1, format="%d"),
-            "RPM": st.column_config.NumberColumn("RPM", min_value=0, max_value=200, step=1, format="%d"),
-            "Serie": st.column_config.NumberColumn("Serie", min_value=0, max_value=100, step=1, format="%d"),
-            "Lavoro (min)": st.column_config.NumberColumn("Lavoro (min)", min_value=0, max_value=1440, step=1, format="%d"),
-            "Recupero (min)": st.column_config.NumberColumn("Recupero (min)", min_value=0, max_value=1440, step=1, format="%d"),
-        },
-    )
-
-    if not df_modificato.equals(df_da_mostrare):
-        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato.copy()
-        salva_database()
-        st.rerun()
-
-st.markdown("<br>", unsafe_allow_html=True)
-
 # --- PANNELLO DI CANCELLAZIONE AVANZATO ---
 if is_proprietario:
     with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
@@ -243,7 +218,11 @@ if is_proprietario:
                 )
                 st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_vuoto
                 salva_database()
+                
+                # Forza l'aggiornamento immediato della vista e dell'editor
+                df_da_mostrare = df_vuoto
                 st.session_state.version_editor += 1
+                
                 st.toast(f"Dati di {mese_selezionato} {anno_selezionato} svuotati con successo!", icon="🗑️")
                 st.rerun()
             except Exception as e:
@@ -269,6 +248,13 @@ if is_proprietario:
                     idx_m_ini = data_inizio_del.month - 1
                     idx_m_fin = data_fine_del.month - 1
 
+                    df_vuoto = pd.DataFrame(
+                        columns=[
+                            "Settimana", "Giorno", "Esercizio / Nome", "Watt",
+                            "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
+                        ]
+                    )
+
                     for anno_target_num in range(anno_inizio_del, anno_fine_del + 1):
                         anno_target = str(anno_target_num)
                         if anno_target not in st.session_state.database_allenamenti:
@@ -281,21 +267,46 @@ if is_proprietario:
 
                         for m in mesi_da_pulire:
                             if m in st.session_state.database_allenamenti[anno_target]:
-                                st.session_state.database_allenamenti[anno_target][m] = pd.DataFrame(
-                                    columns=[
-                                        "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                                        "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
-                                    ]
-                                )
+                                st.session_state.database_allenamenti[anno_target][m] = df_vuoto.copy()
 
                     salva_database()
+                    
+                    # Se il mese corrente rientra nell'intervallo svuotato, aggiorna anche la vista attiva
+                    if (str(anno_selezionato_num) >= str(anno_inizio_del) and str(anno_selezionato_num) <= str(anno_fine_del)):
+                        if elenco_mesi_completo.index(mese_selezionato) >= (data_inizio_del.month - 1 if anno_selezionato_num == data_inizio_del.year else 0) and \
+                           elenco_mesi_completo.index(mese_selezionato) <= (data_fine_del.month - 1 if anno_selezionato_num == data_fine_del.year else 11):
+                            df_da_mostrare = df_vuoto
+
                     st.session_state.version_editor += 1
                     st.toast("Dati svuotati e sincronizzati con successo!", icon="🗑️")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
 
-st.markdown("<br><hr><br>", unsafe_allow_html=True)
+if is_proprietario:
+    df_modificato = st.data_editor(
+        df_da_mostrare,
+        num_rows="dynamic",
+        use_container_width=True,
+        key=f"editor_finale_{anno_selezionato}_{mese_selezionato}_{st.session_state.version_editor}",
+        column_config={
+            "Settimana": st.column_config.TextColumn("Settimana", required=True),
+            "Giorno": st.column_config.TextColumn("Giorno", required=True),
+            "Esercizio / Nome": st.column_config.TextColumn("Esercizio / Nome", required=True),
+            "Watt": st.column_config.NumberColumn("Watt", min_value=0, max_value=1000, step=1, format="%d"),
+            "RPM": st.column_config.NumberColumn("RPM", min_value=0, max_value=200, step=1, format="%d"),
+            "Serie": st.column_config.NumberColumn("Serie", min_value=0, max_value=100, step=1, format="%d"),
+            "Lavoro (min)": st.column_config.NumberColumn("Lavoro (min)", min_value=0, max_value=1440, step=1, format="%d"),
+            "Recupero (min)": st.column_config.NumberColumn("Recupero (min)", min_value=0, max_value=1440, step=1, format="%d"),
+        },
+    )
+
+    if not df_modificato.equals(df_da_mostrare):
+        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato.copy()
+        salva_database()
+        st.rerun()
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 4. SECONDA TABELLA: PROGRAMMAZIONE CICLI (SINCRONIZZATA AUTOMATICAMENTE) ---
 st.subheader("📋 Programmazione Cicli di Allenamento (Perpetua)")
