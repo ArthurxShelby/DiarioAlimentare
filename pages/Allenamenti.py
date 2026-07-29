@@ -163,11 +163,34 @@ else:
 st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_base_mese
 df_da_mostrare = df_base_mese
 
-# --- 3. SEZIONE UNIFICATA: TITOLO, EXPANDER E TABELLA DI MODIFICA ---
+# --- 3. SEZIONE UNIFICATA: TITOLO, TABELLA DI MODIFICA E POI GLI EXPANDER IN FONDO ---
 st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
 
 if is_proprietario:
-    # 1. Expanders posizionati esattamente sotto il titolo della sezione[cite: 2]
+    # 1. Tabella principale di modifica messa SUBITO sotto il titolo
+    df_modificato = st.data_editor(
+        df_da_mostrare,
+        num_rows="dynamic",
+        use_container_width=True,
+        key=f"editor_finale_{anno_selezionato}_{mese_selezionato}_{st.session_state.version_editor}",
+        column_config={
+            "Settimana": st.column_config.TextColumn("Settimana", required=True),
+            "Giorno": st.column_config.TextColumn("Giorno", required=True),
+            "Esercizio / Nome": st.column_config.TextColumn("Esercizio / Nome", required=True),
+            "Watt": st.column_config.NumberColumn("Watt", min_value=0, max_value=1000, step=1, format="%d"),
+            "RPM": st.column_config.NumberColumn("RPM", min_value=0, max_value=200, step=1, format="%d"),
+            "Serie": st.column_config.NumberColumn("Serie", min_value=0, max_value=100, step=1, format="%d"),
+            "Lavoro (min)": st.column_config.NumberColumn("Lavoro (min)", min_value=0, max_value=1440, step=1, format="%d"),
+            "Recupero (min)": st.column_config.NumberColumn("Recupero (min)", min_value=0, max_value=1440, step=1, format="%d"),
+        },
+    )
+
+    if not df_modificato.equals(df_da_mostrare):
+        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato.copy()
+        salva_database()
+        st.rerun()
+
+    # 2. Gli expander (CSV e Pulizia) posizionati ESATTAMENTE SOTTO LA TABELLA come da screenshot
     with st.expander("📂 Integra o carica piano di lavoro tramite file CSV", expanded=False):
         st.write(f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**.")
         
@@ -270,29 +293,6 @@ if is_proprietario:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
-
-    # 2. Tabella principale di modifica (subito sotto gli expander)[cite: 2]
-    df_modificato = st.data_editor(
-        df_da_mostrare,
-        num_rows="dynamic",
-        use_container_width=True,
-        key=f"editor_finale_{anno_selezionato}_{mese_selezionato}_{st.session_state.version_editor}",
-        column_config={
-            "Settimana": st.column_config.TextColumn("Settimana", required=True),
-            "Giorno": st.column_config.TextColumn("Giorno", required=True),
-            "Esercizio / Nome": st.column_config.TextColumn("Esercizio / Nome", required=True),
-            "Watt": st.column_config.NumberColumn("Watt", min_value=0, max_value=1000, step=1, format="%d"),
-            "RPM": st.column_config.NumberColumn("RPM", min_value=0, max_value=200, step=1, format="%d"),
-            "Serie": st.column_config.NumberColumn("Serie", min_value=0, max_value=100, step=1, format="%d"),
-            "Lavoro (min)": st.column_config.NumberColumn("Lavoro (min)", min_value=0, max_value=1440, step=1, format="%d"),
-            "Recupero (min)": st.column_config.NumberColumn("Recupero (min)", min_value=0, max_value=1440, step=1, format="%d"),
-        },
-    )
-
-    if not df_modificato.equals(df_da_mostrare):
-        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato.copy()
-        salva_database()
-        st.rerun()
 
 st.markdown("<br>", unsafe_allow_html=True)
 
