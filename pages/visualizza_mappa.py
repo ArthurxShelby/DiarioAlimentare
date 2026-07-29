@@ -26,9 +26,22 @@ if not map_url:
     st.stop()
 
 try:
-    response = requests.get(map_url)
+    API_KEY = st.secrets["intervals"]["api_key"]
+except Exception:
+    st.error("Configura la chiave API nei secrets.")
+    st.stop()
+
+auth_credentials = ("API_KEY", API_KEY.strip())
+
+activity_id = str(map_url).strip()
+if activity_id.startswith('i'):
+    activity_id = activity_id[1:]
+
+target_url = f"https://intervals.icu/api/v1/activity/{activity_id}/streams"
+
+try:
+    response = requests.get(target_url, auth=auth_credentials)
     if response.status_code == 200:
-        data = response.json()
         
         lats = []
         lons = []
