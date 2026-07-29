@@ -462,13 +462,14 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
     else:
         # Aggiungiamo uno stile CSS per gestire l'altezza e lo scroll del menu a tendina nella sidebar
         st.markdown("""
-            <style>
-                [data-baseweb="popover"] {
-                    max-height: 250px !important;
-                    overflow-y: auto !important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
+        <style>
+            /* Forza lo scroll sul menu a tendina di Streamlit */
+            div[data-baseweb="popover"] div[role="listbox"] {
+                max-height: 200px !important;
+                overflow-y: auto !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
 
         # Menu a discesa per le 5 giornate tipo
         giornata_tipo_scelta = st.sidebar.selectbox(
