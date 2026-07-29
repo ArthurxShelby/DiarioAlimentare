@@ -34,14 +34,20 @@ except Exception:
 auth_credentials = ("API_KEY", API_KEY.strip())
 
 activity_id = str(map_url).strip()
-if activity_id.startswith('i'):
-    activity_id = activity_id[1:]
+clean_id = ''.join(c for c in activity_id if c.isdigit())
+if not clean_id:
+    clean_id = activity_id
 
-target_url = f"https://intervals.icu/api/v1/activity/{activity_id}/streams"
+target_url = f"https://intervals.icu/api/v1/activity/{clean_id}/streams"
 
 try:
     response = requests.get(target_url, auth=auth_credentials)
+    if response.status_code == 404 and activity_id != clean_id:
+        target_url = f"https://intervals.icu/api/v1/activity/{activity_id}/streams"
+        response = requests.get(target_url, auth=auth_credentials)
+
     if response.status_code == 200:
+        data = response.json()
         
         lats = []
         lons = []
