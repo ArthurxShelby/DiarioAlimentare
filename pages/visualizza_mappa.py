@@ -45,15 +45,16 @@ if act_id:
                                     coordinates.append((lat, lon))
                                 except (ValueError, TypeError):
                                     continue
-                            elif pt and isinstance(pt, dict): # Gestione alternativa se restituisce dizionari
+                            elif pt and isinstance(pt, dict):
                                 lat = pt.get("lat") or pt.get("latitude")
                                 lon = pt.get("lng") or pt.get("lon") or pt.get("longitude")
                                 if lat is not None and lon is not None:
                                     coordinates.append((float(lat), float(lon)))
                         break
             
-            # Se troviamo le coordinate, disegniamo la mappa con Folium
-            if coordinates:
+            # --- RENDER MAPPA O GRAFICI ---
+            if len(coordinates) > 0:
+                st.success(f"Tracciato GPS caricato con successo ({len(coordinates)} punti).")
                 m = folium.Map(location=coordinates[0], zoom_start=13, tiles="CartoDB positron")
                 folium.PolyLine(
                     coordinates, 
@@ -63,9 +64,7 @@ if act_id:
                 ).add_to(m)
                 st_folium(m, width=1000, height=550, key="folium_map_page_render")
             else:
-                st.warning("⚠️ Nessun tracciato GPS (latlng) rilevato per questa attività.")
-                
-                # Mostriamo comunque i grafici delle metriche disponibili (es. frequenza cardiaca, potenza, altitudine)
+                st.warning("⚠️ Nessun tracciato GPS (latlng) valido estratto dai punti.")
                 if all_streams:
                     st.markdown("### 📊 Metriche e Flussi Registrati:")
                     for s in all_streams:
