@@ -208,7 +208,7 @@ if is_proprietario:
             "Esercizio / Nome": st.column_config.TextColumn("Esercizio / Nome", required=True),
             "Watt": st.column_config.NumberColumn("Watt", min_value=0, max_value=1000, step=1, format="%d"),
             "RPM": st.column_config.NumberColumn("RPM", min_value=0, max_value=200, step=1, format="%d"),
-            "Ripetizioni": st.column_config.NumberColumn("Ripetizioni", min_value=0, max_value=100, step=1, format="%d"),
+            "Ripetizioni": st.column_config.NumberColumn("Serie", min_value=0, max_value=100, step=1, format="%d"),
             "Lavoro (min)": st.column_config.NumberColumn("Lavoro (min)", min_value=0, max_value=1440, step=1, format="%d"),
             "Recupero (min)": st.column_config.NumberColumn("Recupero (min)", min_value=0, max_value=1440, step=1, format="%d"),
         },
@@ -291,31 +291,31 @@ df_fonte_dati = st.session_state.database_allenamenti.get(anno_selezionato, {}).
 if isinstance(df_fonte_dati, list):
     df_fonte_dati = pd.DataFrame(df_fonte_dati)
 
-# Creazione delle colonne dinamiche attingendo dalla tabella superiore
-colonne_dinamiche = ["Watt", "Ripetizioni", "Lavoro (min)", "Recupero (min)"]
-for col in colonne_dinamiche:
+# Creazione delle colonne dinamiche attingendo dalla tabella superiore (usando "Ripetizioni" come chiave dati interna)
+colonne_dinamiche = [("Watt", "Watt"), ("Ripetizioni", "Serie"), ("Lavoro (min)", "Lavoro (min)"), ("Recupero (min)", "Recupero (min)")]
+for col_db, col_label in colonne_dinamiche:
     valori = []
     for i in range(len(df_struttura_fissa)):
-        if not df_fonte_dati.empty and i < len(df_fonte_dati) and col in df_fonte_dati.columns:
-            val = df_fonte_dati.loc[i, col]
+        if not df_fonte_dati.empty and i < len(df_fonte_dati) and col_db in df_fonte_dati.columns:
+            val = df_fonte_dati.loc[i, col_db]
             valori.append("" if pd.isna(val) else val)
         else:
             valori.append("")
-    df_struttura_fissa[col] = valori
+    df_struttura_fissa[col_label] = valori
 
-# Visualizzazione della tabella unificata
+# Visualizzazione della tabella unificata con etichetta "Serie"
 st.data_editor(
     df_struttura_fissa,
     num_rows="fixed",
     use_container_width=True,
     key=f"editor_cicli_sincro_{anno_selezionato}_{mese_selezionato}",
-    disabled=["Cicli", "Allenamento", "Tipo", "Watt", "Ripetizioni", "Lavoro (min)", "Recupero (min)"],
+    disabled=["Cicli", "Allenamento", "Tipo", "Watt", "Serie", "Lavoro (min)", "Recupero (min)"],
     column_config={
         "Cicli": st.column_config.TextColumn("Cicli"),
         "Allenamento": st.column_config.TextColumn("Allenamento"),
         "Tipo": st.column_config.TextColumn("Tipo"),
         "Watt": st.column_config.TextColumn("Watt"),
-        "Ripetizioni": st.column_config.TextColumn("Ripetizioni"),
+        "Serie": st.column_config.TextColumn("Serie"),
         "Lavoro (min)": st.column_config.TextColumn("Lavoro (min)"),
         "Recupero (min)": st.column_config.TextColumn("Recupero (min)"),
     },
@@ -343,7 +343,7 @@ if st.button("📥 Esporta Tabella Cicli in PDF", use_container_width=True, key=
     pdf.set_fill_color(43, 108, 176)
     pdf.set_text_color(255, 255, 255)
     
-    headers = ["Cicli", "Allenamento", "Tipo", "Watt", "Ripetizioni", "Lavoro", "Recupero"]
+    headers = ["Cicli", "Allenamento", "Tipo", "Watt", "Serie", "Lavoro", "Recupero"]
     widths = [18, 38, 48, 18, 22, 22, 24]
     
     for i, h in enumerate(headers):
@@ -359,7 +359,7 @@ if st.button("📥 Esporta Tabella Cicli in PDF", use_container_width=True, key=
         pdf.cell(widths[1], 7, str(row.get('Allenamento', '')), border=1, align="L")
         pdf.cell(widths[2], 7, str(row.get('Tipo', '')), border=1, align="L")
         pdf.cell(widths[3], 7, str(row.get('Watt', '')), border=1, align="C")
-        pdf.cell(widths[4], 7, str(row.get('Ripetizioni', '')), border=1, align="C")
+        pdf.cell(widths[4], 7, str(row.get('Serie', '')), border=1, align="C")
         pdf.cell(widths[5], 7, str(row.get('Lavoro (min)', '')), border=1, align="C")
         pdf.cell(widths[6], 7, str(row.get('Recupero (min)', '')), border=1, align="C")
         pdf.ln()
