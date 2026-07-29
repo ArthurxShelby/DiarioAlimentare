@@ -480,20 +480,20 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
         )
         
         # Paletti fissi basati sul peso corporeo (75 kg)
-        obj_prot = round(peso * 2.0, 1)    # 150 g fissi (600 kcal)[cite: 3]
-        obj_grassi = round(peso * 0.9, 1)  # ~68 g fissi (~612 kcal)[cite: 3]
+        obj_prot = round(peso * 2.0, 1)    # 150 g fissi (600 kcal)
+        obj_grassi = round(peso * 0.9, 1)  # ~68 g fissi (~612 kcal)
         
         # Assegnazione carboidrati e kcal totali in base alla logica stabilita
         if "1) Giornata scarico/riposo" in giornata_tipo_scelta:
-            obj_carbo = 180.0[cite: 3]
+            obj_carbo = 180.0
         elif "2) Giornata bici intensa" in giornata_tipo_scelta:
-            obj_carbo = 400.0  # Valore medio nel range 380-420 g[cite: 3]
+            obj_carbo = 400.0  # Valore medio nel range 380-420 g
         elif "3) Giornata bici specifica" in giornata_tipo_scelta:
-            obj_carbo = 300.0  # Valore medio nel range 280-320 g[cite: 3]
+            obj_carbo = 300.0  # Valore medio nel range 280-320 g
         elif "4) Giornata bici" in giornata_tipo_scelta:
-            obj_carbo = 270.0  # Giornata bici meno intensa / Domenica (≈ 260-280 g)[cite: 3]
+            obj_carbo = 270.0  # Giornata bici meno intensa / Domenica (≈ 260-280 g)
         else: # 5) Giornata pesi
-            obj_carbo = 250.0  # Valore medio nel range 240-260 g[cite: 3]
+            obj_carbo = 250.0  # Valore medio nel range 240-260 g
             
         # Calcolo calorico totale derivato dalla somma dei tre macronutrienti
         cal_prot = obj_prot * 4
