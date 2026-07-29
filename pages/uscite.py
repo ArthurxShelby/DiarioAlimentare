@@ -82,31 +82,6 @@ def upload_gpx_to_supabase(activity_id, gpx_bytes):
         except Exception:
             return None        
 
-@st.cache_data(ttl=1)
-def fetch_intervals_activities(athlete_id, api_key):
-    oggi = datetime.today().strftime('%Y-%m-%d')
-    data_inizio = "2025-11-15" # Vincolo fisso TCR per Supabase
-    
-    url = f"https://intervals.icu/api/v1/athlete/{athlete_id}/activities"
-    params = {
-        "oldest": data_inizio,
-        "newest": oggi,
-        "iw": True
-    }
-    
-    auth = ("API_KEY", api_key.strip())
-    
-    try:
-        response = requests.get(url, auth=auth, params=params)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            st.error(f"Errore API Intervals: {response.status_code} - {response.text}")
-            return []
-    except Exception as e:
-        st.error(f"Errore di connessione a Intervals: {e}")
-        return []
-
 
 # --- 1. CARICAMENTO DATI UFFICIALI TCR DA SUPABASE ---
 with st.spinner("Caricamento delle uscite da Supabase in corso..."):
@@ -145,7 +120,7 @@ if activities_db:
     
     st.markdown("---")
     
-    # --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Con Box stile secondo screen) ---
+    # --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Senza scrittura su Supabase) ---
     with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato)", expanded=False):
         st.write("Seleziona un periodo qualsiasi per estrarre dal flusso di Intervals tutte le attività, consultare i metri e aprire le relative mappe **senza popolare le tabelle di Supabase**.")
         
@@ -171,7 +146,6 @@ if activities_db:
                     attivita_ext_custom = resp_custom.json()
                     
                     if attivita_ext_custom:
-                        # Salviamo i risultati custom in session_state per poterli navigare coi box
                         st.session_state["custom_activities"] = attivita_ext_custom
                     else:
                         st.session_state["custom_activities"] = []
@@ -179,7 +153,7 @@ if activities_db:
                 else:
                     st.error(f"Errore di connessione a Intervals.icu: {resp_custom.status_code}")
 
-        # Se abbiamo dati custom in memoria, mostriamo metriche e box stile secondo screen
+        # Se abbiamo dati custom in memoria, mostriamo metriche e box interattivi con mappa
         if "custom_activities" in st.session_state and st.session_state["custom_activities"]:
             df_ext = pd.DataFrame(st.session_state["custom_activities"])
             
@@ -194,7 +168,6 @@ if activities_db:
             mc3.metric("Uscite Registrate", f"{num_uscite}")
             st.markdown("---")
             
-            # Lista a box identica al secondo screen per l'archivio custom
             with st.container(height=550):
                 for act in st.session_state["custom_activities"]:
                     act_id = str(act.get("id"))
@@ -212,7 +185,6 @@ if activities_db:
                         with col_btn:
                             st.write("") 
                             if st.button("🔍 Apri Mappa", key=f"map_custom_{act_id}", use_container_width=True):
-                                # Scarichiamo il GPX al volo per la mappa on-demand
                                 with st.spinner("Caricamento mappa in corso..."):
                                     gpx_bytes = fetch_activity_gpx(act_id, API_KEY)
                                     public_url = upload_gpx_to_supabase(act_id, gpx_bytes) if gpx_bytes else None
@@ -244,48 +216,7 @@ if activities_db:
     
     st.markdown("---")
     
-    # Intestazione e pulsante di aggiornamento ufficiale in alto (Supabase)
-    col_head1, col_head2 = st.columns([3, 1])
-    with col_head1:
-        st.subheader("📋 Dettaglio Completo Attività e Mappe (Ufficiale TCR)")
-    with col_head2:
-        if st.button("🔄 Sincronizza TCR da Intervals", key="btn_aggiorna_intervals", use_container_width=True):
-            with st.spinner("Sincronizzazione in corso..."):
-                activities_ext = fetch_intervals_activities(ATHLETE_ID, API_KEY)
-                if activities_ext:
-                    for act in activities_ext:
-                        act_id = str(act.get("id"))
-                        avg_watts = act.get("average_watts") or act.get("icu_average_watts") or act.get("device_watts")
-                        norm_watts = act.get("icu_weighted_avg_watts") or act.get("normalized_watts")
-                        
-                        ctl = act.get("icu_ctl")
-                        atl = act.get("icu_atl")
-                        form_val = None
-                        if ctl is not None and atl is not None:
-                            form_val = int(round(float(ctl) - float(atl)))
-                        else:
-                            form_val = act.get("form") or act.get("icu_form") or act.get("icu_tsb")
-                            
-                        gpx_bytes = fetch_activity_gpx(act_id, API_KEY)
-                        public_url = upload_gpx_to_supabase(act_id, gpx_bytes) if gpx_bytes else None
-                        
-                        row_data = {
-                            "activity_id": act_id,
-                            "data": act.get("start_date_local", "").split("T")[0],
-                            "titolo": act.get("name", "Uscita senza titolo"),
-                            "distanza": round(act.get("distance", 0) / 1000, 2),
-                            "tempo": str(timedelta_to_str(act.get("moving_time", 0))),
-                            "potenza_media": safe_int(avg_watts),
-                            "potenza_normalizzata": safe_int(norm_watts),
-                            "fc_media": safe_int(act.get("average_heartrate")),
-                            "tss": safe_int(act.get("icu_training_load")),
-                            "dislivello": safe_int(act.get("total_elevation_gain")),
-                            "forma": safe_int(form_val),
-                            "mappa": public_url
-                        }
-                        supabase.table("uscite").upsert(row_data, on_conflict="activity_id").execute()
-                    st.success("Sincronizzazione completata! Ricarica la pagina.")
-                    st.rerun()
+    st.subheader("📋 Dettaglio Attività Ufficiali (TCR - Dal 15/11/2025)")
 
     # --- FILTRO PER PERIODO SUL CONTENITORE DELLE ATTIVITÀ UFFICIALI ---
     c_filtro1, c_filtro2 = st.columns([2, 2])
@@ -337,4 +268,4 @@ if activities_db:
                         st.caption("Mappa non disponibile")
 
 else:
-    st.info("Nessuna attività trovata su Supabase. Sincronizza i dati.")
+    st.info("Nessuna attività trovata su Supabase.")
