@@ -6,7 +6,7 @@ from streamlit_folium import st_folium
 
 st.set_page_config(layout="wide")
 
-st.title("🗺️ Visualizzazione Mappa Attività")
+st.title("🗺️ Visualizzazione Mappa e Dati Attività")
 
 try:
     API_KEY = st.secrets["intervals"]["api_key"]
@@ -24,9 +24,9 @@ if act_id:
     auth_credentials = ("API_KEY", API_KEY.strip())
     coordinates = []
     
-    with st.spinner("Caricamento tracciato GPS in corso..."):
+    with st.spinner("Caricamento dati attività in corso..."):
         try:
-            # Metodo 1: Tentativo di download tramite GPX
+            # 1. Tentativo di download tramite GPX
             url_gpx = f"https://intervals.icu/api/v1/activity/{act_id}.gpx"
             response_gpx = requests.get(url_gpx, auth=auth_credentials)
             
@@ -37,7 +37,7 @@ if act_id:
                         for point in segment.points:
                             coordinates.append((point.latitude, point.longitude))
             
-            # Metodo 2: Se il GPX fallisce (es. 404), proviamo con gli streams latlng
+            # 2. Se il GPX fallisce, proviamo con gli streams latlng
             if not coordinates:
                 url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams.json?types=latlng"
                 response_streams = requests.get(url_streams, auth=auth_credentials)
@@ -66,9 +66,33 @@ if act_id:
                 ).add_to(m)
                 st_folium(m, width=1000, height=550, key="folium_map_page_render")
             else:
-                st.warning("Nessun dato di geolocalizzazione (GPX o Stream latlng) disponibile per questa attività su Intervals.")
+                st.warning("⚠️ Questa attività non contiene dati di geolocalizzazione GPS (potrebbe essere un allenamento indoor o un caricamento manuale).")
+                
+                # Recuperiamo tutti gli altri flussi disponibili (es. potenza, frequenza cardiaca, cadenza)
+                url_all_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
+                resp_all = requests.get(url_all_streams, auth=auth_credentials)
+                
+                if resp_all.status_code == 200:
+                    all_streams = resp_all.json()
+                    st.markdown("### 📊 Metriche e Flussi Registrati:")
+                    
+                    stream_types_found = []
+                    for s in all_streams:
+                        if isinstance(s, dict) and "type" in s:
+                            stream_types_found.append(s["type"])
+                    
+                    if stream_types_found:
+                        st.info( اقتصادي / Tipi di dati disponibili: " + ", ".join(stream_types_found))
+                        
+                        # Mostriamo grafici rapidi se ci sono dati di potenza o frequenza cardiaca
+                        for s in all_streams:
+                            if isinstance(s, dict) and s.get("type") in ["watts", "heartrate", "cadence"]:
+                                st.line_chart(s.get("data", []), y_label=s.get("type"))
+                    else:
+                        st.text("Nessun flusso aggiuntivo disponibile per questa attività.")
+
         except Exception as e:
-            st.error(f"Errore durante il recupero della mappa: {e}")
+            st.error(f"Errore durante il recupero dei dati dell'attività: {e}")
             
     if st.button("⬅️ Torna alla Gestione Uscite"):
         try:
