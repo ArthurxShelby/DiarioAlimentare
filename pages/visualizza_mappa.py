@@ -34,27 +34,40 @@ if act_id:
                 data = response.json()
                 all_streams = data if isinstance(data, list) else [data]
                 
+                # Cerchiamo separatamente latitudini e longitudini se sono in flussi distinti
+                lat_list = []
+                lon_list = []
+                
                 for stream in all_streams:
-                    if isinstance(stream, dict) and stream.get("type") == "latlng":
-                        latlngs = stream.get("data", [])
-                        st.write(f"📊 Punti trovati: {len(latlngs)}")
-                        if len(latlngs) > 0:
-                            st.write(f"🔍 Esempio del primo punto grezzo: {latlngs[0]} (tipo: {type(latlngs[0])})")
+                    if isinstance(stream, dict):
+                        st_type = stream.get("type")
+                        if st_type == "latlng":
+                            data_points = stream.get("data", [])
+                            st.write(jstr := f"Trovati {len(data_points)} elementi in latlng. Tipo primo elemento: {type(data_points[0]) if data_points else 'vuoto'}")
                             
-                            # Estrazione flessibile basata sul tipo effettivo del punto
-                            for pt in latlngs:
-                                if pt is not None:
-                                    if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                                        try:
-                                            coordinates.append((float(pt[0]), float(pt[1])))
-                                        except (ValueError, TypeError):
-                                            continue
-                                    elif isinstance(pt, dict):
-                                        lat = pt.get("lat") or pt.get("latitude")
-                                        lon = pt.get("lng") or pt.get("lon") or pt.get("longitude")
-                                        if lat is not None and lon is not None:
-                                            coordinates.append((float(lat), float(lon)))
-                        break
+                            # Se l'elemento è un numero singolo, significa che il JSON ha i flussi separati o una struttura piatta
+                            for pt in data_points:
+                                if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                                    coordinates.append((float(pt[0]), float(pt[1])))
+                                elif isinstance(pt, (int, float)):
+                                    # Accumuliamo temporaneamente se è un flusso monodimensionale
+                                    lat_list.append(float(pt))
+                
+                # Se abbiamo trovato coordinate monodimensionali, cerchiamo il corrispettivo per la longitudine
+                if not coordinates and lat_list:
+                    for stream in all_streams:
+                        if isinstance(stream, dict) and stream.get("type") in ["lng", "longitude", "lon"]:
+                            lon_data = stream.get("data", [])
+                            lon_list = [float(x) for x in lon_data if x is not None]
+                            break
+                    
+                    # Se abbiamo sia lat che lon come liste separate, le uniamo
+                    if lon_list and len(lat_list) == len(lon_list):
+                        coordinates = list(zip(lat_list, lon_list))
+                    elif lon_list:
+                        # Se le lunghezze differiscono leggermente, prendiamo il minimo comune
+                        min_len = min(len(lat_list), len(lon_list))
+                        coordinates = list(zip(lat_list[:min_len], lon_list[:min_len]))
             
             # --- RENDER MAPPA O GRAFICI ---
             if len(coordinates) > 0:
@@ -68,7 +81,7 @@ if act_id:
                 ).add_to(m)
                 st_folium(m, width=1000, height=550, key="folium_map_page_render")
             else:
-                st.warning("⚠️ Nessun tracciato GPS valido estratto.")
+                st.warning("⚠️ Impossibile ricoppiare latitudine e longitudine dai flussi.")
                 if all_streams:
                     st.markdown("### 📊 Metriche e Flussi Registrati:")
                     for s in all_streams:
