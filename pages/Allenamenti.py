@@ -122,7 +122,7 @@ database_iniziale = {
         "Gennaio": pd.DataFrame(
             columns=[
                 "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
+                "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
             ]
         )
     }
@@ -143,7 +143,7 @@ if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionat
     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = pd.DataFrame(
         columns=[
             "Settimana", "Giorno", "Esercizio / Nome", "Watt", "RPM",
-            "Ripetizioni", "Lavoro (min)", "Recupero (min)",
+            "Serie", "Lavoro (min)", "Recupero (min)",
         ]
     )
 
@@ -156,7 +156,7 @@ else:
     df_base_mese = pd.DataFrame(
         columns=[
             "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-            "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
+            "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
         ]
     )
 
@@ -180,9 +180,13 @@ if is_proprietario:
                 df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
                 df_caricato.columns = df_caricato.columns.str.strip()
 
+                # Supporto flessibile nel caso ci siano vecchi file con scritto "Ripetizioni"
+                if "Ripetizioni" in df_caricato.columns and "Serie" not in df_caricato.columns:
+                    df_caricato = df_caricato.rename(columns={"Ripetizioni": "Serie"})
+
                 colonne_attese = [
                     "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                    "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
+                    "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
                 ]
 
                 if all(col in df_caricato.columns for col in colonne_attese):
@@ -192,7 +196,7 @@ if is_proprietario:
                     st.toast(f"File CSV caricato e salvato per {mese_selezionato} {anno_selezionato}!", icon="✅")
                     st.rerun()
                 else:
-                    st.error(f"Il file CSV non contiene le colonne corrette: {colonne_attese}")
+                    st.error(f"Il file CSV non contiene le colonne corrette. Colonne trovate: {list(df_caricato.columns)}. Attese: {colonne_attese}")
             except Exception as e:
                 st.error(f"Errore nella lettura del file CSV: {e}")
 
@@ -208,7 +212,7 @@ if is_proprietario:
             "Esercizio / Nome": st.column_config.TextColumn("Esercizio / Nome", required=True),
             "Watt": st.column_config.NumberColumn("Watt", min_value=0, max_value=1000, step=1, format="%d"),
             "RPM": st.column_config.NumberColumn("RPM", min_value=0, max_value=200, step=1, format="%d"),
-            "Ripetizioni": st.column_config.NumberColumn("Serie", min_value=0, max_value=100, step=1, format="%d"),
+            "Serie": st.column_config.NumberColumn("Serie", min_value=0, max_value=100, step=1, format="%d"),
             "Lavoro (min)": st.column_config.NumberColumn("Lavoro (min)", min_value=0, max_value=1440, step=1, format="%d"),
             "Recupero (min)": st.column_config.NumberColumn("Recupero (min)", min_value=0, max_value=1440, step=1, format="%d"),
         },
@@ -257,7 +261,7 @@ if is_proprietario:
                                 st.session_state.database_allenamenti[anno_target][m] = pd.DataFrame(
                                     columns=[
                                         "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                                        "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
+                                        "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
                                     ]
                                 )
 
@@ -291,8 +295,8 @@ df_fonte_dati = st.session_state.database_allenamenti.get(anno_selezionato, {}).
 if isinstance(df_fonte_dati, list):
     df_fonte_dati = pd.DataFrame(df_fonte_dati)
 
-# Creazione delle colonne dinamiche attingendo dalla tabella superiore (usando "Ripetizioni" come chiave dati interna)
-colonne_dinamiche = [("Watt", "Watt"), ("Ripetizioni", "Serie"), ("Lavoro (min)", "Lavoro (min)"), ("Recupero (min)", "Recupero (min)")]
+# Creazione delle colonne dinamiche
+colonne_dinamiche = [("Watt", "Watt"), ("Serie", "Serie"), ("Lavoro (min)", "Lavoro (min)"), ("Recupero (min)", "Recupero (min)")]
 for col_db, col_label in colonne_dinamiche:
     valori = []
     for i in range(len(df_struttura_fissa)):
