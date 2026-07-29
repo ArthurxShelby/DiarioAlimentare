@@ -233,14 +233,15 @@ if is_proprietario:
         
         # --- SEZIONE 1: CANCELLAZIONE RAPIDA MESE ATTIVO ---
         st.markdown(f"### Svuota solo il mese in evidenza: **{mese_selezionato} {anno_selezionato}**")
-        if st.button(f"🗑️ Svuota dati di {mese_selezionato} {anno_selezionato}", type="primary"):
+        if st.button(f"🗑️ Svuota dati di {mese_selezionato} {anno_selezionato}", type="primary", key="btn_svuota_mese_singolo"):
             try:
-                st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = pd.DataFrame(
+                df_vuoto = pd.DataFrame(
                     columns=[
                         "Settimana", "Giorno", "Esercizio / Nome", "Watt",
                         "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
                     ]
                 )
+                st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_vuoto
                 salva_database()
                 st.session_state.version_editor += 1
                 st.toast(f"Dati di {mese_selezionato} {anno_selezionato} svuotati con successo!", icon="🗑️")
@@ -258,7 +259,7 @@ if is_proprietario:
         with col_d2:
             data_fine_del = st.date_input("Data Fine Periodo", value=datetime.date(2026, 12, 31), key="data_fin_del")
 
-        if st.button("🚨 Svuota dati per il periodo selezionato"):
+        if st.button("🚨 Svuota dati per il periodo selezionato", key="btn_svuota_intervallo"):
             if data_inizio_del > data_fine_del:
                 st.error("La data di inizio non può essere successiva alla data di fine.")
             else:
