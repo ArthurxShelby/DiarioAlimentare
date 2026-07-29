@@ -163,116 +163,8 @@ else:
 st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_base_mese
 df_da_mostrare = df_base_mese
 
-# --- 3. PRIMA TABELLA: GESTIONE E MODIFICA ALLENAMENTI (CSV & EDITOR) ---
+# --- 3. PRIMA TABELLA: GESTIONE E MODIFICA ALLENAMENTI (EDITOR) ---
 st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
-
-if is_proprietario:
-    with st.expander("📂 Integra o carica piano di lavoro tramite file CSV", expanded=False):
-        st.write(f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**.")
-        
-        file_caricato = st.file_uploader(
-            "Seleziona il file CSV",
-            type=["csv"],
-            key=f"uploader_file_{anno_selezionato}_{mese_selezionato}"
-        )
-
-        if file_caricato is not None:
-            try:
-                df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
-                df_caricato.columns = df_caricato.columns.str.strip()
-
-                if "Ripetizioni" in df_caricato.columns and "Serie" not in df_caricato.columns:
-                    df_caricato = df_caricato.rename(columns={"Ripetizioni": "Serie"})
-
-                colonne_attese = [
-                    "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                    "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
-                ]
-
-                if all(col in df_caricato.columns for col in colonne_attese):
-                    df_filtrato = df_caricato[colonne_attese].copy()
-                    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_filtrato
-                    salva_database()
-                    
-                    df_da_mostrare = df_filtrato
-                    
-                    st.success(f"File CSV caricato e salvato con successo per {mese_selezionato} {anno_selezionato}!")
-                else:
-                    st.error(f"Il file CSV non contiene le colonne corrette. Colonne trovate: {list(df_caricato.columns)}. Attese: {colonne_attese}")
-            except Exception as e:
-                st.error(f"Errore nella lettura del file CSV: {e}")
-
-# --- PANNELLO DI CANCELLAZIONE AVANZATO ---
-if is_proprietario:
-    with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
-        
-        # --- SEZIONE 1: CANCELLAZIONE RAPIDA MESE ATTIVO ---
-        st.markdown(f"### Svuota solo il mese in evidenza: **{mese_selezionato} {anno_selezionato}**")
-        if st.button(f"🗑️ Svuota dati di {mese_selezionato} {anno_selezionato}", type="primary", key="btn_svuota_mese_singolo"):
-            try:
-                df_vuoto = pd.DataFrame(
-                    columns=[
-                        "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                        "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
-                    ]
-                )
-                st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_vuoto.copy()
-                salva_database()
-                
-                st.session_state.version_editor += 1
-                st.toast(f"Dati di {mese_selezionato} {anno_selezionato} svuotati con successo!", icon="🗑️")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Errore durante la pulizia del mese: {e}")
-
-        st.markdown("---")
-
-        # --- SEZIONE 2: CANCELLAZIONE INTERVALLO DATE ---
-        st.markdown("### Svuota un intervallo esatto basato su date specifiche")
-        col_d1, col_d2 = st.columns(2)
-        with col_d1:
-            data_inizio_del = st.date_input("Data Inizio Periodo", value=datetime.date(2026, 1, 1), key="data_ini_del")
-        with col_d2:
-            data_fine_del = st.date_input("Data Fine Periodo", value=datetime.date(2026, 12, 31), key="data_fin_del")
-
-        if st.button("🚨 Svuota dati per il periodo selezionato", key="btn_svuota_intervallo"):
-            if data_inizio_del > data_fine_del:
-                st.error("La data di inizio non può essere successiva alla data di fine.")
-            else:
-                try:
-                    anno_inizio_del = data_inizio_del.year
-                    anno_fine_del = data_fine_del.year
-                    idx_m_ini = data_inizio_del.month - 1
-                    idx_m_fin = data_fine_del.month - 1
-
-                    df_vuoto = pd.DataFrame(
-                        columns=[
-                            "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                            "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
-                        ]
-                    )
-
-                    for anno_target_num in range(anno_inizio_del, anno_fine_del + 1):
-                        anno_target = str(anno_target_num)
-                        if anno_target not in st.session_state.database_allenamenti:
-                            continue
-
-                        start_idx = idx_m_ini if anno_target_num == anno_inizio_del else 0
-                        end_idx = idx_m_fin if anno_target_num == anno_fine_del else 11
-
-                        mesi_da_pulire = elenco_mesi_completo[start_idx : end_idx + 1]
-
-                        for m in mesi_da_pulire:
-                            if m in st.session_state.database_allenamenti[anno_target]:
-                                st.session_state.database_allenamenti[anno_target][m] = df_vuoto.copy()
-
-                    salva_database()
-                    
-                    st.session_state.version_editor += 1
-                    st.toast("Dati svuotati e sincronizzati con successo!", icon="🗑️")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Errore durante la pulizia: {e}")
 
 if is_proprietario:
     df_modificato = st.data_editor(
@@ -297,7 +189,118 @@ if is_proprietario:
         salva_database()
         st.rerun()
 
-st.markdown("<br>", unsafe_allow_html=True)
+    # --- BOTTONI / CONTROLLI POSIZIONATI SUBITO SOTTO LA TABELLA ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    col_btn1, col_btn2 = st.columns(2)
+
+    with col_btn1:
+        with st.expander("📂 Integra o carica piano di lavoro tramite file CSV", expanded=False):
+            st.write(f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**.")
+            
+            file_caricato = st.file_uploader(
+                "Seleziona il file CSV",
+                type=["csv"],
+                key=f"uploader_file_{anno_selezionato}_{mese_selezionato}"
+            )
+
+            if file_caricato is not None:
+                try:
+                    df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
+                    df_caricato.columns = df_caricato.columns.str.strip()
+
+                    if "Ripetizioni" in df_caricato.columns and "Serie" not in df_caricato.columns:
+                        df_caricato = df_caricato.rename(columns={"Ripetizioni": "Serie"})
+
+                    colonne_attese = [
+                        "Settimana", "Giorno", "Esercizio / Nome", "Watt",
+                        "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
+                    ]
+
+                    if all(col in df_caricato.columns for col in colonne_attese):
+                        df_filtrato = df_caricato[colonne_attese].copy()
+                        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_filtrato
+                        salva_database()
+                        
+                        st.session_state.version_editor += 1
+                        st.success(f"File CSV caricato e salvato con successo per {mese_selezionato} {anno_selezionato}!")
+                        st.rerun()
+                    else:
+                        st.error(f"Il file CSV non contiene le colonne corrette. Colonne trovate: {list(df_caricato.columns)}. Attese: {colonne_attese}")
+                except Exception as e:
+                    st.error(f"Errore nella lettura del file CSV: {e}")
+
+    with col_btn2:
+        with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)", expanded=False):
+            
+            # --- SEZIONE 1: CANCELLAZIONE RAPIDA MESE ATTIVO ---
+            st.markdown(f"### Svuota solo il mese in evidenza: **{mese_selezionato} {anno_selezionato}**")
+            if st.button(f"🗑️ Svuota dati di {mese_selezionato} {anno_selezionato}", type="primary", key="btn_svuota_mese_singolo"):
+                try:
+                    df_vuoto = pd.DataFrame(
+                        columns=[
+                            "Settimana", "Giorno", "Esercizio / Nome", "Watt",
+                            "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
+                        ]
+                    )
+                    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_vuoto.copy()
+                    salva_database()
+                    
+                    st.session_state.version_editor += 1
+                    st.toast(f"Dati di {mese_selezionato} {anno_selezionato} svuotati con successo!", icon="🗑️")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Errore durante la pulizia del mese: {e}")
+
+            st.markdown("---")
+
+            # --- SEZIONE 2: CANCELLAZIONE INTERVALLO DATE ---
+            st.markdown("### Svuota un intervallo esatto basato su date specifiche")
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
+                data_inizio_del = st.date_input("Data Inizio Periodo", value=datetime.date(2026, 1, 1), key="data_ini_del")
+            with col_d2:
+                data_fine_del = st.date_input("Data Fine Periodo", value=datetime.date(2026, 12, 31), key="data_fin_del")
+
+            if st.button("🚨 Svuota dati per il periodo selezionato", key="btn_svuota_intervallo"):
+                if data_inizio_del > data_fine_del:
+                    st.error("La data di inizio non può essere successiva alla data di fine.")
+                else:
+                    try:
+                        anno_inizio_del = data_inizio_del.year
+                        anno_fine_del = data_fine_del.year
+                        idx_m_ini = data_inizio_del.month - 1
+                        idx_m_fin = data_fine_del.month - 1
+
+                        df_vuoto = pd.DataFrame(
+                            columns=[
+                                "Settimana", "Giorno", "Esercizio / Nome", "Watt",
+                                "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
+                            ]
+                        )
+
+                        for anno_target_num in range(anno_inizio_del, anno_fine_del + 1):
+                            anno_target = str(anno_target_num)
+                            if anno_target not in st.session_state.database_allenamenti:
+                                continue
+
+                            start_idx = idx_m_ini if anno_target_num == anno_inizio_del else 0
+                            end_idx = idx_m_fin if anno_target_num == anno_fine_del else 11
+
+                            mesi_da_pulire = elenco_mesi_completo[start_idx : end_idx + 1]
+
+                            for m in mesi_da_pulire:
+                                if m in st.session_state.database_allenamenti[anno_target]:
+                                    st.session_state.database_allenamenti[anno_target][m] = df_vuoto.copy()
+
+                        salva_database()
+                        
+                        st.session_state.version_editor += 1
+                        st.toast("Dati svuotati e sincronizzati con successo!", icon="🗑️")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Errore durante la pulizia: {e}")
+
+st.markdown("<br><br>", unsafe_allow_html=True)
 
 # --- 4. SECONDA TABELLA: PROGRAMMAZIONE CICLI (SINCRONIZZATA AUTOMATICAMENTE) ---
 st.subheader("📋 Programmazione Cicli di Allenamento (Perpetua)")
