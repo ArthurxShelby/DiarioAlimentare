@@ -242,8 +242,8 @@ if "atleti" not in st.session_state:
     else:
         st.session_state.atleti = {
             "Atleta Principale": {
-                "peso": 70.0,
-                "altezza": 175.0,
+                "peso": 75.0,
+                "altezza": 173.0,
                 "eta": 56,
                 "genere": "Uomo",
                 "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
@@ -259,7 +259,7 @@ if "atleta_corrente" not in st.session_state:
 
 PASTI = ["Colazione", "Spuntino", "Pranzo", "Merenda", "Cena", "Extra"]
 
-st.title("Pianificatore Alimentare - Multi-Atleta (Mifflin)")
+st.title("Pianificatore Alimentare - Multi-Atleta")
 
 # --- SEZIONE GESTIONE AMMINISTRATIVA (PROPRIETARIO) CON SUPABASE "utenti" ---
 if is_proprietario:
@@ -308,8 +308,8 @@ if is_proprietario:
 
                             if nuovo_user not in st.session_state.atleti:
                                 st.session_state.atleti[nuovo_user] = {
-                                    "peso": 70.0,
-                                    "altezza": 175.0,
+                                    "peso": 75.0,
+                                    "altezza": 173.0,
                                     "eta": 30,
                                     "genere": "Uomo",
                                     "livello_allenamento": "Allenamento Moderato (PAL 1.55)",
@@ -377,8 +377,8 @@ st.sidebar.markdown("---")
 
 atleta_data = st.session_state.atleti[st.session_state.atleta_corrente]
 
-saved_peso = atleta_data.get("peso", 70.0)
-saved_altezza = atleta_data.get("altezza", 175.0)
+saved_peso = atleta_data.get("peso", 75.0)
+saved_altezza = atleta_data.get("altezza", 173.0)
 saved_eta = atleta_data.get("eta", 56)
 saved_genere = atleta_data.get("genere", "Uomo")
 saved_allenamento = atleta_data.get("livello_allenamento", "Allenamento Moderato (PAL 1.55)")
@@ -395,13 +395,16 @@ allenamento_opzioni = [
 ]
 allenamento_index = allenamento_opzioni.index(saved_allenamento) if saved_allenamento in allenamento_opzioni else 2
 
-with st.sidebar.expander(f"Parametri Mifflin & Attività: {st.session_state.atleta_corrente}"):
-    if is_proprietario or st.session_state.utente_loggato == st.session_state.atleta_corrente:
+# --- PARAMETRI DI FISICO E ATTIVITÀ ---
+atleta_corrente = st.session_state.get("atleta_corrente", "")
+
+if is_proprietario or st.session_state.utente_loggato == st.session_state.atleta_corrente:
+    with st.sidebar.expander(f"Parametri Fisici & Attività: {st.session_state.atleta_corrente}"):
         peso = st.number_input("Peso (kg)", value=float(saved_peso), key=f"peso_{st.session_state.atleta_corrente}")
         altezza = st.number_input("Altezza (cm)", value=float(saved_altezza), key=f"altezza_{st.session_state.atleta_corrente}")
         eta = st.number_input("Età (anni)", value=int(saved_eta), key=f"eta_{st.session_state.atleta_corrente}")
         genere = st.selectbox("Genere", genere_opzioni, index=genere_index, key=f"genere_{st.session_state.atleta_corrente}")
-        livello_allenamento = st.selectbox("Intensità Attività", allenamento_opzioni, index=allenamento_index, key=f"allenamento_{st.session_state.atleta_corrente}")
+        livello_allenamento = st.selectbox("Intensità Attività (Mifflin)", allenamento_opzioni, index=allenamento_index, key=f"allenamento_{st.session_state.atleta_corrente}")
 
         if (
             atleta_data.get("peso") != peso
@@ -416,23 +419,18 @@ with st.sidebar.expander(f"Parametri Mifflin & Attività: {st.session_state.atle
             atleta_data["genere"] = genere
             atleta_data["livello_allenamento"] = livello_allenamento
             salva_dati_disco()
-    else:
-        peso = saved_peso
-        altezza = saved_altezza
-        eta = saved_eta
-        genere = saved_genere
-        livello_allenamento = saved_allenamento
-        st.text(f"Peso: {peso} kg")
-        st.text(f"Altezza: {altezza} cm")
-        st.text(f"Età: {eta} anni")
-        st.text(f"Genere: {genere}")
-        st.text(f"Attività: {livello_allenamento}")
+else:
+    peso = saved_peso
+    altezza = saved_altezza
+    eta = saved_eta
+    genere = saved_genere
+    livello_allenamento = saved_allenamento
 
-# Selezione della Data del Diario e calcolo TDEE
+# Selezione della Data del Diario
 data_selezionata = st.sidebar.date_input("Data Diario", value=date.today())
 data_str = data_selezionata.strftime("%Y-%m-%d")
 
-# Calcolo BMR (Mifflin-St Jeor) e TDEE
+# Calcolo BMR (Mifflin-St Jeor)
 if genere == "Uomo":
     bmr = (10 * peso) + (6.25 * altezza) - (5 * eta) + 5
 else:
@@ -447,93 +445,78 @@ elif "1.9" in livello_allenamento: pal_val = 1.9
 
 tdee = bmr * pal_val
 
-# --- CALCOLO OBIETTIVI (DINAMICO PER ATLETA PRINCIPALE) ---
-atleta_corrente = st.session_state.get("atleta_corrente", "")
-
-usa_solo_mifflin = False
-if atleta_corrente == "Atleta Principale":
-    usa_solo_mifflin = st.sidebar.checkbox("Usa solo profilo Mifflin (Standard)", value=False)
-
-if atleta_corrente == "Atleta Principale" and not usa_solo_mifflin:
-    st.sidebar.markdown("### ⚙️ Modalità Allenamento")
-    modalita_periodo = st.sidebar.selectbox(
-        "Seleziona Fase:",
-        [
-            "🚴‍♂️ Transizione & Recupero Infortunio (Oggi)",
-            "🏋️‍♂️ Pieno Carico / Combinato (Gennaio 2027)"
-        ]
-    )
+# --- LOGICA DI CALCOLO MACRONUTRIENTI (GIORNATE TIPO / MIFFLIN) ---
+if is_proprietario and atleta_corrente == "Atleta Principale":
+    st.sidebar.markdown("### ⚙️ Gestione Calcolo Macronutrienti")
     
-    # 1. LOGICA ATTUALE (Transizione / Infortunio)
-    if "Transizione" in modalita_periodo:
-        with st.sidebar.expander("Dettagli Transizione"):
-            tipo_giornata_scelto = st.selectbox(
-                "Focus Giornaliero:",
-                [
-                    "🔄 Riposo / Recupero",
-                    "🛡️ Rafforzamento Muscolare / Palestra",
-                    "🚴‍♂️ Bici (Fase Graduale / Moderata)",
-                    "⛰️ Bici (Uscita Lunga / Pieno Carico)"
-                ]
-            )
+    # Checkbox per attivare Mifflin escludendo le giornate tipo
+    usa_mifflin_proprietario = st.sidebar.checkbox("Usa calcolo Mifflin-St Jeor (Esclude giornate tipo)", value=False)
+    
+    if usa_mifflin_proprietario:
+        # Calcolo basato su Mifflin
+        obj_kcal = round(tdee, 0)
+        obj_carbo = round((obj_kcal * 0.50) / 4, 1)
+        obj_prot = round((obj_kcal * 0.25) / 4, 1)
+        obj_grassi = round((obj_kcal * 0.25) / 9, 1)
+        st.sidebar.markdown("**Modalità Attiva:**\n*Calcolo Mifflin-St Jeor Standard*")
+    else:
+        # Menu a discesa per le 5 giornate tipo
+        giornata_tipo_scelta = st.sidebar.selectbox(
+            "Seleziona Giornata Tipo:",
+            [
+                "1) Giornata scarico/riposo",
+                "2) Giornata bici intensa",
+                "3) Giornata bici specifica",
+                "4) Giornata bici",
+                "5) Giornata pesi",
+            ]
+        )
         
         obj_prot = round(peso * 2.2, 1)
         
-        if "Riposo" in tipo_giornata_scelto:
-            tipo_giornata = "🔄 Riposo / Recupero"
-            obj_kcal = round(tdee * 1.2, 0)
+        if "1) Giornata scarico/riposo" in giornata_tipo_scelta:
+            obj_kcal = round(tdee * 1.0, 0)
             obj_carbo = round(peso * 3.0, 1)
-        elif "Rafforzamento" in tipo_giornata_scelto:
-            tipo_giornata = "🛡️ Rafforzamento Muscolare / Palestra"
-            obj_kcal = round(tdee * 1.08, 0)
-            obj_carbo = round(peso * 4.0, 1)
-        elif "Graduale" in tipo_giornata_scelto:
-            tipo_giornata = "🚴‍♂️ Bici (Fase Graduale / Moderata)"
-            obj_kcal = round(tdee * 1.15, 0)
-            obj_carbo = round(peso * 5.0, 1)
-        else:
-            tipo_giornata = "⛰️ Bici (Uscita Lunga / Pieno Carico)"
+        elif "2) Giornata bici intensa" in giornata_tipo_scelta:
             obj_kcal = round(tdee * 1.35, 0)
             obj_carbo = round(peso * 7.5, 1)
+        elif "3) Giornata bici specifica" in giornata_tipo_scelta:
+            obj_kcal = round(tdee * 1.20, 0)
+            obj_carbo = round(peso * 6.0, 1)
+        elif "4) Giornata bici" in giornata_tipo_scelta:
+            obj_kcal = round(tdee * 1.15, 0)
+            obj_carbo = round(peso * 5.0, 1)
+        else: # 5) Giornata pesi
+            obj_kcal = round(tdee * 1.08, 0)
+            obj_carbo = round(peso * 4.0, 1)
             
         cal_prot_c = obj_prot * 4
         cal_carb_c = obj_carbo * 4
         obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 45.0)
-        st.sidebar.markdown(f"**Programma attivo:**\n*{tipo_giornata}*")
+        st.sidebar.markdown(f"**Giornata Tipo Attiva:**\n*{giornata_tipo_scelta}*")
 
-    # 2. LOGICA FUTURA (Pieno Carico - Gennaio 2027) già pronta nel codice
-    else:
-        giorno_settimana = data_selezionata.weekday()
-        obj_prot = round(peso * 2.2, 1)
-        
-        # Lunedì (0), Mercoledì (2), Venerdì (4) -> Pesi
-        if giorno_settimana in [0, 2, 4]:
-            tipo_giornata = "🏋️‍♂️ Giorno Pesi (Forza / Mantenimento)"
-            obj_kcal = round(tdee * 1.05, 0)
-            obj_carbo = round(peso * 4.0, 1)
-        # Martedì (1), Giovedì (3) -> Bici Specifica
-        elif giorno_settimana in [1, 3]:
-            tipo_giornata = "🚴‍♂️ Bici Specifica / Intermedia"
-            obj_kcal = round(tdee * 1.15, 0)
-            obj_carbo = round(peso * 5.5, 1)
-        # Sabato (5) e Domenica (6) -> Uscita Lunga / Scalata
-        else:
-            tipo_giornata = "⛰️ Uscita Lunga / Scalata Weekend"
-            obj_kcal = round(tdee * 1.35, 0)
-            obj_carbo = round(peso * 7.5, 1)
-            
-        cal_prot_c = obj_prot * 4
-        cal_carb_c = obj_carbo * 4
-        obj_grassi = max(round((obj_kcal - (cal_prot_c + cal_carb_c)) / 9, 1), 50.0)
-        st.sidebar.markdown(f"**Programma attivo:**\n*{tipo_giornata}* (Pieno Carico)")
-
-# Profilo Standard o Mifflin (per gli altri o se attivi il checkbox)
-if atleta_corrente != "Atleta Principale" or usa_solo_mifflin:
+else:
+    # Sezione per altri utenti (o se il proprietario seleziona un altro atleta) con menu a discesa dedicato
+    st.sidebar.markdown("### ⚙️ Profilo Altri Utenti")
+    profilo_altro_utente = st.sidebar.selectbox(
+        "Seleziona Profilo / Calcolo:",
+        [
+            "Calcolo Standard Mifflin-St Jeor",
+            "Mantenimento Leggero",
+            "Fase Definizione",
+            "Fase Massa"
+        ]
+    )
+    
     obj_kcal = round(tdee, 0)
+    if "Definizione" in profilo_altro_utente:
+        obj_kcal = round(tdee * 0.85, 0)
+    elif "Massa" in profilo_altro_utente:
+        obj_kcal = round(tdee * 1.15, 0)
+        
     obj_carbo = round((obj_kcal * 0.50) / 4, 1)
     obj_prot = round((obj_kcal * 0.25) / 4, 1)
     obj_grassi = round((obj_kcal * 0.25) / 9, 1)
-    st.sidebar.markdown("**Programma del giorno:**\n*Profilo Standard / Mifflin (Dinamico)*")
 
 db_diario_atleta = atleta_data.setdefault("db_diario", {})
 if data_str not in db_diario_atleta:
@@ -885,7 +868,7 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     pdf_output.set_text_color(220, 20, 60)
                 pdf_output.write(8, f"{tot_kcal:.1f}")
                 pdf_output.set_text_color(0, 0, 0)
-                pdf_output.write(8, f" / {obj_kcal} kcal ({livello_allenamento})\n")
+                pdf_output.write(8, f" / {obj_kcal} kcal\n")
                 pdf_output.ln(2)
 
                 pdf_output.write(8, "Carboidrati: ")
