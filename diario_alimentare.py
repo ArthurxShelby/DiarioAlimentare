@@ -453,26 +453,14 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
     usa_mifflin_proprietario = st.sidebar.checkbox("Usa calcolo Mifflin-St Jeor (Esclude giornate tipo)", value=False)
     
     if usa_mifflin_proprietario:
-        # Calcolo basato su Mifflin
         obj_kcal = round(tdee, 0)
         obj_carbo = round((obj_kcal * 0.50) / 4, 1)
         obj_prot = round((obj_kcal * 0.25) / 4, 1)
         obj_grassi = round((obj_kcal * 0.25) / 9, 1)
         st.sidebar.markdown("**Modalità Attiva:**\n*Calcolo Mifflin-St Jeor Standard*")
     else:
-        # Aggiungiamo uno stile CSS per gestire l'altezza e lo scroll del menu a tendina nella sidebar
-        st.markdown("""
-        <style>
-            /* Forza lo scroll sul menu a tendina di Streamlit */
-            div[data-baseweb="popover"] div[role="listbox"] {
-                max-height: 200px !important;
-                overflow-y: auto !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-
-        # Menu a discesa per le 5 giornate tipo
-        giornata_tipo_scelta = st.sidebar.selectbox(
+        # Sostituiamo il selectbox con st.radio per avere tutte le 5 opzioni fisse e visibili
+        giornata_tipo_scelta = st.sidebar.radio(
             "Seleziona Giornata Tipo:",
             [
                 "1) Giornata scarico/riposo",
