@@ -64,39 +64,40 @@ with st.spinner("Sincronizzazione dati da Intervals.icu in corso..."):
     
     resp_global = requests.get(url_global, auth=auth_global, params=params_global)
 
+st.markdown("---")
+st.subheader("📊 Statistiche Dinamiche e Riepilogo (TCR - Dal 15/11/2025)")
+
 if resp_global.status_code == 200:
     activities_net = resp_global.json()
     
     if activities_net:
         df_activities = pd.DataFrame(activities_net)
-        
-        # Calcoli dinamici dal flusso
         tot_km = round(df_activities.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
         tot_dislivello = int(df_activities.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
-        
-        st.markdown("---")
-        st.subheader("📊 Statistiche Dinamiche e Riepilogo (TCR - Dal 15/11/2025)")
-        
-        col_m1, col_m2, col_img = st.columns(3)
-        
-        with col_m1:
-            st.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
-        with col_m2:
-            st.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
-        with col_img:
-            st.subheader("TCR Advanced Pro 0")
-            try:
-                cartella_script = os.path.dirname(__file__)
-                percorso_foto = os.path.join(cartella_script, "TCR.png")
-                st.image(percorso_foto, use_container_width=True)
-            except Exception:
-                st.warning("Immagine TCR.png non trovata.")
-        
-        st.markdown("---")
     else:
-        st.info("Nessuna attività trovata a partire dal 15/11/2025.")
+        tot_km = 0.0
+        tot_dislivello = 0
 else:
-    st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
+    tot_km = 0.0
+    tot_dislivello = 0
+    st.error(f"Errore di connessione a Intervals.icu per le statistiche globali: {resp_global.status_code}")
+
+col_m1, col_m2, col_img = st.columns(3)
+
+with col_m1:
+    st.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
+with col_m2:
+    st.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
+with col_img:
+    st.subheader("TCR Advanced Pro 0")
+    try:
+        cartella_script = os.path.dirname(__file__)
+        percorso_foto = os.path.join(cartella_script, "TCR.png")
+        st.image(percorso_foto, use_container_width=True)
+    except Exception:
+        st.warning("Immagine TCR.png non trovata.")
+
+st.markdown("---")
 
 # --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Range Personalizzato) ---
 with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato)", expanded=False):
@@ -166,7 +167,6 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                             with st.spinner("Caricamento mappa in corso..."):
                                 gpx_bytes = fetch_activity_gpx(act_id, API_KEY)
                                 if gpx_bytes:
-                                    # Salvataggio temporaneo in sessione per visualizzazione mappa (senza Supabase Storage)
                                     st.session_state["map_bytes_to_view"] = gpx_bytes
                                     st.session_state["activity_title_to_view"] = act_title
                                     st.session_state["activity_date_to_view"] = act_date
