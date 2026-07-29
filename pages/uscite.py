@@ -64,40 +64,39 @@ with st.spinner("Sincronizzazione dati da Intervals.icu in corso..."):
     
     resp_global = requests.get(url_global, auth=auth_global, params=params_global)
 
-st.markdown("---")
-st.subheader("📊 Statistiche Dinamiche e Riepilogo (TCR - Dal 15/11/2025)")
-
 if resp_global.status_code == 200:
     activities_net = resp_global.json()
     
     if activities_net:
         df_activities = pd.DataFrame(activities_net)
+        
+        # Calcoli dinamici allineati
         tot_km = round(df_activities.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
         tot_dislivello = int(df_activities.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
+        
+        st.markdown("---")
+        st.subheader("📊 Statistiche Dinamiche e Riepilogo (TCR - Dal 15/11/2025)")
+        
+        col_m1, col_m2, col_img = st.columns(3)
+        
+        with col_m1:
+            st.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
+        with col_m2:
+            st.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
+        with col_img:
+            st.subheader("TCR Advanced Pro 0")
+            try:
+                cartella_script = os.path.dirname(__file__)
+                percorso_foto = os.path.join(cartella_script, "TCR.png")
+                st.image(percorso_foto, use_container_width=True)
+            except Exception:
+                st.warning("Immagine TCR.png non trovata.")
+        
+        st.markdown("---")
     else:
-        tot_km = 0.0
-        tot_dislivello = 0
+        st.info("Nessuna attività trovata a partire dal 15/11/2025.")
 else:
-    tot_km = 0.0
-    tot_dislivello = 0
-    st.error(f"Errore di connessione a Intervals.icu per le statistiche globali: {resp_global.status_code}")
-
-col_m1, col_m2, col_img = st.columns(3)
-
-with col_m1:
-    st.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
-with col_m2:
-    st.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
-with col_img:
-    st.subheader("TCR Advanced Pro 0")
-    try:
-        cartella_script = os.path.dirname(__file__)
-        percorso_foto = os.path.join(cartella_script, "TCR.png")
-        st.image(percorso_foto, use_container_width=True)
-    except Exception:
-        st.warning("Immagine TCR.png non trovata.")
-
-st.markdown("---")
+    st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
 # --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Range Personalizzato) ---
 with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato)", expanded=False):
@@ -105,9 +104,9 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
     
     col_c1, col_c2 = st.columns(2)
     with col_c1:
-        data_inizio_custom = st.date_input("Data Inizio Range", value=date(2025, 7, 27), key="custom_start")
+        data_inizio_custom = st.date_input("Data Inizio Range", value=date(2025, 11, 15), key="custom_start")
     with col_c2:
-        data_fine_custom = st.date_input("Data Fine Range", value=date(2025, 8, 14), key="custom_end")
+        data_fine_custom = st.date_input("Data Fine Range", value=date.today(), key="custom_end")
         
     if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
         with st.spinner("Interrogazione in corso..."):
@@ -136,14 +135,14 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
     if "custom_activities" in st.session_state and st.session_state["custom_activities"]:
         df_ext = pd.DataFrame(st.session_state["custom_activities"])
         
-        distanza_tot_km = df_ext.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0
-        dislivello_tot_m = df_ext.get("total_elevation_gain", pd.Series([0])).fillna(0).sum()
+        distanza_tot_km = round(df_ext.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
+        dislivello_tot_m = int(df_ext.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
         num_uscite = len(df_ext)
         
         st.markdown("---")
         mc1, mc2, mc3 = st.columns(3)
-        mc1.metric("Km Totali Periodo", f"{distanza_tot_km:.1f} km")
-        mc2.metric("Dislivello (D+) Periodo", f"{dislivello_tot_m:.0f} m")
+        mc1.metric("Km Totali Periodo", f"{distanza_tot_km:,.2f} km")
+        mc2.metric("Dislivello (D+) Periodo", f"{dislivello_tot_m:,} m")
         mc3.metric("Uscite Registrate", f"{num_uscite}")
         st.markdown("---")
         
