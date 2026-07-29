@@ -55,9 +55,11 @@ if act_id:
         except Exception as e:
             st.error(f"Errore durante il recupero della mappa: {e}")
     
+    # Usiamo il nome del file principale in base alla struttura standard di Streamlit
     if st.button("⬅️ Torna alla Gestione Uscite"):
-        st.switch_page("uscite.py")
+        try:
+            st.switch_page("uscite.py")
+        except Exception:
+            st.info("Usa il menu laterale a sinistra per tornare alla pagina Uscite.")
 else:
-    st.warning("Nessun tracciato selezionato. Torna alla pagina Uscite e seleziona un'attività.")
-    if st.button("⬅️ Torna a Uscite"):
-        st.switch_page("uscite.py")
+    st.warning("Nessun tracciato selezionato. Torna alla pagina Uscite e seleziona un'attività dal menu laterale.")
