@@ -509,7 +509,7 @@ else:
     )
     
     obj_kcal = round(tdee, 0)
-    if "Definizione" in profilo_scelto:
+    if "Definizione" in profilo_altro_utente:
         obj_kcal = round(tdee * 0.85, 0)
     elif "Massa" in profilo_altro_utente:
         obj_kcal = round(tdee * 1.15, 0)
