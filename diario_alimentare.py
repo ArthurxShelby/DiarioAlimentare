@@ -448,11 +448,19 @@ tdee = bmr * pal_val
 # --- LOGICA DI CALCOLO MACRONUTRIENTI (GIORNATE TIPO / MIFFLIN) ---
 if is_proprietario and atleta_corrente == "Atleta Principale":
     st.sidebar.markdown("### ⚙️ Gestione Calcolo Macronutrienti")
-    
-    # Checkbox per attivare Mifflin escludendo le giornate tipo
-    usa_mifflin_proprietario = st.sidebar.checkbox("Usa calcolo Mifflin-St Jeor (Esclude giornate tipo)", value=False)
-    
-    if usa_mifflin_proprietario:
+
+    # Utilizziamo una chiave persistente in st.session_state per la modalità di calcolo
+    if "modo_calcolo_principale" not in st.session_state:
+        st.session_state.modo_calcolo_principale = "Giornata Tipo"
+
+    scelta_modo = st.sidebar.radio(
+        "Seleziona Modalità di Calcolo:",
+        ["Giornata Tipo", "Mifflin-St Jeor Standard"],
+        key="radio_modo_calcolo"
+    )
+    st.session_state.modo_calcolo_principale = scelta_modo
+
+    if st.session_state.modo_calcolo_principale == "Mifflin-St Jeor Standard":
         obj_kcal = round(tdee, 0)
         obj_carbo = round((obj_kcal * 0.50) / 4, 1)
         obj_prot = round((obj_kcal * 0.25) / 4, 1)
@@ -467,7 +475,8 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
                 "3) Giornata bici specifica",
                 "4) Giornata bici",
                 "5) Giornata pesi",
-            ]
+            ],
+            key="radio_giornata_tipo"
         )
         
         # Paletti fissi basati sul peso corporeo (75 kg)
@@ -476,7 +485,7 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
         
         # Assegnazione carboidrati e kcal totali in base alla logica stabilita
         if "1) Giornata scarico/riposo" in giornata_tipo_scelta:
-            obj_carbo = 180.0  #[cite: 3]
+            obj_carbo = 180.0[cite: 3]
         elif "2) Giornata bici intensa" in giornata_tipo_scelta:
             obj_carbo = 400.0  # Valore medio nel range 380-420 g[cite: 3]
         elif "3) Giornata bici specifica" in giornata_tipo_scelta:
@@ -502,7 +511,8 @@ else:
         "Seleziona Profilo / Calcolo:",
         [
             "Calcolo Standard Mifflin-St Jeor",
-        ]
+        ],
+        key="radio_altro_utente"
     )
 
     if "Calcolo Standard Mifflin-St Jeor" in profilo_altro_utente:
