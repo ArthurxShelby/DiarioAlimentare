@@ -26,18 +26,22 @@ if act_id:
     
     with st.spinner("Caricamento dati attività in corso..."):
         try:
-            # 1. Tentativo di download tramite GPX
-            url_gpx = f"https://intervals.icu/api/v1/activity/{act_id}.gpx"
-            response_gpx = requests.get(url_gpx, auth=auth_credentials)
+            # 1. Tentativo di estrazione diretta dai flussi completi (che includono latlng se presente)
+            url_all_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
+            resp_all = requests.get(url_all_streams, auth=auth_credentials)
             
-            if response_gpx.status_code == 200 and response_gpx.content:
-                gpx = gpxpy.parse(response_gpx.content.decode('utf-8', errors='ignore'))
-                for track in gpx.tracks:
-                    for segment in track.segments:
-                        for point in segment.points:
-                            coordinates.append((point.latitude, point.longitude))
-            
-            # 2. Se il GPX fallisce, proviamo con gli streams latlng
+            if resp_all.status_code == 200:
+                all_streams = resp_all.json()
+                for s in all_streams:
+                    if isinstance(s, dict) and s.get("type") == "latlng":
+                        latlngs = s.get("data", [])
+                        for pt in latlngs:
+                            if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                                if pt[0] is not None and pt[1] is not None:
+                                    coordinates.append((float(pt[0]), float(pt[1])))
+                        break
+
+            # 2. Se i flussi non bastano, proviamo l'endpoint mirato streams latlng
             if not coordinates:
                 url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams.json?types=latlng"
                 response_streams = requests.get(url_streams, auth=auth_credentials)
@@ -55,7 +59,7 @@ if act_id:
                                         coordinates.append((float(pt[0]), float(pt[1])))
                             break
 
-            # Render della mappa se abbiamo trovato coordinate
+            # Render della mappa se abbiamo trovato coordinate valide
             if coordinates:
                 m = folium.Map(location=coordinates[0], zoom_start=13, tiles="CartoDB positron")
                 folium.PolyLine(
@@ -66,30 +70,13 @@ if act_id:
                 ).add_to(m)
                 st_folium(m, width=1000, height=550, key="folium_map_page_render")
             else:
-                st.warning("⚠️ Questa attività non contiene dati di geolocalizzazione GPS (potrebbe essere un allenamento indoor o un caricamento manuale).")
-                
-                # Recuperiamo tutti gli altri flussi disponibili (es. potenza, frequenza cardiaca, cadenza)
-                url_all_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
-                resp_all = requests.get(url_all_streams, auth=auth_credentials)
+                st.warning("⚠️ Questa attività non contiene coordinate GPS valide nei flussi.")
                 
                 if resp_all.status_code == 200:
-                    all_streams = resp_all.json()
                     st.markdown("### 📊 Metriche e Flussi Registrati:")
-                    
-                    stream_types_found = []
                     for s in all_streams:
-                        if isinstance(s, dict) and "type" in s:
-                            stream_types_found.append(s["type"])
-                    
-                    if stream_types_found:
-                        st.info("Tipi di dati disponibili: " + ", ".join(stream_types_found))
-                        
-                        # Mostriamo grafici rapidi se ci sono dati di potenza o frequenza cardiaca
-                        for s in all_streams:
-                            if isinstance(s, dict) and s.get("type") in ["watts", "heartrate", "cadence"]:
-                                st.line_chart(s.get("data", []), y_label=s.get("type"))
-                    else:
-                        st.text("Nessun flusso aggiuntivo disponibile per questa attività.")
+                        if isinstance(s, dict) and s.get("type") in ["watts", "heartrate", "cadence", "altitude"]:
+                            st.line_chart(s.get("data", []), y_label=s.get("type"))
 
         except Exception as e:
             st.error(f"Errore durante il recupero dei dati dell'attività: {e}")
