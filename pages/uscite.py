@@ -94,8 +94,6 @@ if activities_db:
     df_activities = pd.DataFrame(activities_db)
     
     df_activities["data_dt"] = pd.to_datetime(df_activities["data"])
-    df_activities["anno"] = df_activities["data_dt"].dt.year
-    df_activities["mese"] = df_activities["data_dt"].dt.strftime("%Y-%m")
     
     st.markdown("---")
     st.subheader("📊 Statistiche Dinamiche e Riepilogo (TCR - Dal 15/11/2025)")
@@ -195,24 +193,6 @@ if activities_db:
                                         st.switch_page("pages/visualizza_mappa.py")
                                     else:
                                         st.error("Mappa non disponibile per questa attività.")
-
-    st.markdown("---")
-    
-    col_tab1, col_tab2 = st.columns(2)
-    
-    with col_tab1:
-        st.subheader("📅 Totali per Anno")
-        df_anno = df_activities.groupby("anno")[["distanza", "dislivello"]].sum().reset_index()
-        df_anno.columns = ["Anno", "Km Totali", "Dislivello Totale (m)"]
-        df_anno = df_anno.sort_values("Anno", ascending=False)
-        st.dataframe(df_anno, use_container_width=True, hide_index=True)
-        
-    with col_tab2:
-        st.subheader("📆 Totali per Mese")
-        df_mese = df_activities.groupby("mese")[["distanza", "dislivello"]].sum().reset_index()
-        df_mese.columns = ["Mese", "Km Totali", "Dislivello Totale (m)"]
-        df_mese = df_mese.sort_values("Mese", ascending=False)
-        st.dataframe(df_mese, use_container_width=True, hide_index=True, height=450)
 
 else:
     st.info("Nessuna attività trovata su Supabase.")
