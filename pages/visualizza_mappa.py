@@ -34,14 +34,10 @@ if act_id:
                 data = response.json()
                 all_streams = data if isinstance(data, list) else [data]
                 
-                # Stampiamo i flussi direttamente a schermo per leggerli
-                tipi_trovati = [s.get("type") for s in all_streams if isinstance(s, dict)]
-                st.write("🔍 Tipi di flussi ricevuti da Intervals:", tipi_trovati)
-                
-                # Cerchiamo il flusso delle coordinate GPS (latlng)
                 for stream in all_streams:
                     if isinstance(stream, dict) and stream.get("type") == "latlng":
                         latlngs = stream.get("data", [])
+                        st.write(f"📊 Numero di punti grezzi trovati in latlng: {len(latlngs)}")
                         for pt in latlngs:
                             if isinstance(pt, (list, tuple)) and len(pt) >= 2:
                                 lat, lon = pt[0], pt[1]
