@@ -97,7 +97,7 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Timer Indipendente e Persistente) ---
+# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Con Persistenza Reale dell'Ultimo Range) ---
 
 if "exp_start" not in st.session_state:
     st.session_state["exp_start"] = date(2026, 1, 1)
@@ -109,9 +109,17 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
     
     col_c1, col_c2 = st.columns(2)
     with col_c1:
-        data_inizio_custom = st.date_input("Data Inizio Range", key="exp_start")
+        data_inizio_custom = st.date_input(
+            "Data Inizio Range", 
+            value=st.session_state["exp_start"], 
+            key="exp_start"
+        )
     with col_c2:
-        data_fine_custom = st.date_input("Data Fine Range", key="exp_end")
+        data_fine_custom = st.date_input(
+            "Data Fine Range", 
+            value=st.session_state["exp_end"], 
+            key="exp_end"
+        )
         
     if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
         with st.spinner("Interrogazione in corso..."):
