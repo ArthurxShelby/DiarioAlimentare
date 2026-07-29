@@ -257,9 +257,33 @@ if activities_db:
                     st.success("Sincronizzazione completata! Ricarica la pagina.")
                     st.rerun()
 
-    # Lista attività con scroll e caratteri ingranditi
+    # --- FILTRO PER PERIODO SUL CONTENITORE DELLE ATTIVITÀ ---
+    c_filtro1, c_filtro2 = st.columns([2, 2])
+    with c_filtro2:
+        min_data = df_activities["data_dt"].min().date()
+        max_data = df_activities["data_dt"].max().date()
+        
+        intervallo_date = st.date_input(
+            "📅 Filtra per periodo",
+            value=(min_data, max_data),
+            min_value=date(2025, 11, 15),
+            max_value=date(2040, 12, 31),
+            key="filtro_periodo_attivita"
+        )
+
+    # Applicazione del filtro sul DataFrame da visualizzare nella lista
+    if isinstance(intervallo_date, tuple) and len(intervallo_date) == 2:
+        start_f, end_f = intervallo_date
+        df_filtrato = df_activities[
+            (df_activities["data_dt"].dt.date >= start_f) & 
+            (df_activities["data_dt"].dt.date <= end_f)
+        ]
+    else:
+        df_filtrato = df_activities
+
+    # Lista attività con scroll e caratteri ingranditi (filtrate per data)
     with st.container(height=650):
-        for index, row in df_activities.iterrows():
+        for index, row in df_filtrato.iterrows():
             act_title = row.get("titolo", "Uscita senza titolo")
             act_date = row.get("data", "")
             act_dist = row.get("distanza", 0)
