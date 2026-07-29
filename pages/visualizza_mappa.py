@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import gpxpy
 import folium
 from streamlit_folium import st_folium
 
@@ -20,42 +21,39 @@ act_date = st.session_state.get("selected_activity_date", "")
 if act_id:
     st.subheader(f"📍 {act_title} ({act_date})")
     
-    url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams.json?types=latlng"
-    auth_streams = ("API_KEY", API_KEY.strip())
+    url_gpx = f"https://intervals.icu/api/v1/activity/{act_id}.gpx"
+    auth_gpx = ("API_KEY", API_KEY.strip())
     
-    with st.spinner("Caricamento tracciato GPS in corso..."):
+    with st.spinner("Caricamento tracciato GPX in corso..."):
         try:
-            resp_streams = requests.get(url_streams, auth=auth_streams)
-            decoded_coordinates = []
+            response = requests.get(url_gpx, auth=auth_gpx)
             
-            if resp_streams.status_code == 200:
-                streams_data = resp_streams.json()
-                streams_list = streams_data if isinstance(streams_data, list) else [streams_data]
+            if response.status_code == 200 and response.content:
+                gpx_content = response.content
+                gpx = gpxpy.parse(gpx_content.decode('utf-8', errors='ignore'))
                 
-                for stream in streams_list:
-                    if isinstance(stream, dict) and stream.get("type") == "latlng":
-                        latlngs = stream.get("data", [])
-                        for pt in latlngs:
-                            if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                                if pt[0] is not None and pt[1] is not None:
-                                    decoded_coordinates.append((float(pt[0]), float(pt[1])))
-                        break
-
-            if decoded_coordinates:
-                m = folium.Map(location=decoded_coordinates[0], zoom_start=13, tiles="CartoDB positron")
-                folium.PolyLine(
-                    decoded_coordinates, 
-                    color="#ff4b4b", 
-                    weight=4, 
-                    opacity=0.8
-                ).add_to(m)
-                st_folium(m, width=1000, height=550, key="folium_map_page_render")
+                coordinates = []
+                for track in gpx.tracks:
+                    for segment in track.segments:
+                        for point in segment.points:
+                            coordinates.append((point.latitude, point.longitude))
+                
+                if coordinates:
+                    m = folium.Map(location=coordinates[0], zoom_start=13, tiles="CartoDB positron")
+                    folium.PolyLine(
+                        coordinates, 
+                        color="#ff4b4b", 
+                        weight=4, 
+                        opacity=0.8
+                    ).add_to(m)
+                    st_folium(m, width=1000, height=550, key="folium_map_page_render")
+                else:
+                    st.warning("Il file GPX scaricato non contiene punti di coordinate validi.")
             else:
-                st.warning("Nessun flusso di coordinate GPS (latlng) disponibile per questa attività su Intervals.")
+                st.warning(f"Impossibile scaricare il file GPX da Intervals (Codice: {response.status_code}).")
         except Exception as e:
-            st.error(f"Errore durante il recupero della mappa: {e}")
-    
-    # Usiamo il nome del file principale in base alla struttura standard di Streamlit
+            st.error(f"Errore durante l'elaborazione della mappa: {e}")
+            
     if st.button("⬅️ Torna alla Gestione Uscite"):
         try:
             st.switch_page("uscite.py")
