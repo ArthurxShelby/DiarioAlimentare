@@ -449,8 +449,12 @@ tdee = bmr * pal_val
 if is_proprietario and atleta_corrente == "Atleta Principale":
     st.sidebar.markdown("### ⚙️ Gestione Calcolo Macronutrienti")
     
-    # Checkbox per attivare Mifflin escludendo le giornate tipo
-    usa_mifflin_proprietario = st.sidebar.checkbox("Usa calcolo Mifflin-St Jeor (Esclude giornate tipo)", value=False)
+    # Checkbox e Radio con chiavi dedicate per garantire la persistenza dello stato
+    usa_mifflin_proprietario = st.sidebar.checkbox(
+        "Usa calcolo Mifflin-St Jeor (Esclude giornate tipo)", 
+        value=False, 
+        key="usa_mifflin_proprietario"
+    )
     
     if usa_mifflin_proprietario:
         obj_kcal = round(tdee, 0)
@@ -467,7 +471,8 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
                 "3) Giornata bici specifica",
                 "4) Giornata bici",
                 "5) Giornata pesi",
-            ]
+            ],
+            key="giornata_tipo_scelta"
         )
         
         # Paletti fissi basati sul peso corporeo (75 kg)
@@ -476,7 +481,7 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
         
         # Assegnazione carboidrati e kcal totali in base alla logica stabilita
         if "1) Giornata scarico/riposo" in giornata_tipo_scelta:
-            obj_carbo = 180.0  #[cite: 3]
+            obj_carbo = 180.0[cite: 3]
         elif "2) Giornata bici intensa" in giornata_tipo_scelta:
             obj_carbo = 400.0  # Valore medio nel range 380-420 g[cite: 3]
         elif "3) Giornata bici specifica" in giornata_tipo_scelta:
@@ -502,7 +507,8 @@ else:
         "Seleziona Profilo / Calcolo:",
         [
             "Calcolo Standard Mifflin-St Jeor",
-        ]
+        ],
+        key="profilo_altro_utente"
     )
 
     if "Calcolo Standard Mifflin-St Jeor" in profilo_altro_utente:
@@ -727,7 +733,7 @@ with st.expander("Gestione Avanzata Banca Dati Alimenti", expanded=False):
 st.markdown("---")
 
 st.subheader("Inserimento Alimenti nei Pasti")
-pasto_selezionato = st.selectbox("Seleziona il pasto a cui aggiungere l'alimento:", PASTI)
+pasto_selezionato = st.selectbox("Seleziona il pasto a cui aggiungere l'alimento:", PASTI, key="select_pasto_principale")
 
 banca_dati_corrente = st.session_state.banca_dati_df
 alimenti_validi = []
