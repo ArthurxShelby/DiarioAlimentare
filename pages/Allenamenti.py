@@ -216,11 +216,11 @@ if is_proprietario:
                         "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
                     ]
                 )
-                st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_vuoto
+                # Aggiorna direttamente la session state globale
+                st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_vuoto.copy()
                 salva_database()
                 
-                # Forza l'aggiornamento immediato della vista e dell'editor
-                df_da_mostrare = df_vuoto
+                # Forza il reset totale dell'editor incrementando la versione
                 st.session_state.version_editor += 1
                 
                 st.toast(f"Dati di {mese_selezionato} {anno_selezionato} svuotati con successo!", icon="🗑️")
@@ -271,17 +271,11 @@ if is_proprietario:
 
                     salva_database()
                     
-                    # Se il mese corrente rientra nell'intervallo svuotato, aggiorna anche la vista attiva
-                    if (str(anno_selezionato_num) >= str(anno_inizio_del) and str(anno_selezionato_num) <= str(anno_fine_del)):
-                        if elenco_mesi_completo.index(mese_selezionato) >= (data_inizio_del.month - 1 if anno_selezionato_num == data_inizio_del.year else 0) and \
-                           elenco_mesi_completo.index(mese_selezionato) <= (data_fine_del.month - 1 if anno_selezionato_num == data_fine_del.year else 11):
-                            df_da_mostrare = df_vuoto
-
                     st.session_state.version_editor += 1
                     st.toast("Dati svuotati e sincronizzati con successo!", icon="🗑️")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Errore durante la pulizia: {e}")
+                    st.error(f"Errore durante la pulizia: {e}"))
 
 if is_proprietario:
     df_modificato = st.data_editor(
