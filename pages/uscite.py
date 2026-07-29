@@ -163,8 +163,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
         mc3.metric("Uscite Registrate", f"{num_uscite}")
         st.markdown("---")
         
-        with st.container(height=550):
-            with st.container(height=650):
+        with st.container(height=650):
             for idx, act in enumerate(st.session_state["custom_activities"]):
                 act_id = str(act.get("id"))
                 act_title = act.get("name", "Uscita senza titolo")
@@ -173,7 +172,6 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                 act_time = timedelta_to_str(act.get("moving_time", 0))
                 act_elev = safe_int(act.get("total_elevation_gain")) or 0
                 
-                # Chiave unica in sessione per gestire l'apertura/chiusura dell'anteprima
                 key_toggle = f"show_map_{act_id}_{idx}"
                 if key_toggle not in st.session_state:
                     st.session_state[key_toggle] = False
@@ -185,7 +183,6 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                         st.markdown(f"<p style='font-size: 1.2rem; margin: 0;'>Distanza: <b>{act_dist} km</b> &nbsp;|&nbsp; D+: <b>{act_elev} m</b> &nbsp;|&nbsp; Tempo: <b>{act_time}</b></p>", unsafe_allow_html=True)
                     with col_btn1:
                         st.write("") 
-                        # Pulsante per aprire l'anteprima rapida qui sotto
                         btn_label = "🗺️ Nascondi Mappa" if st.session_state[key_toggle] else "🗺️ Anteprima Mappa"
                         if st.button(btn_label, key=f"btn_preview_{act_id}_{idx}", use_container_width=True):
                             st.session_state[key_toggle] = not st.session_state[key_toggle]
@@ -198,7 +195,6 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                             st.session_state["selected_activity_date"] = act_date
                             st.switch_page("pages/visualizza_mappa.py")
 
-                    # Se l'utente ha cliccato "Anteprima Mappa", scarichiamo i flussi e disegnamo con Plotly
                     if st.session_state[key_toggle]:
                         st.markdown("---")
                         
