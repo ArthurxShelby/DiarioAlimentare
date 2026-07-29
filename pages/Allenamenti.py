@@ -10,16 +10,14 @@ st.set_page_config(
 )
 
 # --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
-# Verifica se l'utente ha effettuato il login come proprietario nella pagina principale
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
 
 if not is_proprietario:
     st.error("🚨 Accesso Negato: questa sezione è riservata esclusivamente al proprietario.")
     st.info("Torna alla pagina principale del Diario Alimentare ed effettua il login con le credenziali da amministratore.")
-    st.stop()  # Interrompe l'esecuzione del resto della pagina per i non autorizzati
+    st.stop()
 
 # --- 0. GESTIONE PERSISTENZA CLOUD (SUPABASE) ---
-
 @st.cache_resource
 def init_supabase():
     url = st.secrets["supabase"]["url"]
@@ -29,12 +27,10 @@ def init_supabase():
 supabase = init_supabase()
 
 def carica_database(db_iniziale):
-    """Carica il database allenamenti dal cloud di Supabase, convertendo le liste in DataFrame."""
     try:
         response = supabase.table("app_data").select("payload").eq("id", 1).execute()
         if response.data and len(response.data) > 0:
             payload = response.data[0]["payload"]
-            # Ricostruisce i DataFrame dai dizionari salvati
             db_ricostruito = {}
             for anno, mesi in payload.items():
                 db_ricostruito[anno] = {}
@@ -49,7 +45,6 @@ def carica_database(db_iniziale):
     return db_iniziale
 
 def salva_database(dati=None):
-    """Salva lo stato attuale degli allenamenti nel cloud di Supabase convertendo i DataFrame in liste."""
     if not is_proprietario:
         return
     try:
@@ -75,68 +70,18 @@ ftp_atleta = st.sidebar.number_input(
     "FTP Corrente (Watt):", min_value=100, max_value=500, value=279, step=1
 )
 
-# Calcoli matematici dinamici basati sul ciclismo moderno
 ss_min = int(ftp_atleta * 0.88)
 ss_max = int(ftp_atleta * 0.93)
 soglia_min = int(ftp_atleta * 0.91)
 soglia_max = int(ftp_atleta * 1.05)
 
-# Cadenze dinamiche orientate al ciclismo moderno (cadenza di passista/scalatore)
-cadenza_soglia = "~90 RPM"
-cadenza_ss = "~85 RPM"
-
 st.sidebar.markdown(f"### Riferimenti FTP ({ftp_atleta}W)")
 st.sidebar.markdown(f"**Sweet Spot (SS):** {ss_min}-{ss_max}W")
 st.sidebar.markdown(f"**Soglia Z4:** {soglia_min}-{soglia_max}W")
-st.sidebar.markdown(f"**Cadenza Soglia:** {cadenza_soglia}")
-st.sidebar.markdown(f"**Cadenza SS:** {cadenza_ss}")
-
-# --- 2. DATABASE INIZIALE STRUTTURATO ---
-database_iniziale = {
-    "2026": {
-        "Gennaio": {
-            "Settimana 1 (Base Invernale)": {
-                "Martedì": {
-                    "Esercizio": "Fondo Medio Z3: 3 x 15 min",
-                    "Watt": 230,
-                    "RPM": 90,
-                    "Ripetizioni": 3,
-                    "Lavoro_m": 15,
-                    "Recupero_m": 5,
-                },
-                "Giovedì": {
-                    "Esercizio": "Sweet Spot: 2 x 15 min",
-                    "Watt": 245,
-                    "RPM": 85,
-                    "Ripetizioni": 2,
-                    "Lavoro_m": 15,
-                    "Recupero_m": 5,
-                },
-            }
-        },
-    }
-}
-
-elenco_mesi_completo = [
-    "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-    "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
-]
-
-# Inizializzazione della memoria persistente via Supabase
-if "database_allenamenti" not in st.session_state:
-    st.session_state.database_allenamenti = carica_database(database_iniziale)
-    if is_proprietario:
-        salva_database()
-if "version_editor" not in st.session_state:
-    st.session_state.version_editor = 0
-
-# Inizializzazione contatore di versione per forzare il refresh visivo del data_editor
-if "version_editor" not in st.session_state:
-    st.session_state.version_editor = 0
 
 st.title("🏋️ Pianificazione Allenamento per Anno Solare")
 
-# --- 3. SELEZIONE ANNO E MESE ---
+# --- 2. SELEZIONE ANNO E MESE ---
 col_anno, col_mese = st.columns(2)
 
 with col_anno:
@@ -145,10 +90,34 @@ with col_anno:
     )
     anno_selezionato = str(anno_selezionato_num)
 
+elenco_mesi_completo = [
+    "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+    "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
+]
+
 with col_mese:
     mese_selezionato = st.selectbox("Mese Corrente:", elenco_mesi_completo)
 
 st.markdown("---")
+
+database_iniziale = {
+    "2026": {
+        "Gennaio": pd.DataFrame(
+            columns=[
+                "Settimana", "Giorno", "Esercizio / Nome", "Watt",
+                "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
+            ]
+        )
+    }
+}
+
+if "database_allenamenti" not in st.session_state:
+    st.session_state.database_allenamenti = carica_database(database_iniziale)
+    if is_proprietario:
+        salva_database()
+
+if "version_editor" not in st.session_state:
+    st.session_state.version_editor = 0
 
 if anno_selezionato not in st.session_state.database_allenamenti:
     st.session_state.database_allenamenti[anno_selezionato] = {}
@@ -161,9 +130,7 @@ if mese_selezionato not in st.session_state.database_allenamenti[anno_selezionat
         ]
     )
 
-# --- FORZATURA LETTURA DATI AGGIORNATI ---
 dati_correnti = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
-
 if isinstance(dati_correnti, pd.DataFrame):
     df_base_mese = dati_correnti.copy()
 elif isinstance(dati_correnti, list):
@@ -176,27 +143,10 @@ else:
         ]
     )
 
-# Assicuriamo che la sessione rifletta esattamente il dataframe pronto
 st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_base_mese
+df_da_mostrare = df_base_mese
 
-dati_correnti = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
-
-# Assicura che sia sempre un DataFrame pronto all'uso
-if not isinstance(dati_correnti, pd.DataFrame):
-    if isinstance(dati_correnti, list):
-        df_base_mese = pd.DataFrame(dati_correnti)
-    else:
-        df_base_mese = pd.DataFrame(
-            columns=[
-                "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
-            ]
-        )
-    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_base_mese
-else:
-    df_base_mese = dati_correnti
-
-# --- 4. & 5. SEZIONE IMPORTAZIONE CSV E TABELLA INTERATTIVA ---
+# --- 3. PRIMA TABELLA: GESTIONE E MODIFICA ALLENAMENTI (CSV & EDITOR) ---
 st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
 
 if is_proprietario:
@@ -223,24 +173,11 @@ if is_proprietario:
                     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_filtrato
                     salva_database()
                     st.toast(f"File CSV caricato e salvato per {mese_selezionato} {anno_selezionato}!", icon="✅")
+                    st.rerun()
                 else:
                     st.error(f"Il file CSV non contiene le colonne corrette: {colonne_attese}")
             except Exception as e:
                 st.error(f"Errore nella lettura del file CSV: {e}")
-
-dati_aggiornati = st.session_state.database_allenamenti[anno_selezionato][mese_selezionato]
-
-if isinstance(dati_aggiornati, pd.DataFrame):
-    df_da_mostrare = dati_aggiornati
-elif isinstance(dati_aggiornati, list):
-    df_da_mostrare = pd.DataFrame(dati_aggiornati)
-else:
-    df_da_mostrare = pd.DataFrame(
-        columns=[
-            "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-            "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
-        ]
-    )
 
 if is_proprietario:
     df_modificato = st.data_editor(
@@ -260,74 +197,22 @@ if is_proprietario:
         },
     )
 
-    # Confronto approfondito che intercetta qualsiasi modifica o riga aggiunta al primo colpo
     if not df_modificato.equals(df_da_mostrare):
         st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato.copy()
         salva_database()
         st.rerun()
 
-st.markdown("<br>", unsafe_allow_html=True)
-        
+st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-# --- 6. PANNELLO DI CANCELLAZIONE AVANZATO (Riservato) ---
-if is_proprietario:
-    with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
-        st.write("Seleziona un intervallo esatto basato su date specifiche per svuotare i dati.")
-
-        col_d1, col_d2 = st.columns(2)
-        with col_d1:
-            data_inizio_del = st.date_input("Data Inizio Periodo", value=datetime.date(2026, 1, 1), key="data_ini_del")
-        with col_d2:
-            data_fine_del = st.date_input("Data Fine Periodo", value=datetime.date(2026, 12, 31), key="data_fin_del")
-
-        if st.button("🚨 Svuota dati per il periodo selezionato"):
-            if data_inizio_del > data_fine_del:
-                st.error("La data di inizio non può essere successiva alla data di fine.")
-            else:
-                try:
-                    anno_inizio_del = data_inizio_del.year
-                    anno_fine_del = data_fine_del.year
-                    idx_m_ini = data_inizio_del.month - 1
-                    idx_m_fin = data_fine_del.month - 1
-
-                    for anno_target_num in range(anno_inizio_del, anno_fine_del + 1):
-                        anno_target = str(anno_target_num)
-                        if anno_target not in st.session_state.database_allenamenti:
-                            continue
-
-                        start_idx = idx_m_ini if anno_target_num == anno_inizio_del else 0
-                        end_idx = idx_m_fin if anno_target_num == anno_fine_del else 11
-
-                        mesi_da_pulire = elenco_mesi_completo[start_idx : end_idx + 1]
-
-                        for m in mesi_da_pulire:
-                            if m in st.session_state.database_allenamenti[anno_target]:
-                                st.session_state.database_allenamenti[anno_target][m] = pd.DataFrame(
-                                    columns=[
-                                        "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                                        "RPM", "Ripetizioni", "Lavoro (min)", "Recupero (min)",
-                                    ]
-                                )
-
-                    salva_database()
-                    st.session_state.version_editor += 1
-                    st.toast("Dati svuotati e sincronizzati con successo!", icon="🗑️")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Errore durante la pulizia: {e}")
-
-# --- TABELLA PERPETUA: CICLI ALLENAMENTI (STRUTTURA FISSA E PROTETTA) ---
+# --- 4. SECONDA TABELLA: PROGRAMMAZIONE CICLI (CAMPI STATICI + DINAMICI ALIMENTATI DALLA TABELLA SOPRA) ---
 st.subheader("📋 Programmazione Cicli di Allenamento (Perpetua)")
-st.write("Modifica i dati direttamente nelle celle sottostanti (struttura fissa non cancellabile).")
+st.write("I campi di sinistra sono fissi/statici, mentre le colonne di destra (*Watt, Ripetizioni, Lavoro, Recupero*) si popolano automaticamente dai dati della tabella superiore.")
 
-# Selezione del Macrociclo (Mese e Anno sincronizzati)
 col_macro1, col_macro2 = st.columns(2)
 with col_macro1:
     mese_cicli = st.selectbox(
         "Mese di Riferimento (Cicli)", 
-        ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"],
+        elenco_mesi_completo,
         key="macro_mese_cicli"
     )
 with col_macro2:
@@ -335,7 +220,7 @@ with col_macro2:
         "Anno di Riferimento (Cicli)", 
         min_value=2020, 
         max_value=2050, 
-        value=2026, 
+        value=int(anno_selezionato), 
         step=1,
         key="macro_anno_cicli"
     )
@@ -343,136 +228,107 @@ with col_macro2:
 
 st.markdown(f"**Macrociclo Attuale:** {mese_cicli} {anno_cicli}")
 
-# Assicuriamoci che la struttura dati nel database esista per questo anno/mese specifico
-if "database_cicli_allenamento" not in st.session_state:
-    st.session_state.database_cicli_allenamento = {}
+# Struttura fissa statica (Screen 1)
+df_struttura_fissa = pd.DataFrame([
+    {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata"},
+    {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico"},
+    {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia"},
+    {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata"},
+    {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max"},
+    {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta"},
+    {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico"},
+    {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico"},
+])
 
-if anno_cicli not in st.session_state.database_cicli_allenamento:
-    st.session_state.database_cicli_allenamento[anno_cicli] = {}
+# Recuperiamo i dati della tabella sopra per il mese/anno selezionato per popolare le colonne dinamiche
+df_fonte_dati = st.session_state.database_allenamenti.get(anno_cicli, {}).get(mese_cicli, pd.DataFrame())
+if isinstance(df_fonte_dati, list):
+    df_fonte_dati = pd.DataFrame(df_fonte_dati)
 
-if mese_cicli not in st.session_state.database_cicli_allenamento[anno_cicli]:
-    # Tabella predefinita iniziale con TUTTE le colonne presenti: Serie, Lavoro, Watt, Recupero
-    st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = pd.DataFrame([
-        {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-        {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-    ])
+# Creazione delle colonne dinamiche attingendo dalla tabella superiore (o lasciandole vuote se mancano i dati)
+colonne_dinamiche = ["Watt", "Ripetizioni", "Lavoro (min)", "Recupero (min)"]
+for col in colonne_dinamiche:
+    valori = []
+    for i in range(len(df_struttura_fissa)):
+        if not df_fonte_dati.empty and i < len(df_fonte_dati) and col in df_fonte_dati.columns:
+            val = df_fonte_dati.loc[i, col]
+            valori.append("" if pd.isna(val) else val)
+        else:
+            valori.append("")
+    df_struttura_fissa[col] = valori
 
-# Recuperiamo il DataFrame specifico per il mese e l'anno selezionati
-df_cicli_corrente = st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli]
-if isinstance(df_cicli_corrente, list):
-    df_cicli_corrente = pd.DataFrame(df_cicli_corrente)
-    st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_cicli_corrente
-
-# Controlli di sicurezza per assicurarsi che entrambe le colonne (Serie e Lavoro) esistano
-if "Serie" not in df_cicli_corrente.columns:
-    df_cicli_corrente.insert(3, "Serie", "")
-if "Lavoro" not in df_cicli_corrente.columns:
-    df_cicli_corrente.insert(4, "Lavoro", "")
-if "Recupero" not in df_cicli_corrente.columns:
-    df_cicli_corrente["Recupero"] = ""
-
-st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_cicli_corrente
-
-# Editor interattivo con Serie, Lavoro e Recupero
-df_cicli_modificato = st.data_editor(
-    df_cicli_corrente,
+# Visualizzazione della tabella unificata (Campi statici + dinamici)
+st.data_editor(
+    df_struttura_fissa,
     num_rows="fixed",
     use_container_width=True,
-    key=f"editor_cicli_{anno_cicli}_{mese_cicli}_serie_lavoro_rec",
+    key=f"editor_cicli_sincro_{anno_cicli}_{mese_cicli}",
+    disabled=["Cicli", "Allenamento", "Tipo", "Watt", "Ripetizioni", "Lavoro (min)", "Recupero (min)"],
     column_config={
-        "Cicli": st.column_config.TextColumn("Cicli", required=False),
-        "Allenamento": st.column_config.TextColumn("Allenamento", required=True),
-        "Tipo": st.column_config.TextColumn("Tipo", required=True),
-        "Serie": st.column_config.TextColumn("Serie", required=False),
-        "Lavoro": st.column_config.TextColumn("Lavoro", required=False),
-        "Watt": st.column_config.TextColumn("Watt", required=False),
-        "Recupero": st.column_config.TextColumn("Recupero", required=False),
+        "Cicli": st.column_config.TextColumn("Cicli"),
+        "Allenamento": st.column_config.TextColumn("Allenamento"),
+        "Tipo": st.column_config.TextColumn("Tipo"),
+        "Watt": st.column_config.TextColumn("Watt"),
+        "Ripetizioni": st.column_config.TextColumn("Ripetizioni"),
+        "Lavoro (min)": st.column_config.TextColumn("Lavoro (min)"),
+        "Recupero (min)": st.column_config.TextColumn("Recupero (min)"),
     },
 )
 
-# Sincronizzazione automatica e salvataggio delle modifiche alle celle
-if not df_cicli_modificato.equals(df_cicli_corrente):
-    st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = df_cicli_modificato.copy()
-    st.rerun()
+st.markdown("<br>", unsafe_allow_html=True)
 
-# --- BOTTONI DI AZIONE (ESPORTAZIONE PDF & RIPRISTINO STRUTTURA) ---
-col_btn1, col_btn2 = st.columns(2)
+# --- 5. ESPORTAZIONE PDF ---
+if st.button("📥 Esporta Tabella Cicli in PDF", use_container_width=True, key="btn_pdf_sincro"):
+    from fpdf import FPDF
+    import tempfile
 
-with col_btn1:
-    if st.button("📥 Esporta Tabella in PDF", use_container_width=True, key="btn_pdf_cicli_serie_lavoro_rec"):
-        from fpdf import FPDF
-        import tempfile
+    pdf = FPDF()
+    pdf.add_page()
+    
+    pdf.set_font("Helvetica", "B", 15)
+    pdf.cell(0, 8, "Programmazione Cicli di Allenamento", ln=True, align="L")
+    
+    pdf.set_font("Helvetica", "I", 11)
+    pdf.set_text_color(80, 80, 80)
+    pdf.cell(0, 6, f"Macrociclo: {mese_cicli} {anno_cicli}", ln=True, align="L")
+    pdf.ln(4)
 
-        pdf = FPDF()
-        pdf.add_page()
-        
-        pdf.set_font("Helvetica", "B", 15)
-        pdf.cell(0, 8, "Programmazione Cicli di Allenamento", ln=True, align="L")
-        
-        pdf.set_font("Helvetica", "I", 11)
-        pdf.set_text_color(80, 80, 80)
-        pdf.cell(0, 6, f"Macrociclo: {mese_cicli} {anno_cicli}", ln=True, align="L")
-        pdf.ln(4)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_fill_color(43, 108, 176)
+    pdf.set_text_color(255, 255, 255)
+    
+    headers = ["Cicli", "Allenamento", "Tipo", "Watt", "Ripetizioni", "Lavoro", "Recupero"]
+    widths = [18, 38, 48, 18, 22, 22, 24]
+    
+    for i, h in enumerate(headers):
+        pdf.cell(widths[i], 8, h, border=1, fill=True, align="C")
+    pdf.ln()
 
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_fill_color(43, 108, 176)
-        pdf.set_text_color(255, 255, 255)
-        
-        headers = ["Cicli", "Allenamento", "Tipo", "Serie", "Lavoro", "Watt", "Recupero"]
-        widths = [18, 35, 45, 18, 22, 18, 25]
-        
-        for i, h in enumerate(headers):
-            pdf.cell(widths[i], 8, h, border=1, fill=True, align="C")
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(0, 0, 0)
+    
+    df_export = df_struttura_fissa.fillna("")
+    for _, row in df_export.iterrows():
+        pdf.cell(widths[0], 7, str(row.get('Cicli', '')), border=1, align="C")
+        pdf.cell(widths[1], 7, str(row.get('Allenamento', '')), border=1, align="L")
+        pdf.cell(widths[2], 7, str(row.get('Tipo', '')), border=1, align="L")
+        pdf.cell(widths[3], 7, str(row.get('Watt', '')), border=1, align="C")
+        pdf.cell(widths[4], 7, str(row.get('Ripetizioni', '')), border=1, align="C")
+        pdf.cell(widths[5], 7, str(row.get('Lavoro (min)', '')), border=1, align="C")
+        pdf.cell(widths[6], 7, str(row.get('Recupero (min)', '')), border=1, align="C")
         pdf.ln()
 
-        pdf.set_font("Helvetica", "", 9)
-        pdf.set_text_color(0, 0, 0)
-        
-        df_export = df_cicli_modificato.fillna("")
-        for _, row in df_export.iterrows():
-            pdf.cell(widths[0], 7, str(row.get('Cicli', '')), border=1, align="C")
-            pdf.cell(widths[1], 7, str(row.get('Allenamento', '')), border=1, align="L")
-            pdf.cell(widths[2], 7, str(row.get('Tipo', '')), border=1, align="L")
-            pdf.cell(widths[3], 7, str(row.get('Serie', '')), border=1, align="C")
-            pdf.cell(widths[4], 7, str(row.get('Lavoro', '')), border=1, align="C")
-            pdf.cell(widths[5], 7, str(row.get('Watt', '')), border=1, align="C")
-            pdf.cell(widths[6], 7, str(row.get('Recupero', '')), border=1, align="C")
-            pdf.ln()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+        pdf_path = tmp_pdf.name
+        pdf.output(pdf_path)
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
-            pdf_path = tmp_pdf.name
-            pdf.output(pdf_path)
-
-        with open(pdf_path, "rb") as pdf_file:
-            st.download_button(
-                label="⬇️ Clicca qui per scaricare il PDF",
-                data=pdf_file,
-                file_name=f"cicli_allenamento_{mese_cicli}_{anno_cicli}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-                key="dl_pdf_file_cicli_serie_lavoro_rec"
-            )
-        st.success("PDF generato con successo! Clicca sopra per scaricarlo.")
-
-with col_btn2:
-    if st.button("🗑️ Ripristina Tabella Iniziale", use_container_width=True, key="btn_del_cicli_serie_lavoro_rec"):
-        st.session_state.database_cicli_allenamento[anno_cicli][mese_cicli] = pd.DataFrame([
-            {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "II°", "Allenamento": "Soglia", "Tipo": "Blocco Solido di Soglia", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Estensione Moderata", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "III°", "Allenamento": "Soglia", "Tipo": "Intervalli Lineari VO2Max", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Blocco di tenuta", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "IV°", "Allenamento": "Richiami Soglia", "Tipo": "Scarico", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-            {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico", "Serie": "", "Lavoro": "", "Watt": "", "Recupero": ""},
-        ])
-        st.toast(f"Tabella di {mese_cicli} {anno_cicli} ripristinata allo stato iniziale!", icon="🔄")
-        st.rerun()
-
-st.markdown("<br>", unsafe_allow_html=True)
+    with open(pdf_path, "rb") as pdf_file:
+        st.download_button(
+            label="⬇️ Clicca qui per scaricare il PDF",
+            data=pdf_file,
+            file_name=f"cicli_allenamento_{mese_cicli}_{anno_cicli}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            key="dl_pdf_file_sincro"
+        )
+    st.success("PDF generato con successo! Clicca sopra per scaricarlo.")
