@@ -449,14 +449,29 @@ tdee = bmr * pal_val
 if is_proprietario and atleta_corrente == "Atleta Principale":
     st.sidebar.markdown("### ⚙️ Gestione Calcolo Macronutrienti")
     
-    # Checkbox e Radio con chiavi dedicate per garantire la persistenza dello stato
+    # Recuperiamo i valori salvati nel profilo dell'atleta (se presenti)
+    saved_usa_mifflin = atleta_data.get("usa_mifflin", False)
+    saved_giornata_tipo = atleta_data.get("giornata_tipo_scelta", "1) Giornata scarico/riposo")
+    
+    opzioni_giornate = [
+        "1) Giornata scarico/riposo",
+        "2) Giornata bici intensa",
+        "3) Giornata bici specifica",
+        "4) Giornata bici",
+        "5) Giornata pesi",
+    ]
+    
+    idx_giornata = opzioni_giornate.index(saved_giornata_tipo) if saved_giornata_tipo in opzioni_giornate else 0
+
+    # Checkbox e Radio collegati allo stato salvato dell'atleta
     usa_mifflin_proprietario = st.sidebar.checkbox(
         "Usa calcolo Mifflin-St Jeor (Esclude giornate tipo)", 
-        value=False, 
+        value=saved_usa_mifflin, 
         key="usa_mifflin_proprietario"
     )
     
     if usa_mifflin_proprietario:
+        giornata_tipo_scelta = saved_giornata_tipo # Manteniamo l'ultimo valore per coerenza
         obj_kcal = round(tdee, 0)
         obj_carbo = round((obj_kcal * 0.50) / 4, 1)
         obj_prot = round((obj_kcal * 0.25) / 4, 1)
@@ -465,33 +480,26 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
     else:
         giornata_tipo_scelta = st.sidebar.radio(
             "Seleziona Giornata Tipo:",
-            [
-                "1) Giornata scarico/riposo",
-                "2) Giornata bici intensa",
-                "3) Giornata bici specifica",
-                "4) Giornata bici",
-                "5) Giornata pesi",
-            ],
+            opzioni_giornate,
+            index=idx_giornata,
             key="giornata_tipo_scelta"
         )
         
         # Paletti fissi basati sul peso corporeo (75 kg)
-        obj_prot = round(peso * 2.0, 1)    # 150 g fissi (600 kcal)[cite: 3]
-        obj_grassi = round(peso * 0.9, 1)  # ~68 g fissi (~612 kcal)[cite: 3]
+        obj_prot = round(peso * 2.0, 1)    
+        obj_grassi = round(peso * 0.9, 1)  
         
-        # Assegnazione carboidrati e kcal totali in base alla logica stabilita
         if "1) Giornata scarico/riposo" in giornata_tipo_scelta:
             obj_carbo = 180.0
         elif "2) Giornata bici intensa" in giornata_tipo_scelta:
-            obj_carbo = 400.0  # Valore medio nel range 380-420 g
+            obj_carbo = 400.0  
         elif "3) Giornata bici specifica" in giornata_tipo_scelta:
-            obj_carbo = 300.0  # Valore medio nel range 280-320 g
+            obj_carbo = 300.0  
         elif "4) Giornata bici" in giornata_tipo_scelta:
-            obj_carbo = 270.0  # Giornata bici meno intensa / Domenica (≈ 260-280 g)
+            obj_carbo = 270.0  
         else: # 5) Giornata pesi
-            obj_carbo = 250.0  # Valore medio nel range 240-260 g
+            obj_carbo = 250.0  
             
-        # Calcolo calorico totale derivato dalla somma dei tre macronutrienti
         cal_prot = obj_prot * 4
         cal_carb = obj_carbo * 4
         cal_grassi = obj_grassi * 9
@@ -499,8 +507,13 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
         
         st.sidebar.markdown(f"**Giornata Tipo Attiva:**\n*{giornata_tipo_scelta}*")
 
+    # Salviamo le scelte nel dizionario dell'atleta e su Supabase se cambiano
+    if atleta_data.get("usa_mifflin") != usa_mifflin_proprietario or atleta_data.get("giornata_tipo_scelta") != giornata_tipo_scelta:
+        atleta_data["usa_mifflin"] = usa_mifflin_proprietario
+        atleta_data["giornata_tipo_scelta"] = giornata_tipo_scelta
+        salva_dati_disco()
+
 else:
-    # Sezione per altri utenti (o se il proprietario seleziona un altro atleta) con menu a discesa dedicato
     st.sidebar.markdown("### ⚙️ Profilo Altri Utenti")
     
     profilo_altro_utente = st.sidebar.radio(
