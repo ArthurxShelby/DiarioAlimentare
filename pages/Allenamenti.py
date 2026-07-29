@@ -204,7 +204,7 @@ if is_proprietario:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- PANNELLO DI CANCELLAZIONE AVANZATO (RIPRISTINATO) ---
+# --- PANNELLO DI CANCELLAZIONE AVANZATO ---
 if is_proprietario:
     with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
         st.write("Seleziona un intervallo esatto basato su date specifiche per svuotare i dati.")
@@ -253,31 +253,11 @@ if is_proprietario:
 
 st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
-# --- 4. SECONDA TABELLA: PROGRAMMAZIONE CICLI (CAMPI STATICI + DINAMICI ALIMENTATI DALLA TABELLA SOPRA) ---
+# --- 4. SECONDA TABELLA: PROGRAMMAZIONE CICLI (SINCRONIZZATA AUTOMATICAMENTE) ---
 st.subheader("📋 Programmazione Cicli di Allenamento (Perpetua)")
-st.write("I campi di sinistra sono fissi/statici, mentre le colonne di destra (*Watt, Ripetizioni, Lavoro, Recupero*) si popolano automaticamente dai dati della tabella superiore.")
+st.write(f"I dati sottostanti si sincronizzano automaticamente con il periodo selezionato in alto: **{mese_selezionato} {anno_selezionato}**.")
 
-col_macro1, col_macro2 = st.columns(2)
-with col_macro1:
-    mese_cicli = st.selectbox(
-        "Mese di Riferimento (Cicli)", 
-        elenco_mesi_completo,
-        key="macro_mese_cicli"
-    )
-with col_macro2:
-    anno_cicli_num = st.number_input(
-        "Anno di Riferimento (Cicli)", 
-        min_value=2020, 
-        max_value=2050, 
-        value=int(anno_selezionato), 
-        step=1,
-        key="macro_anno_cicli"
-    )
-    anno_cicli = str(anno_cicli_num)
-
-st.markdown(f"**Macrociclo Attuale:** {mese_cicli} {anno_cicli}")
-
-# Struttura fissa statica (Screen 1)
+# Struttura fissa statica
 df_struttura_fissa = pd.DataFrame([
     {"Cicli": "I°", "Allenamento": "Soglia", "Tipo": "Soglia Avanzata"},
     {"Cicli": "", "Allenamento": "Mantenimento", "Tipo": "Rilancio Aerobico"},
@@ -289,12 +269,12 @@ df_struttura_fissa = pd.DataFrame([
     {"Cicli": "", "Allenamento": "Richiami Mantenimento", "Tipo": "Scarico"},
 ])
 
-# Recuperiamo i dati della tabella sopra per il mese/anno selezionato per popolare le colonne dinamiche
-df_fonte_dati = st.session_state.database_allenamenti.get(anno_cicli, {}).get(mese_cicli, pd.DataFrame())
+# Recuperiamo i dati direttamente dalla tabella superiore attiva
+df_fonte_dati = st.session_state.database_allenamenti.get(anno_selezionato, {}).get(mese_selezionato, pd.DataFrame())
 if isinstance(df_fonte_dati, list):
     df_fonte_dati = pd.DataFrame(df_fonte_dati)
 
-# Creazione delle colonne dinamiche attingendo dalla tabella superiore (o lasciandole vuote se mancano i dati)
+# Creazione delle colonne dinamiche attingendo dalla tabella superiore
 colonne_dinamiche = ["Watt", "Ripetizioni", "Lavoro (min)", "Recupero (min)"]
 for col in colonne_dinamiche:
     valori = []
@@ -306,12 +286,12 @@ for col in colonne_dinamiche:
             valori.append("")
     df_struttura_fissa[col] = valori
 
-# Visualizzazione della tabella unificata (Campi statici + dinamici)
+# Visualizzazione della tabella unificata
 st.data_editor(
     df_struttura_fissa,
     num_rows="fixed",
     use_container_width=True,
-    key=f"editor_cicli_sincro_{anno_cicli}_{mese_cicli}",
+    key=f"editor_cicli_sincro_{anno_selezionato}_{mese_selezionato}",
     disabled=["Cicli", "Allenamento", "Tipo", "Watt", "Ripetizioni", "Lavoro (min)", "Recupero (min)"],
     column_config={
         "Cicli": st.column_config.TextColumn("Cicli"),
@@ -339,7 +319,7 @@ if st.button("📥 Esporta Tabella Cicli in PDF", use_container_width=True, key=
     
     pdf.set_font("Helvetica", "I", 11)
     pdf.set_text_color(80, 80, 80)
-    pdf.cell(0, 6, f"Macrociclo: {mese_cicli} {anno_cicli}", ln=True, align="L")
+    pdf.cell(0, 6, f"Macrociclo: {mese_selezionato} {anno_selezionato}", ln=True, align="L")
     pdf.ln(4)
 
     pdf.set_font("Helvetica", "B", 9)
@@ -375,7 +355,7 @@ if st.button("📥 Esporta Tabella Cicli in PDF", use_container_width=True, key=
         st.download_button(
             label="⬇️ Clicca qui per scaricare il PDF",
             data=pdf_file,
-            file_name=f"cicli_allenamento_{mese_cicli}_{anno_cicli}.pdf",
+            file_name=f"cicli_allenamento_{mese_selezionato}_{anno_selezionato}.pdf",
             mime="application/pdf",
             use_container_width=True,
             key="dl_pdf_file_sincro"
