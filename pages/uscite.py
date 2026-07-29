@@ -6,6 +6,8 @@ import pandas as pd
 import os
 import folium
 from streamlit_folium import st_folium
+import plotly.graph_objects as go
+import base64
 
 # --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
@@ -234,7 +236,25 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                                                     lons.append(float(pt[1]))
                                                                     
                                     if lats and lons:
-                                        import plotly.graph_objects as go
+                                        # Selettore dello stile mappa (Stradale o Satellite)
+                                        c_map_title, c_map_style = st.columns([4, 2])
+                                        with c_map_title:
+                                            st.markdown("#### 🗺️ Percorso Attività")
+                                        with c_map_style:
+                                            stile_mappa_prev = st.selectbox(
+                                                "Stile Mappa",
+                                                ["Stradale (OpenStreetMap)", "Satellite (ArcGIS)"],
+                                                key=f"style_{act_id}_{idx}",
+                                                label_visibility="collapsed"
+                                            )
+                                        
+                                        if "Satellite" in stile_mappa_prev:
+                                            basemap_style = "white-bg"
+                                            tile_source = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                        else:
+                                            basemap_style = "open-street-map"
+                                            tile_source = None
+
                                         fig = go.Figure()
                                         fig.add_trace(go.Scattermapbox(
                                             lat=lats, lon=lons, mode='lines',
@@ -244,17 +264,52 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                             lat=[lats[0], lats[-1]], lon=[lons[0], lons[-1]], mode='markers',
                                             marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
                                         ))
+                                        
+                                        mapbox_config = dict(
+                                            style=basemap_style,
+                                            center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
+                                            zoom=11
+                                        )
+
+                                        if tile_source:
+                                            mapbox_config["layers"] = [{
+                                                "sourcetype": "raster",
+                                                "source": [tile_source],
+                                                "below": "traces"
+                                            }]
+
                                         fig.update_layout(
-                                            mapbox=dict(
-                                                style="open-street-map",
-                                                center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
-                                                zoom=11
-                                            ),
+                                            mapbox=mapbox_config,
                                             margin=dict(l=0, r=0, t=0, b=0),
                                             height=450,
                                             showlegend=False
                                         )
+                                        
                                         st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
+                                        
+                                        # Pulsante di download diretto del file GPX nell'anteprima
+                                        linee = [
+                                            '<?xml version="1.0" encoding="UTF-8"?>',
+                                            '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
+                                            '  <trk>',
+                                            f'    <name>{act_title}</name>',
+                                            '    <trkseg>'
+                                        ]
+                                        for lat, lon in zip(lats, lons):
+                                            linee.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
+                                        linee.extend([
+                                            '    </trkseg>',
+                                            '  </trk>',
+                                            '</gpx>'
+                                        ])
+                                        contenuto_gpx = "\n".join(linee)
+                                        nome_file = "".join(c for c in act_title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+                                        if not nome_file:
+                                            nome_file = "tracciato"
+
+                                        b64 = base64.b64encode(contenuto_gpx.encode()).decode()
+                                        href = f'<a href="data:application/gpx+xml;base64,{b64}" download="{nome_file}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
+                                        st.markdown(href, unsafe_allow_html=True)
                                     else:
                                         st.warning("Nessun punto di coordinate valido trovato in questa attività.")
                                 else:
