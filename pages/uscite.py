@@ -69,6 +69,7 @@ if resp_global.status_code == 200:
     
     if activities_net:
         df_activities = pd.DataFrame(activities_net)
+        
         tot_km = round(df_activities.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
         tot_dislivello = int(df_activities.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
         
@@ -96,11 +97,10 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Timer Indipendente) ---
+# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Timer Indipendente e Persistente) ---
 
-# Valori di default dedicati all'explorer (separati dal 15/11/2025 della TCR)
 if "exp_start" not in st.session_state:
-    st.session_state["exp_start"] = date(2026, 1, 1)  # <-- Cambia qui il default iniziale dell'explorer
+    st.session_state["exp_start"] = date(2026, 1, 1)
 if "exp_end" not in st.session_state:
     st.session_state["exp_end"] = date.today()
 
@@ -112,3 +112,68 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
         data_inizio_custom = st.date_input("Data Inizio Range", key="exp_start")
     with col_c2:
         data_fine_custom = st.date_input("Data Fine Range", key="exp_end")
+        
+    if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
+        with st.spinner("Interrogazione in corso..."):
+            url_custom = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
+            params_custom = {
+                "oldest": data_inizio_custom.strftime("%Y-%m-%d"),
+                "newest": data_fine_custom.strftime("%Y-%m-%d"),
+                "iw": True
+            }
+            auth_custom = ("API_KEY", API_KEY.strip())
+            
+            resp_custom = requests.get(url_custom, auth=auth_custom, params=params_custom)
+            
+            if resp_custom.status_code == 200:
+                attivita_ext_custom = resp_custom.json()
+                
+                if attivita_ext_custom:
+                    st.session_state["custom_activities"] = attivita_ext_custom
+                else:
+                    st.session_state["custom_activities"] = []
+                    st.info("Nessuna attività trovata in questo intervallo nel flusso di Intervals.")
+            else:
+                st.error(f"Errore di connessione a Intervals.icu: {resp_custom.status_code}")
+
+    # Se abbiamo dati custom in memoria, mostriamo metriche e box interattivi con mappa
+    if "custom_activities" in st.session_state and st.session_state["custom_activities"]:
+        df_ext = pd.DataFrame(st.session_state["custom_activities"])
+        
+        distanza_tot_km = round(df_ext.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
+        dislivello_tot_m = int(df_ext.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
+        num_uscite = len(df_ext)
+        
+        st.markdown("---")
+        mc1, mc2, mc3 = st.columns(3)
+        mc1.metric("Km Totali Periodo", f"{distanza_tot_km:,.2f} km")
+        mc2.metric("Dislivello (D+) Periodo", f"{dislivello_tot_m:,} m")
+        mc3.metric("Uscite Registrate", f"{num_uscite}")
+        st.markdown("---")
+        
+        with st.container(height=550):
+            for act in st.session_state["custom_activities"]:
+                act_id = str(act.get("id"))
+                act_title = act.get("name", "Uscita senza titolo")
+                act_date = act.get("start_date_local", "").split("T")[0]
+                act_dist = round(act.get("distance", 0) / 1000, 2)
+                act_time = timedelta_to_str(act.get("moving_time", 0))
+                act_elev = safe_int(act.get("total_elevation_gain")) or 0
+                
+                with st.container(border=True):
+                    col_info, col_btn = st.columns([4, 1])
+                    with col_info:
+                        st.markdown(f"<h3 style='margin: 0; padding-bottom: 5px;'>{act_title} <span style='font-size: 1.1rem; color: #999;'>({act_date})</span></h3>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size: 1.2rem; margin: 0;'>Distanza: <b>{act_dist} km</b> &nbsp;|&nbsp; D+: <b>{act_elev} m</b> &nbsp;|&nbsp; Tempo: <b>{act_time}</b></p>", unsafe_allow_html=True)
+                    with col_btn:
+                        st.write("") 
+                        if st.button("🔍 Apri Mappa", key=f"map_custom_{act_id}", use_container_width=True):
+                            with st.spinner("Caricamento mappa in corso..."):
+                                gpx_bytes = fetch_activity_gpx(act_id, API_KEY)
+                                if gpx_bytes:
+                                    st.session_state["map_bytes_to_view"] = gpx_bytes
+                                    st.session_state["activity_title_to_view"] = act_title
+                                    st.session_state["activity_date_to_view"] = act_date
+                                    st.switch_page("pages/visualizza_mappa.py")
+                                else:
+                                    st.error("Mappa non disponibile per questa attività.")
