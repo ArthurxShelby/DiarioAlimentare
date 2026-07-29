@@ -97,23 +97,43 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza e Pulsante Ripristinato) ---
+# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza Permanente via URL) ---
+
+# Recuperiamo le date dalla URL o usiamo i default se non esistono
+default_start = date(2026, 1, 1)
+default_end = date.today()
+
+try:
+    url_start_str = st.query_params.get("exp_start", "")
+    url_end_str = st.query_params.get("exp_end", "")
+    
+    init_start = datetime.strptime(url_start_str, "%Y-%m-%d").date() if url_start_str else default_start
+    init_end = datetime.strptime(url_end_str, "%Y-%m-%d").date() if url_end_str else default_end
+except Exception:
+    init_start = default_start
+    init_end = default_end
 
 if "exp_start" not in st.session_state:
-    st.session_state["exp_start"] = date(2026, 1, 1)
+    st.session_state["exp_start"] = init_start
 if "exp_end" not in st.session_state:
-    st.session_state["exp_end"] = date.today()
+    st.session_state["exp_end"] = init_end
 
 with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato)", expanded=False):
     st.write("Seleziona un periodo qualsiasi per estrarre dal flusso di Intervals tutte le attività, consultare i metri e aprire le relative mappe in tempo reale.")
     
     col_c1, col_c2 = st.columns(2)
     with col_c1:
-        data_inizio_custom = st.date_input("Data Inizio Range", key="exp_start")
+        data_inizio_custom = st.date_input("Data Inizio Range", value=st.session_state["exp_start"], key="exp_start_widget")
     with col_c2:
-        data_fine_custom = st.date_input("Data Fine Range", key="exp_end")
+        data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["exp_end"], key="exp_end_widget")
         
     if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
+        # Salviamo i valori nella sessione e aggiorniamo la URL in modo permanente
+        st.session_state["exp_start"] = data_inizio_custom
+        st.session_state["exp_end"] = data_fine_custom
+        st.query_params["exp_start"] = data_inizio_custom.strftime("%Y-%m-%d")
+        st.query_params["exp_end"] = data_fine_custom.strftime("%Y-%m-%d")
+        
         with st.spinner("Interrogazione in corso..."):
             url_custom = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
             params_custom = {
