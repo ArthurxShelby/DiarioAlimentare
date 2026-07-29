@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-import gpxpy
 import folium
 from streamlit_folium import st_folium
 
@@ -23,43 +22,30 @@ if act_id:
     
     auth_credentials = ("API_KEY", API_KEY.strip())
     coordinates = []
+    all_streams = []
     
-    with st.spinner("Caricamento dati attività in corso..."):
+    with st.spinner("Caricamento tracciato GPS in corso..."):
         try:
-            # 1. Tentativo di estrazione diretta dai flussi completi (che includono latlng se presente)
-            url_all_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
-            resp_all = requests.get(url_all_streams, auth=auth_credentials)
+            # Interroghiamo direttamente l'endpoint streams di Intervals
+            url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
+            response = requests.get(url_streams, auth=auth_credentials)
             
-            if resp_all.status_code == 200:
-                all_streams = resp_all.json()
-                for s in all_streams:
-                    if isinstance(s, dict) and s.get("type") == "latlng":
-                        latlngs = s.get("data", [])
+            if response.status_code == 200:
+                data = response.json()
+                all_streams = data if isinstance(data, list) else [data]
+                
+                # Cerchiamo il flusso delle coordinate GPS (latlng)
+                for stream in all_streams:
+                    if isinstance(stream, dict) and stream.get("type") == "latlng":
+                        latlngs = stream.get("data", [])
                         for pt in latlngs:
                             if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                                if pt[0] is not None and pt[1] is not None:
-                                    coordinates.append((float(pt[0]), float(pt[1])))
+                                lat, lon = pt[0], pt[1]
+                                if lat is not None and lon is not None:
+                                    coordinates.append((float(lat), float(lon)))
                         break
-
-            # 2. Se i flussi non bastano, proviamo l'endpoint mirato streams latlng
-            if not coordinates:
-                url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams.json?types=latlng"
-                response_streams = requests.get(url_streams, auth=auth_credentials)
-                
-                if response_streams.status_code == 200:
-                    streams_data = response_streams.json()
-                    streams_list = streams_data if isinstance(streams_data, list) else [streams_data]
-                    
-                    for stream in streams_list:
-                        if isinstance(stream, dict) and stream.get("type") == "latlng":
-                            latlngs = stream.get("data", [])
-                            for pt in latlngs:
-                                if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                                    if pt[0] is not None and pt[1] is not None:
-                                        coordinates.append((float(pt[0]), float(pt[1])))
-                            break
-
-            # Render della mappa se abbiamo trovato coordinate valide
+            
+            # Se troviamo le coordinate, disegniamo la mappa con Folium
             if coordinates:
                 m = folium.Map(location=coordinates[0], zoom_start=13, tiles="CartoDB positron")
                 folium.PolyLine(
@@ -70,16 +56,17 @@ if act_id:
                 ).add_to(m)
                 st_folium(m, width=1000, height=550, key="folium_map_page_render")
             else:
-                st.warning("⚠️ Questa attività non contiene coordinate GPS valide nei flussi.")
+                st.warning("⚠️ Nessun tracciato GPS (latlng) rilevato per questa attività.")
                 
-                if resp_all.status_code == 200:
+                # Mostriamo comunque i grafici delle metriche disponibili (es. frequenza cardiaca, potenza, altitudine)
+                if all_streams:
                     st.markdown("### 📊 Metriche e Flussi Registrati:")
                     for s in all_streams:
-                        if isinstance(s, dict) and s.get("type") in ["watts", "heartrate", "cadence", "altitude"]:
+                        if isinstance(s, dict) and s.get("type") in ["watts", "heartrate", "cadence", "altitude", "velocity_smooth"]:
                             st.line_chart(s.get("data", []), y_label=s.get("type"))
 
         except Exception as e:
-            st.error(f"Errore durante il recupero dei dati dell'attività: {e}")
+            st.error(f"Errore durante l'elaborazione dei flussi GPS: {e}")
             
     if st.button("⬅️ Torna alla Gestione Uscite"):
         try:
