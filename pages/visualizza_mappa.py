@@ -58,7 +58,7 @@ if act_id:
             st.error(f"Errore durante il recupero della mappa: {e}")
     
     if st.button("⬅️ Torna alla Gestione Uscite"):
-        st.switch_page("uscite.py")
+    st.switch_page("uscite.py") # Assicurati che uscite.py sia nella cartella principale del progetto
 else:
     st.warning("Nessun tracciato selezionato. Torna alla pagina Uscite e seleziona un'attività.")
     if st.button("⬅️ Torna a Uscite"):
