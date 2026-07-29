@@ -4,10 +4,10 @@ import requests
 from datetime import datetime, date
 import pandas as pd
 import os
-import folium
-from streamlit_folium import st_folium
+import gpxpy
+import gpxpy.gpx
+from supabase import create_client, Client
 
-# --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
 
 if not is_proprietario:
@@ -15,15 +15,19 @@ if not is_proprietario:
     st.info("Torna alla pagina principale del Diario Alimentare ed effettua il login con le credenziali da amministratore.")
     st.stop()
 
-# --- Configurazione ---
-st.title("🚴 Gestione Uscite da Intervals.icu")
+st.title("🚴 Diario Storico TCR Advanced Pro 0")
 
 try:
     API_KEY = st.secrets["intervals"]["api_key"]
     ATHLETE_ID = st.secrets["intervals"]["athlete_id"]
+    supabase_url = st.secrets["supabase"]["url"]
+    supabase_key = st.secrets["supabase"]["key"]
 except Exception as e:
-    st.error("Errore: Configura le credenziali di Intervals nei secrets.")
+    st.error("Errore: Configura le credenziali di Intervals e Supabase nei secrets.")
     st.stop()
+
+supabase: Client = create_client(supabase_url, supabase_key)
+BUCKET_NAME = "mappe-uscite"
 
 def timedelta_to_str(seconds):
     if not seconds:
@@ -41,154 +45,195 @@ def safe_int(val):
     except (ValueError, TypeError):
         return None
 
-# --- 1. STATISTICHE DINAMICHE DIRETTAMENTE DA INTERVALS (Dal 15/11/2025) ---
-with st.spinner("Sincronizzazione dati da Intervals.icu in corso..."):
-    url_global = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
-    params_global = {
-        "oldest": "2025-11-15",
-        "newest": date.today().strftime("%Y-%m-%d"),
-        "iw": True
-    }
-    auth_global = ("API_KEY", API_KEY.strip())
-    
-    resp_global = requests.get(url_global, auth=auth_global, params=params_global)
-
-if resp_global.status_code == 200:
-    activities_net = resp_global.json()
-    
-    if activities_net:
-        df_activities = pd.DataFrame(activities_net)
-        
-        tot_km = round(df_activities.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
-        tot_dislivello = int(df_activities.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
-        
-        st.markdown("---")
-        st.subheader("📊 Statistiche Dinamiche e Riepilogo (TCR - Dal 15/11/2025)")
-        
-        col_m1, col_m2, col_img = st.columns(3)
-        
-        with col_m1:
-            st.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
-        with col_m2:
-            st.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
-        with col_img:
-            st.subheader("TCR Advanced Pro 0")
-            try:
-                cartella_script = os.path.dirname(__file__)
-                percorso_foto = os.path.join(cartella_script, "TCR.png")
-                st.image(percorso_foto, use_container_width=True)
-            except Exception:
-                st.warning("Immagine TCR.png non trovata.")
-        
-        st.markdown("---")
-    else:
-        st.info("Nessuna attività trovata a partire dal 15/11/2025.")
-else:
-    st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
-
-# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS ---
-FILE_DATA_INIZIO = "ultima_data_inizio.txt"
-FILE_DATA_FINE = "ultima_data_fine.txt"
-
-def carica_data_salvata(file_path, default_val):
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, "r") as f:
-                val = f.read().strip()
-                return datetime.strptime(val, "%Y-%m-%d").date()
-        except Exception:
-            pass
-    return default_val
-
-def salva_data_su_file(file_path, data_val):
+def fetch_activity_gpx(activity_id, api_key):
+    url = f"https://intervals.icu/api/v1/activity/{activity_id}/streams"
+    auth = ("API_KEY", api_key.strip())
     try:
-        with open(file_path, "w") as f:
-            f.write(data_val.strftime("%Y-%m-%d"))
+        response = requests.get(url, auth=auth)
+        if response.status_code == 200:
+            return response.content
+        else:
+            return None
     except Exception:
-        pass
+        return None
 
-if "saved_start" not in st.session_state:
-    st.session_state["saved_start"] = carica_data_salvata(FILE_DATA_INIZIO, date(2026, 1, 1))
+def upload_gpx_to_supabase(activity_id, gpx_bytes):
+    if not gpx_bytes:
+        return None
+    file_path = f"map_{activity_id}.json"
+    try:
+        response = supabase.storage.from_(BUCKET_NAME).upload(
+            path=file_path,
+            file=gpx_bytes,
+            file_options={"content-type": "application/json", "upsert": "true"}
+        )
+        public_url = supabase.storage.from_(BUCKET_NAME).get_public_url(file_path)
+        return public_url
+    except Exception:
+        try:
+            return supabase.storage.from_(BUCKET_NAME).get_public_url(file_path)
+        except Exception:
+            return None        
 
-if "saved_end" not in st.session_state:
-    st.session_state["saved_end"] = carica_data_salvata(FILE_DATA_FINE, date.today())
+@st.cache_data(ttl=1)
+def fetch_intervals_activities(athlete_id, api_key):
+    oggi = datetime.today().strftime('%Y-%m-%d')
+    data_inizio = "2025-11-15"
+    url = f"https://intervals.icu/api/v1/athlete/{athlete_id}/activities"
+    params = {"oldest": data_inizio, "newest": oggi, "iw": True}
+    auth = ("API_KEY", api_key.strip())
+    try:
+        response = requests.get(url, auth=auth, params=params)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            st.error(f"Errore API Intervals: {response.status_code} - {response.text}")
+            return []
+    except Exception as e:
+        st.error(f"Errore di connessione a Intervals: {e}")
+        return []
 
-st.markdown("""
-    <style>
-        div[data-baseweb="calendar"] * {
-            font-size: 1.15rem !important;
-        }
-        div[data-baseweb="calendar"] select {
-            font-size: 1.1rem !important;
-        }
-        div[data-baseweb="input"] input {
-            font-size: 1.15rem !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
+with st.spinner("Caricamento delle uscite da Supabase in corso..."):
+    response = supabase.table("uscite").select("*").order("data", desc=True).execute()
+    activities_db = response.data
 
-with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato)", expanded=True):
-    st.write("Seleziona un periodo qualsiasi per estrarre dal flusso di Intervals tutte le attività, consultare i metri e aprire le relative mappe in tempo reale.")
+if activities_db:
+    st.success(f"Caricate {len(activities_db)} attività da Supabase!")
+    df_activities = pd.DataFrame(activities_db)
     
-    col_c1, col_c2 = st.columns(2)
-    with col_c1:
-        data_inizio_custom = st.date_input("Data Inizio Range", value=st.session_state["saved_start"], key="widget_start")
-    with col_c2:
-        data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["saved_end"], key="widget_end")
+    df_activities["data_dt"] = pd.to_datetime(df_activities["data"])
+    df_activities["anno"] = df_activities["data_dt"].dt.year
+    df_activities["mese"] = df_activities["data_dt"].dt.strftime("%Y-%m")
+    
+    st.markdown("---")
+    st.subheader("📊 Riepilogo e Statistiche Generali")
+    
+    tot_km = round(df_activities["distanza"].sum(), 2)
+    tot_dislivello = int(df_activities["dislivello"].fillna(0).sum())
+    
+    col_m1, col_m2, col_img = st.columns(3)
+    with col_m1:
+        st.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
+    with col_m2:
+        st.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
+    with col_img:
+       
+        try:
+            cartella_script = os.path.dirname(__file__)
+            percorso_foto = os.path.join(cartella_script, "TCR.png")
+            st.image(percorso_foto, use_container_width=True)
+        except Exception:
+            st.warning("Immagine TCR.png non trovata.")
+    
+    st.markdown("---")
+    
+    col_tab1, col_tab2 = st.columns(2)
+    with col_tab1:
+        st.subheader("📅 Totali per Anno")
+        df_anno = df_activities.groupby("anno")[["distanza", "dislivello"]].sum().reset_index()
+        df_anno.columns = ["Anno", "Km Totali", "Dislivello Totale (m)"]
+        df_anno = df_anno.sort_values("Anno", ascending=False)
+        st.dataframe(df_anno, use_container_width=True, hide_index=True)
         
-    if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
-        st.session_state["saved_start"] = data_inizio_custom
-        st.session_state["saved_end"] = data_fine_custom
-        salva_data_su_file(FILE_DATA_INIZIO, data_inizio_custom)
-        salva_data_su_file(FILE_DATA_FINE, data_fine_custom)
-        
-        with st.spinner("Interrogazione in corso..."):
-            url_custom = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
-            params_custom = {
-                "oldest": data_inizio_custom.strftime("%Y-%m-%d"),
-                "newest": data_fine_custom.strftime("%Y-%m-%d"),
-                "iw": True
-            }
-            auth_custom = ("API_KEY", API_KEY.strip())
-            
-            resp_custom = requests.get(url_custom, auth=auth_custom, params=params_custom)
-            
-            if resp_custom.status_code == 200:
-                attivita_ext_custom = resp_custom.json()
-                if attivita_ext_custom:
-                    st.session_state["custom_activities"] = attivita_ext_custom
-                else:
-                    st.session_state["custom_activities"] = []
-                    st.info("Nessuna attività trovata in questo intervallo nel flusso di Intervals.")
-            else:
-                st.error(f"Errore di connessione a Intervals.icu: {resp_custom.status_code}")
+    with col_tab2:
+        st.subheader("📆 Totali per Mese")
+        df_mese = df_activities.groupby("mese")[["distanza", "dislivello"]].sum().reset_index()
+        df_mese.columns = ["Mese", "Km Totali", "Dislivello Totale (m)"]
+        df_mese = df_mese.sort_values("Mese", ascending=False)
+        st.dataframe(df_mese, use_container_width=True, hide_index=True, height=450)
+    
+    st.markdown("---")
+    
+    col_head1, col_head2 = st.columns([3, 1])
+    with col_head1:
+        st.subheader("📋 Dettaglio Completo Attività e Mappe")
+    with col_head2:
+        if st.button("🔄 Aggiorna da Intervals", key="btn_aggiorna_intervals", use_container_width=True):
+            with st.spinner("Sincronizzazione in corso..."):
+                activities_ext = fetch_intervals_activities(ATHLETE_ID, API_KEY)
+                if activities_ext:
+                    for act in activities_ext:
+                        act_id = str(act.get("id"))
+                        avg_watts = act.get("average_watts") or act.get("icu_average_watts") or act.get("device_watts")
+                        norm_watts = act.get("icu_weighted_avg_watts") or act.get("normalized_watts")
+                        ctl = act.get("icu_ctl")
+                        atl = act.get("icu_atl")
+                        form_val = None
+                        if ctl is not None and atl is not None:
+                            form_val = int(round(float(ctl) - float(atl)))
+                        else:
+                            form_val = act.get("form") or act.get("icu_form") or act.get("icu_tsb")
+                        gpx_bytes = fetch_activity_gpx(act_id, API_KEY)
+                        public_url = upload_gpx_to_supabase(act_id, gpx_bytes) if gpx_bytes else None
+                        row_data = {
+                            "activity_id": act_id,
+                            "data": act.get("start_date_local", "").split("T")[0],
+                            "titolo": act.get("name", "Uscita senza titolo"),
+                            "distanza": round(act.get("distance", 0) / 1000, 2),
+                            "tempo": str(timedelta_to_str(act.get("moving_time", 0))),
+                            "potenza_media": safe_int(avg_watts),
+                            "potenza_normalizzata": safe_int(norm_watts),
+                            "fc_media": safe_int(act.get("average_heartrate")),
+                            "tss": safe_int(act.get("icu_training_load")),
+                            "dislivello": safe_int(act.get("total_elevation_gain")),
+                            "forma": safe_int(form_val),
+                            "mappa": public_url
+                        }
+                        supabase.table("uscite").upsert(row_data, on_conflict="activity_id").execute()
+                    st.success("Sincronizzazione completata! Ricarica la pagina.")
+                    st.rerun()
 
-    if "custom_activities" in st.session_state and st.session_state["custom_activities"]:
-        df_ext = pd.DataFrame(st.session_state["custom_activities"])
+    # --- FILTRI DI RICERCA (TESTO + RANGE DI DATE VINCOLATO AI DATI) ---
+    c_filtro1, c_filtro2 = st.columns([2, 2])
+    
+    with c_filtro1:
+        ricerca = st.text_input(
+            "🔍 Cerca per nome o data specifica",
+            placeholder="Es. 'Soglia' o '2026-07-11'..."
+        ).lower().strip()
         
-        distanza_tot_km = round(df_ext.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
-        dislivello_tot_m = int(df_ext.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
-        num_uscite = len(df_ext)
+    with c_filtro2:
+        min_data = df_activities["data_dt"].min().date()
+        max_data = df_activities["data_dt"].max().date()
         
-        st.markdown("---")
-        mc1, mc2, mc3 = st.columns(3)
-        mc1.metric("Km Totali Periodo", f"{distanza_tot_km:,.2f} km")
-        mc2.metric("Dislivello (D+) Periodo", f"{dislivello_tot_m:,} m")
-        mc3.metric("Uscite Registrate", f"{num_uscite}")
-        st.markdown("---")
-        
-        with st.container(height=550):
-            for idx, act in enumerate(st.session_state["custom_activities"]):
-                act_id = str(act.get("id"))
-                act_title = act.get("name", "Uscita senza titolo")
-                act_date = act.get("start_date_local", "").split("T")[0]
-                act_dist = round(act.get("distance", 0) / 1000, 2)
-                act_time = timedelta_to_str(act.get("moving_time", 0))
-                act_elev = safe_int(act.get("total_elevation_gain")) or 0
-                
-                key_map_state = f"map_open_{act_id}_{idx}"
-                if key_map_state not in st.session_state:
-                    st.session_state[key_map_state] = False
+        # Calendario con range min e max personalizzati in base all'inizio raccolta e data futura
+        intervallo_date = st.date_input(
+            "📅 Filtra per periodo",
+            value=(min_data, max_data),
+            min_value=date(2025, 11, 15),
+            max_value=date(2040, 12, 31)
+        )
+
+    # Applicazione dei filtri combinati
+    df_filtrato = df_activities.copy()
+
+    # Filtro testuale
+    if ricerca:
+        df_filtrato = df_filtrato[
+            df_filtrato["titolo"].str.lower().str.contains(ricerca, na=False) | 
+            df_filtrato["data"].str.contains(ricerca, na=False)
+        ]
+
+    # Filtro per intervallo date
+    if isinstance(intervallo_date, tuple) and len(intervallo_date) == 2:
+        data_inizio, data_fine = intervallo_date
+        df_filtrato = df_filtrato[
+            (df_filtrato["data_dt"].dt.date >= data_inizio) & 
+            (df_filtrato["data_dt"].dt.date <= data_fine)
+        ]
+
+    # Lista attività con scroll e caratteri ingranditi
+    with st.container(height=650):
+        if len(df_filtrato) == 0:
+            st.info("Nessuna uscita corrisponde ai filtri di ricerca selezionati.")
+        else:
+            for index, row in df_filtrato.iterrows():
+                act_title = row.get("titolo", "Uscita senza titolo")
+                act_date = row.get("data", "")
+                act_dist = row.get("distanza", 0)
+                act_time = row.get("tempo", "00:00:00")
+                act_elev = row.get("dislivello", 0)
+                map_url = row.get("mappa")
                 
                 with st.container(border=True):
                     col_info, col_btn = st.columns([4, 1])
@@ -197,46 +242,14 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                         st.markdown(f"<p style='font-size: 1.2rem; margin: 0;'>Distanza: <b>{act_dist} km</b> &nbsp;|&nbsp; D+: <b>{act_elev} m</b> &nbsp;|&nbsp; Tempo: <b>{act_time}</b></p>", unsafe_allow_html=True)
                     with col_btn:
                         st.write("") 
-                        testo_bottone = "Nascondi Mappa" if st.session_state[key_map_state] else "🔍 Apri Mappa"
-                        if st.button(testo_bottone, key=f"btn_custom_{act_id}_{idx}", use_container_width=True):
-                            st.session_state[key_map_state] = not st.session_state[key_map_state]
-                            st.rerun()
+                        if map_url:
+                            if st.button("🔍 Apri Mappa", key=f"map_btn_{row['activity_id']}", use_container_width=True):
+                                st.session_state["map_url_to_view"] = map_url
+                                st.session_state["activity_title_to_view"] = act_title
+                                st.session_state["activity_date_to_view"] = act_date
+                                st.switch_page("pages/visualizza_mappa.py")
+                        else:
+                            st.caption("Mappa non disponibile")
 
-                    if st.session_state[key_map_state]:
-                        st.markdown("---")
-                        st.markdown("#### 🗺️ Anteprima Percorso")
-                        
-                        url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
-                        auth_streams = ("API_KEY", API_KEY.strip())
-                        
-                        with st.spinner("Caricamento tracciato GPS in corso..."):
-                            try:
-                                resp_streams = requests.get(url_streams, auth=auth_streams)
-                                decoded_coordinates = []
-                                
-                                if resp_streams.status_code == 200:
-                                    streams_data = resp_streams.json()
-                                    streams_list = streams_data if isinstance(streams_data, list) else [streams_data]
-                                    
-                                    for stream in streams_list:
-                                        if isinstance(stream, dict) and stream.get("type") == "latlng":
-                                            latlngs = stream.get("data", [])
-                                            for pt in latlngs:
-                                                if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                                                    if pt[0] is not None and pt[1] is not None:
-                                                        decoded_coordinates.append((float(pt[0]), float(pt[1])))
-                                            break
-
-                                if decoded_coordinates:
-                                    m = folium.Map(location=decoded_coordinates[0], zoom_start=13, tiles="CartoDB positron")
-                                    folium.PolyLine(
-                                        decoded_coordinates, 
-                                        color="#ff4b4b", 
-                                        weight=4, 
-                                        opacity=0.8
-                                    ).add_to(m)
-                                    st_folium(m, width=700, height=350, key=f"folium_render_{act_id}_{idx}")
-                                else:
-                                    st.warning("Nessun flusso di coordinate GPS (latlng) disponibile per questa attività su Intervals.")
-                            except Exception as e:
-                                st.error(f"Errore durante il recupero della mappa: {e}")
+else:
+    st.info("Nessuna attività trovata su Supabase. Sincronizza i dati.")
