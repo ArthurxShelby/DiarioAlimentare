@@ -6,3 +6,4 @@ folium
 streamlit-folium
 gpxpy
 plotly
+polyline
