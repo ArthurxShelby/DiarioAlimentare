@@ -39,8 +39,15 @@ if act_id:
                         latlngs = stream.get("data", [])
                         st.write(f"📊 Numero di punti grezzi trovati in latlng: {len(latlngs)}")
                         for pt in latlngs:
-                            if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                                lat, lon = pt[0], pt[1]
+                            if pt and isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                                try:
+                                    lat, lon = float(pt[0]), float(pt[1])
+                                    coordinates.append((lat, lon))
+                                except (ValueError, TypeError):
+                                    continue
+                            elif pt and isinstance(pt, dict): # Gestione alternativa se restituisce dizionari
+                                lat = pt.get("lat") or pt.get("latitude")
+                                lon = pt.get("lng") or pt.get("lon") or pt.get("longitude")
                                 if lat is not None and lon is not None:
                                     coordinates.append((float(lat), float(lon)))
                         break
