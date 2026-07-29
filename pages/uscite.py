@@ -96,22 +96,21 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Range Personalizzato con Persistenza Reale) ---
+# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Timer Indipendente) ---
 
-if "custom_start" not in st.session_state:
-    st.session_state["custom_start"] = date(2025, 11, 15)
-if "custom_end" not in st.session_state:
-    st.session_state["custom_end"] = date.today()
+if "exp_start" not in st.session_state:
+    st.session_state["exp_start"] = date(2025, 11, 15)
+if "exp_end" not in st.session_state:
+    st.session_state["exp_end"] = date.today()
 
 with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato)", expanded=False):
     st.write("Seleziona un periodo qualsiasi per estrarre dal flusso di Intervals tutte le attività, consultare i metri e aprire le relative mappe in tempo reale.")
     
     col_c1, col_c2 = st.columns(2)
     with col_c1:
-        # Usiamo direttamente lo state senza passare parametri 'value' conflittuali
-        data_inizio_custom = st.date_input("Data Inizio Range", key="custom_start")
+        data_inizio_custom = st.date_input("Data Inizio Range", key="exp_start")
     with col_c2:
-        data_fine_custom = st.date_input("Data Fine Range", key="custom_end")
+        data_fine_custom = st.date_input("Data Fine Range", key="exp_end")
         
     if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
         with st.spinner("Interrogazione in corso..."):
