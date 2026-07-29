@@ -180,9 +180,9 @@ if is_proprietario:
                 df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
                 df_caricato.columns = df_caricato.columns.str.strip()
 
-                # Supporto flessibile nel caso ci siano vecchi file con scritto "Ripetizioni"
-                if "Ripetizioni" in df_caricato.columns and "Serie" not in df_caricato.columns:
-                    df_caricato = df_caricato.rename(columns={"Ripetizioni": "Serie"})
+                # Supporto flessibile nel caso ci siano vecchi file con scritto "Serie"
+                if "Serie" in df_caricato.columns and "Serie" not in df_caricato.columns:
+                    df_caricato = df_caricato.rename(columns={"Serie": "Serie"})
 
                 colonne_attese = [
                     "Settimana", "Giorno", "Esercizio / Nome", "Watt",
