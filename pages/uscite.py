@@ -4,6 +4,9 @@ import requests
 from datetime import datetime, date
 import pandas as pd
 import os
+import folium
+from streamlit_folium import st_folium
+import polyline
 
 # --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
@@ -37,19 +40,6 @@ def safe_int(val):
             return None
         return int(float(val))
     except (ValueError, TypeError):
-        return None
-
-# --- FUNZIONE GPX STREAM ---
-def fetch_activity_gpx(activity_id, api_key):
-    url = f"https://intervals.icu/api/v1/activity/{activity_id}/streams"
-    auth = ("API_KEY", api_key.strip())
-    try:
-        response = requests.get(url, auth=auth)
-        if response.status_code == 200:
-            return response.content
-        else:
-            return None
-    except Exception:
         return None
 
 # --- 1. STATISTICHE DINAMICHE DIRETTAMENTE DA INTERVALS (Dal 15/11/2025) ---
@@ -98,13 +88,9 @@ else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
 # --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza su File per Riavvii) ---
-import os
-from datetime import datetime, date
-
 FILE_DATA_INIZIO = "ultima_data_inizio.txt"
 FILE_DATA_FINE = "ultima_data_fine.txt"
 
-# Funzioni di utilità per leggere/scrivere su file locale
 def carica_data_salvata(file_path, default_val):
     if os.path.exists(file_path):
         try:
@@ -122,26 +108,20 @@ def salva_data_su_file(file_path, data_val):
     except Exception:
         pass
 
-# Inizializziamo le date leggendole dal file locale (o usiamo i default se il file non esiste)
-# Inizializziamo le date leggendole dal file locale (o usiamo i default se il file non esiste)
 if "saved_start" not in st.session_state:
     st.session_state["saved_start"] = carica_data_salvata(FILE_DATA_INIZIO, date(2026, 1, 1))
 
 if "saved_end" not in st.session_state:
     st.session_state["saved_end"] = carica_data_salvata(FILE_DATA_FINE, date.today())
 
-# === INCOLLA QUI IL CSS PER INGRANDIRE IL CALENDARIO ===
 st.markdown("""
     <style>
-        /* Aumenta la dimensione dei caratteri dei giorni, dei mesi e delle intestazioni nel calendario */
         div[data-baseweb="calendar"] * {
             font-size: 1.15rem !important;
         }
-        /* Aumenta la dimensione del testo del selettore anno/mese */
         div[data-baseweb="calendar"] select {
             font-size: 1.1rem !important;
         }
-        /* Aumenta la dimensione del testo all'interno della casella di input della data (indicata dalla freccia) */
         div[data-baseweb="input"] input {
             font-size: 1.15rem !important;
         }
@@ -158,7 +138,6 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
         data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["saved_end"], key="widget_end")
         
     if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
-        # Salviamo in memoria e scriviamo fisicamente sul file (sopravvive ai riavvii!)
         st.session_state["saved_start"] = data_inizio_custom
         st.session_state["saved_end"] = data_fine_custom
         salva_data_su_file(FILE_DATA_INIZIO, data_inizio_custom)
@@ -177,7 +156,6 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
             
             if resp_custom.status_code == 200:
                 attivita_ext_custom = resp_custom.json()
-                
                 if attivita_ext_custom:
                     st.session_state["custom_activities"] = attivita_ext_custom
                 else:
@@ -186,7 +164,6 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
             else:
                 st.error(f"Errore di connessione a Intervals.icu: {resp_custom.status_code}")
 
-    # Se abbiamo dati custom in memoria, mostriamo metriche e box interattivi con mappa
     if "custom_activities" in st.session_state and st.session_state["custom_activities"]:
         df_ext = pd.DataFrame(st.session_state["custom_activities"])
         
@@ -202,13 +179,17 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
         st.markdown("---")
         
         with st.container(height=550):
-            for act in st.session_state["custom_activities"]:
+            for idx, act in enumerate(st.session_state["custom_activities"]):
                 act_id = str(act.get("id"))
                 act_title = act.get("name", "Uscita senza titolo")
                 act_date = act.get("start_date_local", "").split("T")[0]
                 act_dist = round(act.get("distance", 0) / 1000, 2)
                 act_time = timedelta_to_str(act.get("moving_time", 0))
                 act_elev = safe_int(act.get("total_elevation_gain")) or 0
+                
+                key_map_state = f"map_open_{act_id}_{idx}"
+                if key_map_state not in st.session_state:
+                    st.session_state[key_map_state] = False
                 
                 with st.container(border=True):
                     col_info, col_btn = st.columns([4, 1])
@@ -217,50 +198,33 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                         st.markdown(f"<p style='font-size: 1.2rem; margin: 0;'>Distanza: <b>{act_dist} km</b> &nbsp;|&nbsp; D+: <b>{act_elev} m</b> &nbsp;|&nbsp; Tempo: <b>{act_time}</b></p>", unsafe_allow_html=True)
                     with col_btn:
                         st.write("") 
-                        if st.button("🔍 Apri Mappa", key=f"map_custom_{act_id}", use_container_width=True):
-                            with st.spinner("Caricamento mappa in corso..."):
-                                gpx_bytes = fetch_activity_gpx(act_id, API_KEY)
-                                if gpx_bytes:
-                                    st.session_state["map_bytes_to_view"] = gpx_bytes
-                                    st.session_state["activity_title_to_view"] = act_title
-                                    st.session_state["activity_date_to_view"] = act_date
-                                    st.switch_page("pages/visualizza_mappa.py")
+                        testo_bottone = "Nascondi Mappa" if st.session_state[key_map_state] else "🔍 Apri Mappa"
+                        if st.button(testo_bottone, key=f"btn_custom_{act_id}_{idx}", use_container_width=True):
+                            st.session_state[key_map_state] = not st.session_state[key_map_state]
+                            st.rerun()
+
+                    if st.session_state[key_map_state]:
+                        st.markdown("---")
+                        st.markdown("#### 🗺️ Anteprima Percorso")
+                        
+                        map_data = act.get('map', {})
+                        summary_polyline = map_data.get('summary_polyline') or map_data.get('polyline')
+                        
+                        if summary_polyline:
+                            try:
+                                decoded_coordinates = polyline.decode(summary_polyline)
+                                if decoded_coordinates:
+                                    m = folium.Map(location=decoded_coordinates[0], zoom_start=13, tiles="CartoDB positron")
+                                    folium.PolyLine(
+                                        decoded_coordinates, 
+                                        color="#ff4b4b", 
+                                        weight=4, 
+                                        opacity=0.8
+                                    ).add_to(m)
+                                    st_folium(m, width=700, height=350, key=f"folium_render_{act_id}_{idx}")
                                 else:
-                                    st.error("Mappa non disponibile per questa attività.")
-        # Se il bottone è attivo, genera e mostra la mappa direttamente sotto l'attività
-        if _st.session_state[key_bottoni]:
-            _st.markdown("---")
-            _st.markdown("#### 🗺️ Anteprima Percorso GPS")
-            
-            # Recuperiamo i dati della polilinea (formato tipico di Intervals.icu / Strava)
-            map_data = attivita.get('map', {})
-            summary_polyline = map_data.get('summary_polyline') or map_data.get('polyline')
-            
-            if summary_polyline:
-                try:
-                    # Decodifichiamo la polyline in coordinate lat/lon
-                    decoded_coordinates = polyline.decode(summary_polyline)
-                    
-                    if decoded_coordinates:
-                        # Centriamo la mappa sul primo punto del percorso
-                        m = folium.Map(location=decoded_coordinates[0], zoom_start=13, tiles="CartoDB positron")
-                        
-                        # Disegniamo la linea del tracciato
-                        folium.PolyLine(
-                            decoded_coordinates, 
-                            color="#ff4b4b", 
-                            weight=4, 
-                            opacity=0.8
-                        ).add_to(m)
-                        
-                        # Mostriamo la mappa all'interno dell'app Streamlit
-                        st_folium(m, width=700, height=350, key=f"map_render_{idx}")
-                    else:
-                        _st.warning("Impossibile leggere le coordinate GPS per questa attività.")
-                except Exception as e:
-                    _st.error(్రిf"Errore durante il rendering della mappa: {e}")
-            else:
-                _st.warning("Nessun dato di tracciato (polyline) disponibile per questa attività.")
-                
-        _st.markdown("---")
-        
+                                    st.warning("Impossibile decodificare le coordinate GPS per questa attività.")
+                            except Exception as e:
+                                st.error(f"Errore nel rendering della mappa: {e}")
+                        else:
+                            st.warning("Nessun tracciato GPS (polyline) disponibile per questa attività.")
