@@ -12,9 +12,9 @@ if not is_proprietario:
     st.info("Torna alla pagina principale del Diario Alimentare ed effettua il login con le credenziali da amministratore.")
     st.stop()
 
-map_url = st.session_state.get("map_url_to_view")
-activity_title = st.session_state.get("activity_title_to_view", "Dettaglio Tracciato")
-activity_date = st.session_state.get("activity_date_to_view", "")
+map_url = st.session_state.get("map_url_to_view") or st.session_state.get("selected_activity_id")
+activity_title = st.session_state.get("activity_title_to_view") or st.session_state.get("selected_activity_title", "Dettaglio Tracciato")
+activity_date = st.session_state.get("activity_date_to_view") or st.session_state.get("selected_activity_date", "")
 
 titolo_completo = f"{activity_title} ({activity_date})" if activity_date else activity_title
 st.title(f"🗺️ {titolo_completo}")
