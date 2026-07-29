@@ -6,7 +6,6 @@ import pandas as pd
 import os
 import folium
 from streamlit_folium import st_folium
-import polyline
 
 # --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
@@ -41,6 +40,35 @@ def safe_int(val):
         return int(float(val))
     except (ValueError, TypeError):
         return None
+
+# Funzione interna per decodificare la polilinea senza librerie esterne
+def decode_polyline(polyline_str):
+    points = []
+    index, lat, lng = 0, 0, 0
+    length = len(polyline_str)
+    while index < length:
+        shift, result = 0, 0
+        while True:
+            b = ord(polyline_str[index]) - 63
+            index += 1
+            result |= (b & 0x1f) << shift
+            shift += 5
+            if b < 0x20:
+                break
+        dlat = ~(result >> 1) if (result & 1) else (result >> 1)
+        lat += dlat
+        shift, result = 0, 0
+        while True:
+            b = ord(polyline_str[index]) - 63
+            index += 1
+            result |= (b & 0x1f) << shift
+            shift += 5
+            if b < 0x20:
+                break
+        dlng = ~(result >> 1) if (result & 1) else (result >> 1)
+        lng += dlng
+        points.append((lat / 1e5, lng / 1e5))
+    return points
 
 # --- 1. STATISTICHE DINAMICHE DIRETTAMENTE DA INTERVALS (Dal 15/11/2025) ---
 with st.spinner("Sincronizzazione dati da Intervals.icu in corso..."):
@@ -212,7 +240,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                         
                         if summary_polyline:
                             try:
-                                decoded_coordinates = polyline.decode(summary_polyline)
+                                decoded_coordinates = decode_polyline(summary_polyline)
                                 if decoded_coordinates:
                                     m = folium.Map(location=decoded_coordinates[0], zoom_start=13, tiles="CartoDB positron")
                                     folium.PolyLine(
