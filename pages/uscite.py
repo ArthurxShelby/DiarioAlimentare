@@ -69,8 +69,6 @@ if resp_global.status_code == 200:
     
     if activities_net:
         df_activities = pd.DataFrame(activities_net)
-        
-        # Calcoli dinamici allineati
         tot_km = round(df_activities.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
         tot_dislivello = int(df_activities.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
         
@@ -98,16 +96,27 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Range Personalizzato) ---
+# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Range Personalizzato con Persistenza) ---
+
+# Inizializzazione dello state per le date dell'explorer se non esistono
+if "custom_start" not in st.session_state:
+    st.session_state["custom_start"] = date(2025, 11, 15)
+if "custom_end" not in st.session_state:
+    st.session_state["custom_end"] = date.today()
+
 with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato)", expanded=False):
     st.write("Seleziona un periodo qualsiasi per estrarre dal flusso di Intervals tutte le attività, consultare i metri e aprire le relative mappe in tempo reale.")
     
     col_c1, col_c2 = st.columns(2)
     with col_c1:
-        data_inizio_custom = st.date_input("Data Inizio Range", value=date(2025, 11, 15), key="custom_start")
+        data_inizio_custom = st.date_input("Data Inizio Range", value=st.session_state["custom_start"], key="input_start")
     with col_c2:
-        data_fine_custom = st.date_input("Data Fine Range", value=date.today(), key="custom_end")
+        data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["custom_end"], key="input_end")
         
+    # Aggiorniamo lo state se l'utente cambia i valori nei widget
+    st.session_state["custom_start"] = data_inizio_custom
+    st.session_state["custom_end"] = data_fine_custom
+
     if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
         with st.spinner("Interrogazione in corso..."):
             url_custom = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
