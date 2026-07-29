@@ -170,7 +170,6 @@ if is_proprietario:
     with st.expander("📂 Integra o carica piano di lavoro tramite file CSV", expanded=False):
         st.write(f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**.")
         
-        # Chiave univoca stabile per evitare glitch visivi del widget
         file_caricato = st.file_uploader(
             "Seleziona il file CSV",
             type=["csv"],
@@ -192,11 +191,9 @@ if is_proprietario:
 
                 if all(col in df_caricato.columns for col in colonne_attese):
                     df_filtrato = df_caricato[colonne_attese].copy()
-                    # Salva nel database di sessione e sul cloud
                     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_filtrato
                     salva_database()
                     
-                    # AGGIORNAMENTO IMMEDIATO DELLA VARIABILE VISIVA
                     df_da_mostrare = df_filtrato
                     
                     st.success(f"File CSV caricato e salvato con successo per {mese_selezionato} {anno_selezionato}!")
@@ -233,8 +230,28 @@ st.markdown("<br>", unsafe_allow_html=True)
 # --- PANNELLO DI CANCELLAZIONE AVANZATO ---
 if is_proprietario:
     with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
-        st.write("Seleziona un intervallo esatto basato su date specifiche per svuotare i dati.")
+        
+        # --- SEZIONE 1: CANCELLAZIONE RAPIDA MESE ATTIVO ---
+        st.markdown(f"### Svuota solo il mese in evidenza: **{mese_selezionato} {anno_selezionato}**")
+        if st.button(f"🗑️ Svuota dati di {mese_selezionato} {anno_selezionato}", type="primary"):
+            try:
+                st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = pd.DataFrame(
+                    columns=[
+                        "Settimana", "Giorno", "Esercizio / Nome", "Watt",
+                        "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
+                    ]
+                )
+                salva_database()
+                st.session_state.version_editor += 1
+                st.toast(f"Dati di {mese_selezionato} {anno_selezionato} svuotati con successo!", icon="🗑️")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Errore durante la pulizia del mese: {e}")
 
+        st.markdown("---")
+
+        # --- SEZIONE 2: CANCELLAZIONE INTERVALLO DATE ---
+        st.markdown("### Svuota un intervallo esatto basato su date specifiche")
         col_d1, col_d2 = st.columns(2)
         with col_d1:
             data_inizio_del = st.date_input("Data Inizio Periodo", value=datetime.date(2026, 1, 1), key="data_ini_del")
