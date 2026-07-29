@@ -213,59 +213,6 @@ if activities_db:
         df_mese.columns = ["Mese", "Km Totali", "Dislivello Totale (m)"]
         df_mese = df_mese.sort_values("Mese", ascending=False)
         st.dataframe(df_mese, use_container_width=True, hide_index=True, height=450)
-    
-    st.markdown("---")
-    
-    st.subheader("📋 Dettaglio Attività Ufficiali (TCR - Dal 15/11/2025)")
-
-    # --- FILTRO PER PERIODO SUL CONTENITORE DELLE ATTIVITÀ UFFICIALI ---
-    c_filtro1, c_filtro2 = st.columns([2, 2])
-    with c_filtro2:
-        min_data = df_activities["data_dt"].min().date()
-        max_data = df_activities["data_dt"].max().date()
-        
-        intervallo_date = st.date_input(
-            "📅 Filtra per periodo",
-            value=(min_data, max_data),
-            min_value=date(2025, 11, 15),
-            max_value=date(2040, 12, 31),
-            key="filtro_periodo_attivita"
-        )
-
-    if isinstance(intervallo_date, tuple) and len(intervallo_date) == 2:
-        start_f, end_f = intervallo_date
-        df_filtrato = df_activities[
-            (df_activities["data_dt"].dt.date >= start_f) & 
-            (df_activities["data_dt"].dt.date <= end_f)
-        ]
-    else:
-        df_filtrato = df_activities
-
-    # Lista attività con scroll e caratteri ingranditi
-    with st.container(height=650):
-        for index, row in df_filtrato.iterrows():
-            act_title = row.get("titolo", "Uscita senza titolo")
-            act_date = row.get("data", "")
-            act_dist = row.get("distanza", 0)
-            act_time = row.get("tempo", "00:00:00")
-            act_elev = row.get("dislivello", 0)
-            map_url = row.get("mappa")
-            
-            with st.container(border=True):
-                col_info, col_btn = st.columns([4, 1])
-                with col_info:
-                    st.markdown(f"<h3 style='margin: 0; padding-bottom: 5px;'>{act_title} <span style='font-size: 1.1rem; color: #999;'>({act_date})</span></h3>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size: 1.2rem; margin: 0;'>Distanza: <b>{act_dist} km</b> &nbsp;|&nbsp; D+: <b>{act_elev} m</b> &nbsp;|&nbsp; Tempo: <b>{act_time}</b></p>", unsafe_allow_html=True)
-                with col_btn:
-                    st.write("") 
-                    if map_url:
-                        if st.button("🔍 Apri Mappa", key=f"map_btn_{row['activity_id']}", use_container_width=True):
-                            st.session_state["map_url_to_view"] = map_url
-                            st.session_state["activity_title_to_view"] = act_title
-                            st.session_state["activity_date_to_view"] = act_date
-                            st.switch_page("pages/visualizza_mappa.py")
-                    else:
-                        st.caption("Mappa non disponibile")
 
 else:
     st.info("Nessuna attività trovata su Supabase.")
