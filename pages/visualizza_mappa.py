@@ -13,13 +13,12 @@ except Exception:
     st.error("Errore: Configura le credenziali di Intervals nei secrets.")
     st.stop()
 
-# Recuperiamo i dati passati dalla sessione
 act_id = st.session_state.get("selected_activity_id")
 act_title = st.session_state.get("selected_activity_title", "Attività")
 act_date = st.session_state.get("selected_activity_date", "")
 
 if act_id:
-    st.subheader(f"📍 {act_title} ({act_date}) [ID: {act_id}]")
+    st.subheader(f"📍 {act_title} ({act_date})")
     
     url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams.json?types=latlng"
     auth_streams = ("API_KEY", API_KEY.strip())
@@ -27,7 +26,6 @@ if act_id:
     with st.spinner("Caricamento tracciato GPS in corso..."):
         try:
             resp_streams = requests.get(url_streams, auth=auth_streams)
-            
             decoded_coordinates = []
             
             if resp_streams.status_code == 200:
@@ -58,7 +56,7 @@ if act_id:
             st.error(f"Errore durante il recupero della mappa: {e}")
     
     if st.button("⬅️ Torna alla Gestione Uscite"):
-    st.switch_page("uscite.py") # Assicurati che uscite.py sia nella cartella principale del progetto
+        st.switch_page("uscite.py")
 else:
     st.warning("Nessun tracciato selezionato. Torna alla pagina Uscite e seleziona un'attività.")
     if st.button("⬅️ Torna a Uscite"):
