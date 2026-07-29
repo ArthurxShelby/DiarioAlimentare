@@ -163,11 +163,11 @@ else:
 st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_base_mese
 df_da_mostrare = df_base_mese
 
-# --- 3. PRIMA TABELLA: GESTIONE E MODIFICA ALLENAMENTI (INTESTAZIONE + MENU A TENDINA + EDITOR) ---
+# --- 3. SEZIONE UNIFICATA: TITOLO, EXPANDER E TABELLA DI MODIFICA ---
 st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
 
 if is_proprietario:
-    # --- MENU A TENDINA 1: CARICAMENTO CSV (POSIZIONATO SUBITO SOTTO L'INTESTAZIONE) ---
+    # 1. Expanders posizionati esattamente sotto il titolo della sezione[cite: 2]
     with st.expander("📂 Integra o carica piano di lavoro tramite file CSV", expanded=False):
         st.write(f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**.")
         
@@ -204,9 +204,7 @@ if is_proprietario:
             except Exception as e:
                 st.error(f"Errore nella lettura del file CSV: {e}")
 
-    # --- MENU A TENDINA 2: PANNELLO DI PULIZIA (SUBITO SOTTO IL CSV) ---
     with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)", expanded=False):
-        
         st.markdown(f"### Svuota solo il mese in evidenza: **{mese_selezionato} {anno_selezionato}**")
         if st.button(f"🗑️ Svuota dati di {mese_selezionato} {anno_selezionato}", type="primary", key="btn_svuota_mese_singolo"):
             try:
@@ -273,7 +271,7 @@ if is_proprietario:
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
 
-    # --- TABELLA PRINCIPALE DI MODIFICA (POSIZIONATA SUBITO SOTTO I DUE MENU A TENDINA) ---
+    # 2. Tabella principale di modifica (subito sotto gli expander)[cite: 2]
     df_modificato = st.data_editor(
         df_da_mostrare,
         num_rows="dynamic",
