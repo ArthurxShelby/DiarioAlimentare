@@ -9,6 +9,23 @@ st.set_page_config(
     page_title="Pianificazione Allenamento", page_icon="🏋️", layout="wide"
 )
 
+# --- STYLING CSS PER INGRANDIRE CARATTERI DATE E CALENDARIO ---
+st.markdown("""
+<style>
+    /* Ingrandisce il testo dentro gli input data */
+    input[type="text"] {
+        font-size: 1.15rem !important;
+    }
+    div[data-baseweb="input"] input {
+        font-size: 1.15rem !important;
+    }
+    /* Ingrandisce i caratteri all'interno del popup del calendario (giorni, mesi, anni) */
+    div[data-baseweb="calendar"] * {
+        font-size: 1.1rem !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
 
