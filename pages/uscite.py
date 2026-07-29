@@ -1,12 +1,13 @@
 import streamlit as st
 st.set_page_config(layout="wide")
 import requests
-from datetime import datetime
+from datetime import datetime, date
 import pandas as pd
 import os
 import gpxpy
 import gpxpy.gpx
 from supabase import create_client, Client
+from requests.auth import HTTPBasicAuth
 
 # --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
@@ -84,7 +85,7 @@ def upload_gpx_to_supabase(activity_id, gpx_bytes):
 @st.cache_data(ttl=1)
 def fetch_intervals_activities(athlete_id, api_key):
     oggi = datetime.today().strftime('%Y-%m-%d')
-    data_inizio = "2025-11-15"
+    data_inizio = "2025-11-15" # Vincolo fisso TCR per Supabase
     
     url = f"https://intervals.icu/api/v1/athlete/{athlete_id}/activities"
     params = {
@@ -107,7 +108,7 @@ def fetch_intervals_activities(athlete_id, api_key):
         return []
 
 
-# --- Logica Principale ---
+# --- 1. CARICAMENTO DATI UFFICIALI TCR DA SUPABASE ---
 with st.spinner("Caricamento delle uscite da Supabase in corso..."):
     response = supabase.table("uscite").select("*").order("data", desc=True).execute()
     activities_db = response.data
@@ -122,7 +123,7 @@ if activities_db:
     df_activities["mese"] = df_activities["data_dt"].dt.strftime("%Y-%m")
     
     st.markdown("---")
-    st.subheader("📊 Riepilogo e Statistiche Generali")
+    st.subheader("📊 Statistiche Dinamiche e Riepilogo (TCR - Dal 15/11/2025)")
     
     tot_km = round(df_activities["distanza"].sum(), 2)
     tot_dislivello = int(df_activities["dislivello"].fillna(0).sum())
@@ -140,8 +141,65 @@ if activities_db:
             percorso_foto = os.path.join(cartella_script, "TCR.png")
             st.image(percorso_foto, use_container_width=True)
         except Exception:
-            st.warning("Immagine TCR.png non trovata.")
+            st.warning("Immagine TCR.png not found.")
     
+    st.markdown("---")
+    
+    # --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Range Personalizzato Senza Scrittura su Supabase) ---
+    with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato)", expanded=False):
+        st.write("Seleziona un periodo qualsiasi per estrarre dal flusso di Intervals tutte le attività e i dati completi (Km, D+, Potenza, ecc.) **senza popolare o modificare le tabelle di Supabase**.")
+        
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            data_inizio_custom = st.date_input("Data Inizio Range", value=date(2025, 7, 27), key="custom_start")
+        with col_c2:
+            data_fine_custom = st.date_input("Data Fine Range", value=date(2025, 8, 14), key="custom_end")
+            
+        if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
+            with st.spinner("Interrogazione in corso..."):
+                url_custom = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
+                params_custom = {
+                    "oldest": data_inizio_custom.strftime("%Y-%m-%d"),
+                    "newest": data_fine_custom.strftime("%Y-%m-%d"),
+                    "iw": True
+                }
+                auth_custom = ("API_KEY", API_KEY.strip())
+                
+                resp_custom = requests.get(url_custom, auth=auth_custom, params=params_custom)
+                
+                if resp_custom.status_code == 200:
+                    attivita_ext_custom = resp_custom.json()
+                    
+                    if attivita_ext_custom:
+                        df_ext = pd.DataFrame(attivita_ext_custom)
+                        
+                        # Calcoli completi con tutti i parametri configurati
+                        distanza_tot_km = df_ext.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0
+                        dislivello_tot_m = df_ext.get("total_elevation_gain", pd.Series([0])).fillna(0).sum()
+                        num_uscite = len(df_ext)
+                        
+                        st.success(f"Trovate **{num_uscite} attività** nel periodo selezionato!")
+                        
+                        # Metriche del periodo
+                        mc1, mc2, mc3 = st.columns(3)
+                        mc1.metric("Km Totali Periodo", f"{distanza_tot_km:.1f} km")
+                        mc2.metric("Dislivello (D+) Periodo", f"{dislivello_tot_m:.0f} m")
+                        mc3.metric("Uscite Registrate", f"{num_uscite}")
+                        
+                        # Preparazione tabella di dettaglio completa del range
+                        df_ext["data"] = df_ext.get("start_date_local", "").apply(lambda x: x.split("T")[0] if x else "")
+                        df_ext["titolo"] = df_ext.get("name", "Uscita senza titolo")
+                        df_ext["distanza_km"] = (df_ext.get("distance", 0) / 1000.0).round(2)
+                        df_ext["dislivello"] = df_ext.get("total_elevation_gain", 0).fillna(0)
+                        
+                        # Mostriamo la tabella con i dati completi richiesti
+                        cols_da_mostrare = [c for c in ["data", "titolo", "distanza_km", "dislivello", "moving_time"] if c in df_ext.columns]
+                        st.dataframe(df_ext[cols_da_mostrare], use_container_width=True, hide_index=True)
+                    else:
+                        st.info("Nessuna attività trovata in questo intervallo nel flusso di Intervals.")
+                else:
+                    st.error(f"Errore di connessione a Intervals.icu: {resp_custom.status_code}")
+
     st.markdown("---")
     
     col_tab1, col_tab2 = st.columns(2)
@@ -162,12 +220,12 @@ if activities_db:
     
     st.markdown("---")
     
-    # Intestazione e pulsante di aggiornamento in alto
+    # Intestazione e pulsante di aggiornamento ufficiale in alto (Supabase)
     col_head1, col_head2 = st.columns([3, 1])
     with col_head1:
-        st.subheader("📋 Dettaglio Completo Attività e Mappe")
+        st.subheader("📋 Dettaglio Completo Attività e Mappe (Ufficiale TCR)")
     with col_head2:
-        if st.button("🔄 Aggiorna da Intervals", key="btn_aggiorna_intervals", use_container_width=True):
+        if st.button("🔄 Sincronizza TCR da Intervals", key="btn_aggiorna_intervals", use_container_width=True):
             with st.spinner("Sincronizzazione in corso..."):
                 activities_ext = fetch_intervals_activities(ATHLETE_ID, API_KEY)
                 if activities_ext:
@@ -205,9 +263,32 @@ if activities_db:
                     st.success("Sincronizzazione completata! Ricarica la pagina.")
                     st.rerun()
 
+    # --- FILTRO PER PERIODO SUL CONTENITORE DELLE ATTIVITÀ UFFICIALI ---
+    c_filtro1, c_filtro2 = st.columns([2, 2])
+    with c_filtro2:
+        min_data = df_activities["data_dt"].min().date()
+        max_data = df_activities["data_dt"].max().date()
+        
+        intervallo_date = st.date_input(
+            "📅 Filtra per periodo",
+            value=(min_data, max_data),
+            min_value=date(2025, 11, 15),
+            max_value=date(2040, 12, 31),
+            key="filtro_periodo_attivita"
+        )
+
+    if isinstance(intervallo_date, tuple) and len(intervallo_date) == 2:
+        start_f, end_f = intervallo_date
+        df_filtrato = df_activities[
+            (df_activities["data_dt"].dt.date >= start_f) & 
+            (df_activities["data_dt"].dt.date <= end_f)
+        ]
+    else:
+        df_filtrato = df_activities
+
     # Lista attività con scroll e caratteri ingranditi
     with st.container(height=650):
-        for index, row in df_activities.iterrows():
+        for index, row in df_filtrato.iterrows():
             act_title = row.get("titolo", "Uscita senza titolo")
             act_date = row.get("data", "")
             act_dist = row.get("distanza", 0)
