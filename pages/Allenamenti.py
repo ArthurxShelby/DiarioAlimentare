@@ -163,10 +163,35 @@ else:
 st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_base_mese
 df_da_mostrare = df_base_mese
 
-# --- 3. PRIMA TABELLA: GESTIONE E MODIFICA ALLENAMENTI (CSV & EDITOR) ---
+# --- 3. PRIMA TABELLA: GESTIONE E MODIFICA ALLENAMENTI (EDITOR) ---
 st.subheader(f"✍️ Gestione e Modifica Allenamenti: **{mese_selezionato} {anno_selezionato}**")
 
 if is_proprietario:
+    df_modificato = st.data_editor(
+        df_da_mostrare,
+        num_rows="dynamic",
+        use_container_width=True,
+        key=f"editor_finale_{anno_selezionato}_{mese_selezionato}_{st.session_state.version_editor}",
+        column_config={
+            "Settimana": st.column_config.TextColumn("Settimana", required=True),
+            "Giorno": st.column_config.TextColumn("Giorno", required=True),
+            "Esercizio / Nome": st.column_config.TextColumn("Esercizio / Nome", required=True),
+            "Watt": st.column_config.NumberColumn("Watt", min_value=0, max_value=1000, step=1, format="%d"),
+            "RPM": st.column_config.NumberColumn("RPM", min_value=0, max_value=200, step=1, format="%d"),
+            "Serie": st.column_config.NumberColumn("Serie", min_value=0, max_value=100, step=1, format="%d"),
+            "Lavoro (min)": st.column_config.NumberColumn("Lavoro (min)", min_value=0, max_value=1440, step=1, format="%d"),
+            "Recupero (min)": st.column_config.NumberColumn("Recupero (min)", min_value=0, max_value=1440, step=1, format="%d"),
+        },
+    )
+
+    # Salvataggio sicuro senza loop infiniti di st.rerun()
+    if not df_modificato.equals(df_da_mostrare):
+        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato.copy()
+        salva_database()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # --- MENU A TENDINA 1: CSV ---
     with st.expander("📂 Integra o carica piano di lavoro tramite file CSV", expanded=False):
         st.write(f"Stai caricando i dati per: **{mese_selezionato} {anno_selezionato}**.")
         
@@ -194,17 +219,16 @@ if is_proprietario:
                     st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_filtrato
                     salva_database()
                     
-                    df_da_mostrare = df_filtrato
-                    
+                    st.session_state.version_editor += 1
                     st.success(f"File CSV caricato e salvato con successo per {mese_selezionato} {anno_selezionato}!")
+                    st.rerun()
                 else:
                     st.error(f"Il file CSV non contiene le colonne corrette. Colonne trovate: {list(df_caricato.columns)}. Attese: {colonne_attese}")
             except Exception as e:
                 st.error(f"Errore nella lettura del file CSV: {e}")
 
-# --- PANNELLO DI CANCELLAZIONE AVANZATO ---
-if is_proprietario:
-    with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)"):
+    # --- MENU A TENDINA 2: PULIZIA ---
+    with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)", expanded=False):
         
         # --- SEZIONE 1: CANCELLAZIONE RAPIDA MESE ATTIVO ---
         st.markdown(f"### Svuota solo il mese in evidenza: **{mese_selezionato} {anno_selezionato}**")
@@ -274,30 +298,7 @@ if is_proprietario:
                 except Exception as e:
                     st.error(f"Errore durante la pulizia: {e}")
 
-if is_proprietario:
-    df_modificato = st.data_editor(
-        df_da_mostrare,
-        num_rows="dynamic",
-        use_container_width=True,
-        key=f"editor_finale_{anno_selezionato}_{mese_selezionato}_{st.session_state.version_editor}",
-        column_config={
-            "Settimana": st.column_config.TextColumn("Settimana", required=True),
-            "Giorno": st.column_config.TextColumn("Giorno", required=True),
-            "Esercizio / Nome": st.column_config.TextColumn("Esercizio / Nome", required=True),
-            "Watt": st.column_config.NumberColumn("Watt", min_value=0, max_value=1000, step=1, format="%d"),
-            "RPM": st.column_config.NumberColumn("RPM", min_value=0, max_value=200, step=1, format="%d"),
-            "Serie": st.column_config.NumberColumn("Serie", min_value=0, max_value=100, step=1, format="%d"),
-            "Lavoro (min)": st.column_config.NumberColumn("Lavoro (min)", min_value=0, max_value=1440, step=1, format="%d"),
-            "Recupero (min)": st.column_config.NumberColumn("Recupero (min)", min_value=0, max_value=1440, step=1, format="%d"),
-        },
-    )
-
-    if not df_modificato.equals(df_da_mostrare):
-        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_modificato.copy()
-        salva_database()
-        st.rerun()
-
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("<br><br>", unsafe_allow_html=True)
 
 # --- 4. SECONDA TABELLA: PROGRAMMAZIONE CICLI (SINCRONIZZATA AUTOMATICAMENTE) ---
 st.subheader("📋 Programmazione Cicli di Allenamento (Perpetua)")
