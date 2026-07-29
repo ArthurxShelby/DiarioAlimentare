@@ -97,23 +97,37 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza Corretta) ---
+# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza su File per Riavvii) ---
+import os
+from datetime import datetime, date
 
-# Inizializziamo le date salvate nella sessione se non esistono
-if "saved_start" not in st.session_state:
-    # Controlliamo se ci sono nella URL
+FILE_DATA_INIZIO = "ultima_data_inizio.txt"
+FILE_DATA_FINE = "ultima_data_fine.txt"
+
+# Funzioni di utilità per leggere/scrivere su file locale
+def carica_data_salvata(file_path, default_val):
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r") as f:
+                val = f.read().strip()
+                return datetime.strptime(val, "%Y-%m-%d").date()
+        except Exception:
+            pass
+    return default_val
+
+def salva_data_su_file(file_path, data_val):
     try:
-        url_start = st.query_params.get("exp_start")
-        st.session_state["saved_start"] = datetime.strptime(url_start, "%Y-%m-%d").date() if url_start else date(2026, 1, 1)
+        with open(file_path, "w") as f:
+            f.write(data_val.strftime("%Y-%m-%d"))
     except Exception:
-        st.session_state["saved_start"] = date(2026, 1, 1)
+        pass
+
+# Inizializziamo le date leggendole dal file locale (o usiamo i default se il file non esiste)
+if "saved_start" not in st.session_state:
+    st.session_state["saved_start"] = carica_data_salvata(FILE_DATA_INIZIO, date(2026, 1, 1))
 
 if "saved_end" not in st.session_state:
-    try:
-        url_end = st.query_params.get("exp_end")
-        st.session_state["saved_end"] = datetime.strptime(url_end, "%Y-%m-%d").date() if url_end else date.today()
-    except Exception:
-        st.session_state["saved_end"] = date.today()
+    st.session_state["saved_end"] = carica_data_salvata(FILE_DATA_FINE, date.today())
 
 with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato)", expanded=False):
     st.write("Seleziona un periodo qualsiasi per estrarre dal flusso di Intervals tutte le attività, consultare i metri e aprire le relative mappe in tempo reale.")
@@ -125,11 +139,11 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
         data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["saved_end"], key="widget_end")
         
     if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
-        # Salviamo le date scelte in modo permanente nello stato e nella URL
+        # Salviamo in memoria e scriviamo fisicamente sul file (sopravvive ai riavvii!)
         st.session_state["saved_start"] = data_inizio_custom
         st.session_state["saved_end"] = data_fine_custom
-        st.query_params["exp_start"] = data_inizio_custom.strftime("%Y-%m-%d")
-        st.query_params["exp_end"] = data_fine_custom.strftime("%Y-%m-%d")
+        salva_data_su_file(FILE_DATA_INIZIO, data_inizio_custom)
+        salva_data_su_file(FILE_DATA_FINE, data_fine_custom)
         
         with st.spinner("Interrogazione in corso..."):
             url_custom = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
