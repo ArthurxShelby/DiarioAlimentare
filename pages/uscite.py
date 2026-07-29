@@ -123,30 +123,11 @@ def salva_data_su_file(file_path, data_val):
         pass
 
 # Inizializziamo le date leggendole dal file locale (o usiamo i default se il file non esiste)
-# Inizializziamo le date leggendole dal file locale (o usiamo i default se il file non esiste)
 if "saved_start" not in st.session_state:
     st.session_state["saved_start"] = carica_data_salvata(FILE_DATA_INIZIO, date(2026, 1, 1))
 
 if "saved_end" not in st.session_state:
     st.session_state["saved_end"] = carica_data_salvata(FILE_DATA_FINE, date.today())
-
-# === INCOLLA QUI IL CSS PER INGRANDIRE IL CALENDARIO ===
-st.markdown("""
-    <style>
-        /* Aumenta la dimensione dei caratteri dei giorni, dei mesi e delle intestazioni nel calendario */
-        div[data-baseweb="calendar"] * {
-            font-size: 1.15rem !important;
-        }
-        /* Aumenta la dimensione del testo del selettore anno/mese */
-        div[data-baseweb="calendar"] select {
-            font-size: 1.1rem !important;
-        }
-        /* Aumenta la dimensione del testo all'interno della casella di input della data (indicata dalla freccia) */
-        div[data-baseweb="input"] input {
-            font-size: 1.15rem !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
 
 with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato)", expanded=False):
     st.write("Seleziona un periodo qualsiasi per estrarre dal flusso di Intervals tutte le attività, consultare i metri e aprire le relative mappe in tempo reale.")
