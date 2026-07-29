@@ -502,21 +502,15 @@ else:
         "Seleziona Profilo / Calcolo:",
         [
             "Calcolo Standard Mifflin-St Jeor",
-            "Mantenimento Leggero",
-            "Definizione",
-            "Massa",
         ]
     )
-    
-    obj_kcal = round(tdee, 0)
-    if "Definizione" in profilo_altro_utente:
-        obj_kcal = round(tdee * 0.85, 0)
-    elif "Massa" in profilo_altro_utente:
-        obj_kcal = round(tdee * 1.15, 0)
-        
-    obj_carbo = round((obj_kcal * 0.50) / 4, 1)
-    obj_prot = round((obj_kcal * 0.25) / 4, 1)
-    obj_grassi = round((obj_kcal * 0.25) / 9, 1)
+
+    if "Calcolo Standard Mifflin-St Jeor" in profilo_altro_utente:
+        obj_kcal = round(tdee, 0)
+        obj_carbo = round((obj_kcal * 0.50) / 4, 1)
+        obj_prot = round((obj_kcal * 0.25) / 4, 1)
+        obj_grassi = round((obj_kcal * 0.25) / 9, 1)
+        st.sidebar.markdown("**Modalità Attiva:**\n*Calcolo Mifflin-St Jeor Standard*")
 
 db_diario_atleta = atleta_data.setdefault("db_diario", {})
 if data_str not in db_diario_atleta:
