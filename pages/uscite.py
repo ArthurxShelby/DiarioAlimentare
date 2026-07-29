@@ -141,6 +141,10 @@ st.markdown("""
         div[data-baseweb="calendar"] select {
             font-size: 1.1rem !important;
         }
+        /* Aumenta la dimensione del testo all'interno della casella di input della data (indicata dalla freccia) */
+        div[data-baseweb="input"] input {
+            font-size: 1.15rem !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
