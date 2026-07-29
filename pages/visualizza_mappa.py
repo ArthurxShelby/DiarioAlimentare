@@ -34,6 +34,9 @@ if act_id:
                 data = response.json()
                 all_streams = data if isinstance(data, list) else [data]
                 
+                # ---> AGGIUNGI QUESTA RIGA PER IL DEBUG <---
+                print("Tipi di flussi ricevuti da Intervals:", [s.get("type") for s in all_streams if isinstance(s, dict)])
+                
                 # Cerchiamo il flusso delle coordinate GPS (latlng)
                 for stream in all_streams:
                     if isinstance(stream, dict) and stream.get("type") == "latlng":
