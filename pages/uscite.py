@@ -358,12 +358,11 @@ st.markdown("---")
 with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded=False):
     st.write("Fissa il range temporale di ricerca, il livello di aggregazione (Settimane/Mesi) e seleziona il parametro da analizzare.")
     
-    # Zona con i bottoni / filtri per inserire il range di ricerca e il selettore periodicità
     col_r1, col_r2, col_r3, col_r4 = st.columns([2, 2, 2, 2])
     with col_r1:
-        range_inizio = st.date_input("Inizio Range Grafico", value=st.session_state.get("saved_start", date(2026, 1, 1)), key="grafico_start")
+        range_inizio = st.date_input("Inizio Range Grafico", value=date(2026, 1, 1), key="grafico_start_indipendente")
     with col_r2:
-        range_fine = st.date_input("Fine Range Grafico", value=st.session_state.get("saved_end", date.today()), key="grafico_end")
+        range_fine = st.date_input("Fine Range Grafico", value=date.today(), key="grafico_end_indipendente")
     with col_r3:
         tipo_aggregazione = st.selectbox(
             "Raggruppa per",
@@ -377,7 +376,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             key="selettore_metrica_grafico"
         )
 
-    # Recupero o filtraggio delle attività basato sul range selezionato
     url_grafico = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_grafico = {
         "oldest": range_inizio.strftime("%Y-%m-%d"),
@@ -391,7 +389,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
         if dati_raw_grafico:
             df_g = pd.DataFrame(dati_raw_grafico)
             
-            # Pulizia e preparazione dati di base
             df_g['data_fmt'] = pd.to_datetime(df_g['start_date_local'])
             df_g['data_solo'] = df_g['data_fmt'].dt.date
             df_g['Km'] = df_g.get('distance', 0).fillna(0) / 1000.0
@@ -400,7 +397,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             df_g['titolo_uscita'] = df_g.get('name', 'Uscita senza nome')
             df_g['id_str'] = df_g.get('id').astype(str)
 
-            # Gestione aggregazione (Giornaliero, Settimanale, Mensile)
             if tipo_aggregazione == "Settimanale":
                 df_g['periodo_chiave'] = df_g['data_fmt'].dt.to_period('W').dt.start_time.dt.date
                 df_aggregato = df_g.groupby('periodo_chiave').agg({
@@ -421,9 +417,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                 df_g['periodo_chiave'] = df_g['data_solo']
                 df_aggregato = df_g.copy().rename(columns={'data_solo': 'asse_x'})
 
-            # Creazione grafico a barre (colonne blu) editabile passando la chiave periodo nel customdata
             fig_stat = go.Figure()
-            
             fig_stat.add_trace(go.Bar(
                 x=df_aggregato['asse_x'],
                 y=df_aggregato[scelta_metrica],
@@ -441,17 +435,14 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                 clickmode='event+select'
             )
 
-            # Visualizzazione del grafico e intercettazione del click
             event_selezionato = st.plotly_chart(fig_stat, use_container_width=True, on_select="rerun", key="chart_uscite_interattivo")
 
-            # Estrazione del periodo associato alla barra cliccata
             periodo_selezionato = None
             if event_selezionato and "selection" in event_selezionato and event_selezionato["selection"]["points"]:
                 punto = event_selezionato["selection"]["points"][0]
                 if "customdata" in punto:
                     periodo_selezionato = punto["customdata"]
 
-            # Filtro delle uscite in base all'aggregazione e alla barra selezionata
             if periodo_selezionato:
                 p_date = datetime.strptime(periodo_selezionato, "%Y-%m-%d").date()
                 df_filtrato_periodo = df_g[df_g['periodo_chiave'] == p_date]
@@ -461,14 +452,12 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             if df_filtrato_periodo.empty:
                 df_filtrato_periodo = df_g
 
-            # Calcolo dei totali dinamici (del range intero o della colonna selezionata)
             tot_km_periodo = df_filtrato_periodo['Km'].sum()
             tot_d_periodo = df_filtrato_periodo['D+'].sum()
             tot_ore_periodo = df_filtrato_periodo['Ore in sella'].sum()
 
             st.markdown("---")
             
-            # Mostra i totali adattati con l'indicazione precisa del periodo di riferimento nelle parentesi
             if periodo_selezionato:
                 p_date_str = datetime.strptime(periodo_selezionato, "%Y-%m-%d").strftime("%d/%m/%Y")
                 if tipo_aggregazione == "Settimanale":
@@ -490,7 +479,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
 
             st.markdown("---")
             
-            # Costruzione del menu a discesa con le sole uscite della fascia/periodo selezionato
             opzioni_tendina = {
                 f"{row['data_solo']} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] 
                 for _, row in df_filtrato_periodo.sort_values('data_fmt', ascending=False).iterrows()
@@ -512,7 +500,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
 
                 st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} ({dati_uscita_corrente['data_solo']})")
                 
-                # Caricamento stream e mappa per l'uscita selezionata dal menu
                 clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
                 target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
                 
@@ -542,7 +529,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                         break
 
                         if lats_g and lons_g and len(lats_g) > 0:
-                            # Mappa racchiusa nell'expander con selettore tipo mappa (Satellite / Standard) e scaricamento GPX
                             with st.expander("🗺️ Visualizza Mappa e Download GPX", expanded=False):
                                 tipo_mappa = st.radio(
                                     "Stile Mappa",
@@ -592,7 +578,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                 
                                 st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
 
-                                # Generazione file GPX per il download
                                 linee_gpx = [
                                     '<?xml version="1.0" encoding="UTF-8"?>',
                                     '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
@@ -624,17 +609,17 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
+
 # --- 4. ANALISI SCIENTIFICA E CARICO DI ALLENAMENTO (TSS, CTL, ATL, TSB) ---
 st.markdown("---")
 with st.expander("🧬 Analisi Scientifica: TSS, Carico e Forma Fisica (CTL/ATL/TSB)", expanded=False):
     st.write("Valutazione avanzata dello stress allenante, della potenza, della frequenza cardiaca e degli indici di condizione atletica.")
 
-    # Filtro temporale dedicato o sincronizzato con i dati generali
     col_a1, col_a2 = st.columns(2)
     with col_a1:
-        start_sci = st.date_input("Inizio Analisi Scientifica", value=st.session_state.get("saved_start", date(2026, 1, 1)), key="sci_start")
+        start_sci = st.date_input("Inizio Analisi Scientifica", value=date(2026, 1, 1), key="sci_start_indipendente")
     with col_a2:
-        end_sci = st.date_input("Fine Analisi Scientifica", value=st.session_state.get("saved_end", date.today()), key="sci_end")
+        end_sci = st.date_input("Fine Analisi Scientifica", value=date.today(), key="sci_end_indipendente")
 
     url_sci = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_sci = {
@@ -650,34 +635,35 @@ with st.expander("🧬 Analisi Scientifica: TSS, Carico e Forma Fisica (CTL/ATL/
         if dati_raw_sci:
             df_s = pd.DataFrame(dati_raw_sci)
             
-            # Pulizia e mappatura campi scientifici
             df_s['data_fmt'] = pd.to_datetime(df_s['start_date_local'])
             df_s['data_solo'] = df_s['data_fmt'].dt.date
-            df_s['TSS'] = df_s.get('icu_training_load', 0).fillna(0)
-            df_s['Watt_Medi'] = df_s.get('device_watts', 0).fillna(0)
-            if 'average_watts' in df_s.columns:
-                df_s['Watt_Medi'] = df_s['average_watts'].fillna(df_s['Watt_Medi'])
-            df_s['BPM_Medi'] = df_s.get('average_heartrate', 0).fillna(0)
+            df_s['TSS'] = pd.to_numeric(df_s.get('icu_training_load', 0), errors='coerce').fillna(0)
+            
+            watts_col = 'average_watts' if 'average_watts' in df_s.columns else 'device_watts'
+            df_s['Watt_Medi'] = pd.to_numeric(df_s.get(watts_col, 0), errors='coerce').fillna(0)
+            df_s['BPM_Medi'] = pd.to_numeric(df_s.get('average_heartrate', 0), errors='coerce').fillna(0)
             df_s['Titolo'] = df_s.get('name', 'Uscita')
 
-            # Ordinamento cronologico per calcoli di fitness (CTL/ATL)
             df_s = df_s.sort_values('data_fmt').reset_index(drop=True)
 
-            # Calcolo approssimativo/stimato di CTL (Fitness - 42 giorni) e ATL (Fatigue - 7 giorni)
             df_s['CTL'] = df_s['TSS'].ewm(span=42, adjust=False).mean()
             df_s['ATL'] = df_s['TSS'].ewm(span=7, adjust=False).mean()
             df_s['TSB'] = df_s['CTL'].shift(1) - df_s['ATL'].shift(1)
             df_s['TSB'] = df_s['TSB'].fillna(0)
 
-            # Efficienza (EF): Rapporto Watt / BPM
-            df_s['EF'] = df_s.apply(lambda row: (row['Watt_Medi'] / row['BPM_Medi']) if row['BPM_Medi'] > 0 and row['Watt_Medi'] > 0 else 0, axis=1)
+            def calcola_ef(row):
+                if row['BPM_Medi'] > 0 and row['Watt_Medi'] > 0:
+                    return row['Watt_Medi'] / row['BPM_Medi']
+                return 0
 
-            # Metriche riassuntive globali del periodo
+            df_s['EF'] = df_s.apply(calcola_ef, axis=1)
+
             tot_tss = df_s['TSS'].sum()
-            media_tss_giorn = df_s['TSS'].mean()
             media_watt = df_s[df_s['Watt_Medi'] > 0]['Watt_Medi'].mean()
             media_bpm = df_s[df_s['BPM_Medi'] > 0]['BPM_Medi'].mean()
-            media_ef = df_s[df_s['EF'] > 0]['EF'].mean()
+            
+            df_ef_validi = df_s[df_s['EF'] > 0]
+            media_ef = df_ef_validi['EF'].mean() if not df_ef_validi.empty else 0
 
             st.markdown("#### 📊 Sintesi Indicatori Interni ed Esterni")
             col_m1, col_m2, col_m3, col_m4 = st.columns(4)
@@ -688,10 +674,8 @@ with st.expander("🧬 Analisi Scientifica: TSS, Carico e Forma Fisica (CTL/ATL/
 
             st.markdown("---")
 
-            # Grafico combinato Performance Management Chart (TSS, CTL, ATL, TSB con asse y secondario)
             fig_pmc = go.Figure()
 
-            # Barre TSS giornaliero
             fig_pmc.add_trace(go.Bar(
                 x=df_s['data_solo'],
                 y=df_s['TSS'],
@@ -699,7 +683,6 @@ with st.expander("🧬 Analisi Scientifica: TSS, Carico e Forma Fisica (CTL/ATL/
                 marker=dict(color='rgba(31, 119, 180, 0.5)')
             ))
 
-            # Linea CTL (Fitness)
             fig_pmc.add_trace(go.Scatter(
                 x=df_s['data_solo'],
                 y=df_s['CTL'],
@@ -708,7 +691,6 @@ with st.expander("🧬 Analisi Scientifica: TSS, Carico e Forma Fisica (CTL/ATL/
                 line=dict(color='blue', width=2)
             ))
 
-            # Linea ATL (Fatica)
             fig_pmc.add_trace(go.Scatter(
                 x=df_s['data_solo'],
                 y=df_s['ATL'],
@@ -717,7 +699,6 @@ with st.expander("🧬 Analisi Scientifica: TSS, Carico e Forma Fisica (CTL/ATL/
                 line=dict(color='magenta', width=2)
             ))
 
-            # Linea TSB (Forma / Stress Balance) su asse y secondario
             fig_pmc.add_trace(go.Scatter(
                 x=df_s['data_solo'],
                 y=df_s['TSB'],
@@ -748,7 +729,6 @@ with st.expander("🧬 Analisi Scientifica: TSS, Carico e Forma Fisica (CTL/ATL/
             st.markdown("---")
             st.markdown("#### 🧠 Resoconto e Valutazione Scientifica")
 
-            # Generazione automatica di un testo valutativo basato sui dati correnti
             ultimo_ctl = df_s['CTL'].iloc[-1] if not df_s.empty else 0
             ultimo_tsb = df_s['TSB'].iloc[-1] if not df_s.empty else 0
 
