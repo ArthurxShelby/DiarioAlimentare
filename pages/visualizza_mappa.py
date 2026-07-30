@@ -63,13 +63,11 @@ try:
                         lat_data = stream.get("data", [])
                         lon_data = stream.get("data2", [])
                         
-                        # Caso A: Coordinate separate (data e data2)
                         if isinstance(lat_data, list) and isinstance(lon_data, list) and len(lat_data) == len(lon_data) and len(lat_data) > 0:
                             for lat, lon in zip(lat_data, lon_data):
                                 if lat is not None and lon is not None:
                                     lats.append(float(lat))
                                     lons.append(float(lon))
-                        # Caso B: Coordinate in un unico array di coppie [lat, lon]
                         elif isinstance(lat_data, list) and len(lat_data) > 0:
                             for pt in lat_data:
                                 if isinstance(pt, (list, tuple)) and len(pt) >= 2:
@@ -112,7 +110,6 @@ try:
         st.markdown("---")
 
         if lats and lons:
-            # Creazione sicura del contenuto GPX riga per riga
             linee = [
                 '<?xml version="1.0" encoding="UTF-8"?>',
                 '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
@@ -143,22 +140,21 @@ try:
                     label_visibility="collapsed"
                 )
 
-            # Pulsante di download diretto tramite HTML/Base64 per massima compatibilità
             b64 = base64.b64encode(contenuto_gpx.encode()).decode()
             href = f'<a href="data:application/gpx+xml;base64,{b64}" download="{nome_file}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-bottom: 1rem;">📥 Scarica Tracciato GPX</div></a>'
             st.markdown(href, unsafe_allow_html=True)
 
-            # Configurazione delle tile layer di sfondo per Plotly
             if "Satellite" in stile_mappa:
                 basemap_style = "white-bg"
                 tile_source = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                labels_source = "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
             else:
                 basemap_style = "open-street-map"
                 tile_source = None
+                labels_source = None
 
             fig = go.Figure()
 
-            # Tracciato GPS
             fig.add_trace(go.Scattermapbox(
                 lat=lats,
                 lon=lons,
@@ -167,7 +163,6 @@ try:
                 name='Tracciato'
             ))
 
-            # Marker Partenza e Arrivo
             fig.add_trace(go.Scattermapbox(
                 lat=[lats[0], lats[-1]],
                 lon=[lons[0], lons[-1]],
@@ -183,12 +178,22 @@ try:
                 zoom=11
             )
 
+            layers_list = []
             if tile_source:
-                mapbox_config["layers"] = [{
+                layers_list.append({
                     "sourcetype": "raster",
                     "source": [tile_source],
                     "below": "traces"
-                }]
+                })
+            if labels_source:
+                layers_list.append({
+                    "sourcetype": "raster",
+                    "source": [labels_source],
+                    "below": "traces"
+                })
+                
+            if layers_list:
+                mapbox_config["layers"] = layers_list
 
             fig.update_layout(
                 mapbox=mapbox_config,
@@ -197,7 +202,6 @@ try:
                 showlegend=False
             )
 
-            # Attiviamo la toolbar per consentire lo zoom a rotellina e la visualizzazione a schermo intero
             st.plotly_chart(
                 fig, 
                 use_container_width=True, 
