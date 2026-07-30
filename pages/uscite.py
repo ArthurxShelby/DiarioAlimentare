@@ -353,7 +353,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                         st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_streams.status_code})")
                                 except Exception as e:
                                     st.error(f"Errore durante il caricamento della mappa: {e}")
-## --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE ---
+# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE ---
 st.markdown("---")
 st.subheader("📈 Analisi Grafica e Dettaglio Uscite per Metrica")
 
@@ -470,8 +470,19 @@ with st.container(border=True):
 
             st.markdown("---")
             
-            # Mostra i totali adattati (Intero periodo o Barra selezionata)
-            titolo_totali = "Totale Selezionato (Barra)" if periodo_selezionato else "Totale Intero Periodo"
+            # Mostra i totali adattati con l'indicazione precisa del periodo di riferimento nelle parentesi
+            if periodo_selezionato:
+                p_date_str = datetime.strptime(periodo_selezionato, "%Y-%m-%d").strftime("%d/%m/%Y")
+                if tipo_aggregazione == "Settimanale":
+                    etichetta_periodo = f"Settimana dal {p_date_str}"
+                elif tipo_aggregazione == "Mensile":
+                    etichetta_periodo = f"Mese di {datetime.strptime(periodo_selezionato, '%Y-%m-%d').strftime('%B %Y')}"
+                else:
+                    etichetta_periodo = f"Giorno {p_date_str}"
+                titolo_totali = f"Totale Selezionato ({etichetta_periodo})"
+            else:
+                titolo_totali = "Totale Intero Periodo"
+
             st.markdown(f"#### 📊 {titolo_totali}")
             
             col_tot1, col_tot2, col_tot3 = st.columns(3)
