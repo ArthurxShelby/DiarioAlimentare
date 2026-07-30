@@ -1,3 +1,4 @@
+
 import streamlit as st
 st.set_page_config(layout="wide")
 import requests
@@ -123,11 +124,11 @@ if resp_global.status_code == 200:
                         m_c2.metric("D+ Totale", f"{d_macro:,} m")
                         m_c3.metric("Ore in Sella", f"{ore_macro} h")
                         
-                        # --- SEZIONE DIAGRAMMA E BOX LATERALE DELLE USCITE ---
+                        # --- SEZIONE DIAGRAMMA E SELETTORI SPOSTATI A DESTRA ---
                         st.markdown("---")
-                        c_diag_titolo, c_metrica_scelta, c_aggruppa_scelta = st.columns([2, 2, 2])
+                        c_diag_titolo, c_metrica_scelta, c_aggruppa_scelta = st.columns([1.5, 2.2, 2.2])
                         with c_diag_titolo:
-                            st.markdown("##### 📈 Analisi Grafica Periodo")
+                            st.markdown("##### 📈 Analisi Grafica")
                         with c_metrica_scelta:
                             tipo_metrica = st.selectbox(
                                 "Metrica Grafico",
@@ -143,8 +144,8 @@ if resp_global.status_code == 200:
                                 label_visibility="collapsed"
                             )
                         
-                        # Layout a due colonne: a sinistra il grafico, a destra il riquadro richiesto per le uscite del periodo selezionato
-                        col_grafico_principale, col_elenco_lato = st.columns([2, 1])
+                        # Layout a due colonne: a sinistra il grafico più alto, a destra il riquadro uscite esteso
+                        col_grafico_principale, col_elenco_lato = st.columns([1.8, 1.2])
                         
                         if "start_date_local" in df_macro.columns:
                             df_macro["data_dt"] = pd.to_datetime(df_macro["start_date_local"].apply(lambda x: x.split("T")[0]))
@@ -152,7 +153,7 @@ if resp_global.status_code == 200:
                             df_macro["dislivello_m"] = df_macro.get("total_elevation_gain", pd.Series([0])).fillna(0)
                             
                             if tipo_aggruppamento == "Mesi":
-                                df_macro["periodo"] = df_macro["data_dt"].dt.to_period("M").astype(str)
+                                df_macro["periodo"] = df_macro["data_dt"].dt.strftime("%Y-%m")
                             else:
                                 df_macro["periodo"] = df_macro["data_dt"].dt.strftime("%Y-W%V")
                                 
@@ -177,7 +178,7 @@ if resp_global.status_code == 200:
                             fig_bar.update_traces(marker_color=BLU_DIARIO, textfont_size=12, textangle=0, textposition="outside")
                             fig_bar.update_layout(
                                 margin=dict(l=10, r=10, t=10, b=10),
-                                height=280,
+                                height=380,
                                 xaxis_title="",
                                 yaxis_title=y_label,
                                 paper_bgcolor="rgba(0,0,0,0)",
@@ -196,7 +197,6 @@ if resp_global.status_code == 200:
                                     periodo_selezionato = punti[0].get("x")
                                     st.session_state["ultimo_periodo_cliccato"] = periodo_selezionato
                             
-                            # Se l'utente ha cliccato in precedenza, manteniamo la selezione attiva
                             if "ultimo_periodo_cliccato" in st.session_state and not periodo_selezionato:
                                 periodo_selezionato = st.session_state["ultimo_periodo_cliccato"]
 
@@ -205,11 +205,10 @@ if resp_global.status_code == 200:
                                 if periodo_selezionato:
                                     st.caption(f"Filtro attivo: **{periodo_selezionato}**")
                                     
-                                    # Filtriamo le attività del dataframe che appartengono al periodo selezionato
                                     df_uscite_periodo = df_macro[df_macro["periodo"] == periodo_selezionato]
                                     
                                     if not df_uscite_periodo.empty:
-                                        with st.container(height=260):
+                                        with st.container(height=350):
                                             for _, row in df_uscite_periodo.iterrows():
                                                 nome_uscita = row.get("name", "Uscita")
                                                 data_uscita = row.get("start_date_local", "").split("T")[0]
@@ -220,9 +219,11 @@ if resp_global.status_code == 200:
                                                     st.markdown(f"**{nome_uscita}** ({data_uscita})")
                                                     st.markdown(f"📏 {km_uscita} km &nbsp;|&nbsp; ⛰️ {d_uscita} m")
                                     else:
-                                        st.info("Nessuna uscita trovata per questo periodo.")
+                                        with st.container(height=350):
+                                            st.info("Nessuna uscita trovata per questo periodo.")
                                 else:
-                                    st.info("👆 Clicca su una barra del diagramma per visualizzare qui le relative uscite.")
+                                    with st.container(height=350):
+                                        st.info("👆 Clicca su una barra del diagramma per visualizzare qui le relative uscite.")
                         # ----------------------------------------------------------------------
                         
                     else:
