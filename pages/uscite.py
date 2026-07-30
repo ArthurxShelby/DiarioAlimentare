@@ -1,18 +1,6 @@
 
 import streamlit as st
 st.set_page_config(layout="wide")
-
-# --- CSS PER ALLINEAMENTO LARGHEZZA FILO A FILO ---
-st.markdown("""
-<style>
-    .block-container {
-        max-width: 100% !important;
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 import requests
 from datetime import datetime, date
 import pandas as pd
@@ -55,33 +43,6 @@ def safe_int(val):
         return int(float(val))
     except (ValueError, TypeError):
         return None
-
-# --- Gestione Salvataggio Date ---
-FILE_DATA_INIZIO = "ultima_data_inizio.txt"
-FILE_DATA_FINE = "ultima_data_fine.txt"
-
-def carica_data_salvata(file_path, default_val):
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, "r") as f:
-                val = f.read().strip()
-                return datetime.strptime(val, "%Y-%m-%d").date()
-        except Exception:
-            pass
-    return default_val
-
-def salva_data_su_file(file_path, data_val):
-    try:
-        with open(file_path, "w") as f:
-            f.write(data_val.strftime("%Y-%m-%d"))
-    except Exception:
-        pass
-
-if "saved_start" not in st.session_state:
-    st.session_state["saved_start"] = carica_data_salvata(FILE_DATA_INIZIO, date(2026, 1, 1))
-
-if "saved_end" not in st.session_state:
-    st.session_state["saved_end"] = carica_data_salvata(FILE_DATA_FINE, date.today())
 
 # --- 1. STATISTICHE DINAMICHE DIRETTAMENTE DA INTERVALS (Dal 15/11/2025) ---
 with st.spinner("Sincronizzazione dati da Intervals.icu in corso..."):
@@ -128,20 +89,34 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. CONTENITORE PRINCIPALE (ANALISI GRAFICA) ---
-with st.container(border=True):
-    st.subheader("📈 Analisi Grafica e Uscite Correlate")
-    
-    col_g1, col_g2 = st.columns(2)
-    with col_g1:
-        tipo_metrica = st.selectbox("Seleziona Metrica Grafico", ["Chilometri (km)", "Dislivello (m)", "Tempo"])
-    with col_g2:
-        tipo_periodo = st.selectbox("Raggruppamento Temporale", ["Mesi", "Settimane"])
-        
-    st.info("Area riservata ai grafici riepilogativi basati sulle selezioni sopra.")
+# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza su File per Riavvii) ---
+FILE_DATA_INIZIO = "ultima_data_inizio.txt"
+FILE_DATA_FINE = "ultima_data_fine.txt"
 
-# --- 3. EXPANDER DI RICERCA STORICA E FILTRI ---
-with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato e Filtri)", expanded=True):
+def carica_data_salvata(file_path, default_val):
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r") as f:
+                val = f.read().strip()
+                return datetime.strptime(val, "%Y-%m-%d").date()
+        except Exception:
+            pass
+    return default_val
+
+def salva_data_su_file(file_path, data_val):
+    try:
+        with open(file_path, "w") as f:
+            f.write(data_val.strftime("%Y-%m-%d"))
+    except Exception:
+        pass
+
+if "saved_start" not in st.session_state:
+    st.session_state["saved_start"] = carica_data_salvata(FILE_DATA_INIZIO, date(2026, 1, 1))
+
+if "saved_end" not in st.session_state:
+    st.session_state["saved_end"] = carica_data_salvata(FILE_DATA_FINE, date.today())
+
+with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato e Filtri)", expanded=False):
     st.write("Seleziona un periodo, filtra per data specifica o cerca per nome dell'uscita all'interno del flusso di Intervals.")
     
     col_c1, col_c2 = st.columns(2)
@@ -160,7 +135,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
     if attiva_data_singola:
         data_singola_specifica = st.date_input("Seleziona Data Specifica", value=date.today(), key="widget_single_date")
 
-    if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom", use_container_width=True):
+    if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
         st.session_state["saved_start"] = data_inizio_custom
         st.session_state["saved_end"] = data_fine_custom
         salva_data_su_file(FILE_DATA_INIZIO, data_inizio_custom)
@@ -194,10 +169,6 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
             else:
                 st.error(f"Errore di connessione a Intervals.icu: {resp_custom.status_code}")
 
-# --- 4. USCITE DEL PERIODO (CORRELATE) ---
-with st.container(border=True):
-    st.markdown("### 📌 Uscite del Periodo (Correlate)")
-    
     if "custom_activities" in st.session_state and st.session_state["custom_activities"]:
         attivita_da_mostrare = st.session_state["custom_activities"]
         if filtro_nome.strip():
@@ -236,17 +207,17 @@ with st.container(border=True):
                         st.session_state[key_toggle] = False
                     
                     with st.container(border=True):
-                        col_info, col_btn1_map, col_btn2_page = st.columns([3, 1, 1])
+                        col_info, col_btn1, col_btn2 = st.columns([3, 1, 1])
                         with col_info:
                             st.markdown(f"<h3 style='margin: 0; padding-bottom: 5px;'>{act_title} <span style='font-size: 1.1rem; color: #999;'>({act_date})</span></h3>", unsafe_allow_html=True)
                             st.markdown(f"<p style='font-size: 1.2rem; margin: 0;'>Distanza: <b>{act_dist} km</b> &nbsp;|&nbsp; D+: <b>{act_elev} m</b> &nbsp;|&nbsp; Tempo: <b>{act_time}</b></p>", unsafe_allow_html=True)
-                        with col_btn1_map:
+                        with col_btn1:
                             st.write("") 
                             btn_label = "🗺️ Nascondi Mappa" if st.session_state[key_toggle] else "🗺️ Anteprima Mappa"
                             if st.button(btn_label, key=f"btn_preview_{act_id}_{idx}", use_container_width=True):
                                 st.session_state[key_toggle] = not st.session_state[key_toggle]
                                 st.rerun()
-                        with col_btn2_page:
+                        with col_btn2:
                             st.write("") 
                             if st.button("🔍 Pagina Dedicata", key=f"btn_custom_{act_id}_{idx}", use_container_width=True):
                                 st.session_state["selected_activity_id"] = act_id
@@ -383,5 +354,3 @@ with st.container(border=True):
                                         st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_streams.status_code})")
                                 except Exception as e:
                                     st.error(f"Errore durante il caricamento della mappa: {e}")
-    else:
-        st.write("Qui verranno visualizzate le schede delle singole uscite filtrate in base all'analisi grafica o ai parametri selezionati.")
