@@ -280,41 +280,57 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                                 )
                                             
                                             if "Satellite" in stile_mappa_prev:
-                                                basemap_style = "white-bg"
-                                                tile_source = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                            else:
-                                                basemap_style = "open-street-map"
-                                                tile_source = None
+                                            basemap_style = "white-bg"
+                                            # Tile di sfondo (Immagini Satellitari)
+                                            tile_source = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                            # Tile di sovrapposizione con i nomi di luoghi, strade e confini (Reference Layer)
+                                            labels_source = "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                                        else:
+                                            basemap_style = "open-street-map"
+                                            tile_source = None
+                                            labels_source = None
 
-                                            fig = go.Figure()
-                                            fig.add_trace(go.Scattermapbox(
-                                                lat=lats, lon=lons, mode='lines',
-                                                line=dict(width=4, color='dodgerblue'), name='Tracciato'
-                                            ))
-                                            fig.add_trace(go.Scattermapbox(
-                                                lat=[lats[0], lats[-1]], lon=[lons[0], lons[-1]], mode='markers',
-                                                marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
-                                            ))
+                                        fig = go.Figure()
+                                        fig.add_trace(go.Scattermapbox(
+                                            lat=lats, lon=lons, mode='lines',
+                                            line=dict(width=4, color='dodgerblue'), name='Tracciato'
+                                        ))
+                                        fig.add_trace(go.Scattermapbox(
+                                            lat=[lats[0], lats[-1]], lon=[lons[0], lons[-1]], mode='markers',
+                                            marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
+                                        ))
+                                        
+                                        mapbox_config = dict(
+                                            style=basemap_style,
+                                            center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
+                                            zoom=11
+                                        )
+
+                                        # Configurazione dei layer raster multipli per Plotly
+                                        layers_list = []
+                                        if tile_source:
+                                            layers_list.append({
+                                                "sourcetype": "raster",
+                                                "source": [tile_source],
+                                                "below": "traces"
+                                            })
+                                        if labels_source:
+                                            # Questo layer viene posizionato sopra il tracciato per garantire la leggibilità dei nomi
+                                            layers_list.append({
+                                                "sourcetype": "raster",
+                                                "source": [labels_source],
+                                                "below": "traces"  # Oppure sopra le tracce se preferisci i nomi sopra la linea blu
+                                            })
                                             
-                                            mapbox_config = dict(
-                                                style=basemap_style,
-                                                center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
-                                                zoom=11
-                                            )
+                                        if layers_list:
+                                            mapbox_config["layers"] = layers_list
 
-                                            if tile_source:
-                                                mapbox_config["layers"] = [{
-                                                    "sourcetype": "raster",
-                                                    "source": [tile_source],
-                                                    "below": "traces"
-                                                }]
-
-                                            fig.update_layout(
-                                                mapbox=mapbox_config,
-                                                margin=dict(l=0, r=0, t=0, b=0),
-                                                height=450,
-                                                showlegend=False
-                                            )
+                                        fig.update_layout(
+                                            mapbox=mapbox_config,
+                                            margin=dict(l=0, r=0, t=0, b=0),
+                                            height=450,
+                                            showlegend=False
+                                        )
                                             
                                             st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
                                             
