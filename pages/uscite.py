@@ -44,7 +44,7 @@ def safe_int(val):
     except (ValueError, TypeError):
         return None
 
-# --- 1. STATISTICHE DINAMICHE GLOBALI & MACRO INDIPENDENTE ---
+# --- 1. STATISTICHE DINAMICHE DIRETTAMENTE DA INTERVALS (Dal 15/11/2025) ---
 with st.spinner("Sincronizzazione dati da Intervals.icu in corso..."):
     url_global = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_global = {
@@ -62,16 +62,19 @@ if resp_global.status_code == 200:
     if activities_net:
         df_activities = pd.DataFrame(activities_net)
         
-        tot_km = round((df_activities.get("distance") if "distance" in df_activities else pd.Series([0])).fillna(0).sum() / 1000.0, 2)
-        tot_dislivello = int((df_activities.get("total_elevation_gain") if "total_elevation_gain" in df_activities else pd.Series([0])).fillna(0).sum())
+        tot_km = round(df_activities.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
+        tot_dislivello = int(df_activities.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
         
         st.markdown("---")
         st.subheader("📊 Statistiche Dinamiche e Riepilogo (TCR - Dal 15/11/2025)")
         
-        # Layout principale: Colonna sinistra per le metriche, Colonna destra per la foto della bici
-        col_m_sinistra, col_m_destra = st.columns([2, 1])
+        col_m1, col_m2, col_img = st.columns(3)
         
-        with col_m_destra:
+        with col_m1:
+            st.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
+        with col_m2:
+            st.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
+        with col_img:
             st.subheader("TCR Advanced Pro 0")
             try:
                 cartella_script = os.path.dirname(__file__)
@@ -79,53 +82,7 @@ if resp_global.status_code == 200:
                 st.image(percorso_foto, use_container_width=True)
             except Exception:
                 st.warning("Immagine TCR.png non trovata.")
-                
-        with col_m_sinistra:
-            # Metriche globali cumulative (crescono uscita per uscita)
-            col_met1, col_met2 = st.columns(2)
-            col_met1.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
-            col_met2.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
-            
-            st.markdown("---")
-            st.markdown("#### 🎯 Statistiche Personalizzate (Range Dedicato)")
-            
-            # Sub-container o selettori dedicati esclusivamente alla nuova macro
-            col_d1, col_d2 = st.columns(2)
-            with col_d1:
-                sub_start = st.date_input("Data Inizio Range", value=date(date.today().year, 1, 1), key="macro_start_date")
-            with col_d2:
-                sub_end = st.date_input("Data Fine Range", value=date.today(), key="macro_end_date")
-                
-            # Chiamata API autonoma per la macro con il suo range esclusivo
-            try:
-                url_macro = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
-                params_macro = {
-                    "oldest": sub_start.strftime("%Y-%m-%d"),
-                    "newest": sub_end.strftime("%Y-%m-%d"),
-                    "iw": True
-                }
-                resp_macro = requests.get(url_macro, auth=("API_KEY", API_KEY.strip()), params=params_macro)
-                
-                if resp_macro.status_code == 200:
-                    dati_macro = resp_macro.json()
-                    if dati_macro:
-                        df_macro = pd.DataFrame(dati_macro)
-                        km_macro = round((df_macro.get("distance") if "distance" in df_macro else pd.Series([0])).fillna(0).sum() / 1000.0, 2)
-                        d_macro = int((df_macro.get("total_elevation_gain") if "total_elevation_gain" in df_macro else pd.Series([0])).fillna(0).sum())
-                        sec_macro = (df_macro.get("moving_time") if "moving_time" in df_macro else pd.Series([0])).fillna(0).sum()
-                        ore_macro = round(sec_macro / 3600.0, 1)
-                        
-                        m_c1, m_c2, m_c3 = st.columns(3)
-                        m_c1.metric("Km Totali", f"{km_macro:,.2f} km")
-                        m_c2.metric("D+ Totale", f"{d_macro:,} m")
-                        m_c3.metric("Ore in Sella", f"{ore_macro} h")
-                    else:
-                        st.info("Nessuna attività trovata in questo range personalizzato.")
-                else:
-                    st.warning("Impossibile recuperare i dati dedicati da Intervals.")
-            except Exception as e:
-                st.error(f"Errore nel calcolo della macro: {e}")
-                
+        
         st.markdown("---")
     else:
         st.info("Nessuna attività trovata a partire dal 15/11/2025.")
@@ -225,8 +182,8 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
             st.warning("Nessuna attività corrisponde al filtro di ricerca inserito.")
         else:
             df_filtrato_vista = pd.DataFrame(attivita_da_mostrare)
-            distanza_tot_km = round((df_filtrato_vista.get("distance") if "distance" in df_filtrato_vista else pd.Series([0])).fillna(0).sum() / 1000.0, 2)
-            dislivello_tot_m = int((df_filtrato_vista.get("total_elevation_gain") if "total_elevation_gain" in df_filtrato_vista else pd.Series([0])).fillna(0).sum())
+            distanza_tot_km = round(df_filtrato_vista.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
+            dislivello_tot_m = int(df_filtrato_vista.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
             num_uscite = len(df_filtrato_vista)
             
             st.markdown("---")
@@ -241,7 +198,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                     act_id = str(act.get("id"))
                     act_title = act.get("name", "Uscita senza titolo")
                     act_date = act.get("start_date_local", "").split("T")[0]
-                    act_dist = round((act.get("distance") or 0) / 1000, 2)
+                    act_dist = round(act.get("distance", 0) / 1000, 2)
                     act_time = timedelta_to_str(act.get("moving_time", 0))
                     act_elev = safe_int(act.get("total_elevation_gain")) or 0
                     
