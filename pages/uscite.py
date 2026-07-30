@@ -2,18 +2,18 @@
 import streamlit as st
 st.set_page_config(layout="wide")
 
-# --- CSS PER LARGHEZZA TOTALE FILO A FILO ---
+# --- CSS DEFINITIVO PER LARGHEZZA TOTALE ---
 st.markdown("""
 <style>
-    .main .block-container {
-        padding-left: 1rem;
-        padding-right: 1rem;
+    /* Forza il contenitore principale a usare il 100% dello schermo */
+    .block-container {
         max-width: 100% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
     }
-    /* Rimuove i margini di spaziatura delle colonne affiancate */
-    div[data-testid="column"] {
-        padding-left: 0px !important;
-        padding-right: 0px !important;
+    /* Estende la griglia delle colonne a tutto schermo */
+    div[data-testid="stHorizontalBlock"] {
+        max-width: 100% !important;
     }
 </style>
 """, unsafe_allow_html=True)
