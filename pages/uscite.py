@@ -353,3 +353,150 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                         st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_streams.status_code})")
                                 except Exception as e:
                                     st.error(f"Errore durante il caricamento della mappa: {e}")
+# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE ---
+st.markdown("---")
+st.subheader("📈 Analisi Grafica e Dettaglio Uscite per Metrica")
+
+with st.container(border=True):
+    st.write("Fissa il range temporale di ricerca e seleziona il parametro da analizzare graficamente.")
+    
+    # Zona con i bottoni / filtri per inserire il range di ricerca
+    col_r1, col_r2, col_r3 = st.columns([2, 2, 2])
+    with col_r1:
+        range_inizio = st.date_input("Inizio Range Grafico", value=st.session_state.get("saved_start", date(2026, 1, 1)), key="grafico_start")
+    with col_r2:
+        range_fine = st.date_input("Fine Range Grafico", value=st.session_state.get("saved_end", date.today()), key="grafico_end")
+    with col_r3:
+        scelta_metrica = st.selectbox(
+            "Seleziona Dato Grafico",
+            ["Km", "D+", "Ore in sella"],
+            key="selettore_metrica_grafico"
+        )
+
+    # Recupero o filtraggio delle attività basato sul range selezionato
+    url_grafico = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
+    params_grafico = {
+        "oldest": range_inizio.strftime("%Y-%m-%d"),
+        "newest": range_fine.strftime("%Y-%m-%d"),
+        "iw": True
+    }
+    resp_grafico = requests.get(url_grafico, auth=("API_KEY", API_KEY.strip()), params=params_grafico)
+
+    if resp_grafico.status_code == 200:
+        dati_raw_grafico = resp_grafico.json()
+        if dati_raw_grafico:
+            df_g = pd.DataFrame(dati_raw_grafico)
+            
+            # Pulizia e preparazione dati
+            df_g['data_fmt'] = pd.to_datetime(df_g['start_date_local']).dt.date
+            df_g = df_g.sort_values('data_fmt')
+            df_g['Km'] = df_g.get('distance', 0).fillna(0) / 1000.0
+            df_g['D+'] = df_g.get('total_elevation_gain', 0).fillna(0)
+            df_g['Ore in sella'] = df_g.get('moving_time', 0).fillna(0) / 3600.0
+            df_g['titolo_uscita'] = df_g.get('name', 'Uscita senza nome')
+            df_g['id_str'] = df_g.get('id').astype(str)
+
+            # Creazione grafico interattivo editabile
+            fig_stat = go.Figure()
+            y_data = df_g[scelta_metrica]
+            
+            fig_stat.add_trace(go.Scatter(
+                x=df_g['data_fmt'],
+                y=y_data,
+                mode='lines+markers',
+                name=scelta_metrica,
+                line=dict(width=3, color='#ff4b4b'),
+                marker=dict(size=8),
+                customdata=df_g[['id_str', 'titolo_uscita']].values
+            ))
+
+            fig_stat.update_layout(
+                title=f"Andamento temporale: {scelta_metrica}",
+                xaxis_title="Data",
+                yaxis_title=scelta_metrica,
+                margin=dict(l=20, r=20, t=40, b=20),
+                height=350,
+                clickmode='event+select'
+            )
+
+            # Visualizzazione del grafico e intercettazione del click
+            event_selezionato = st.plotly_chart(fig_stat, use_container_width=True, on_select="rerun", key="chart_uscite_interattivo")
+
+            # Gestione interazione al click sul grafico
+            uscita_selezionata_id = None
+            if event_selezionato and "selection" in event_selezionato and event_selezionato["selection"]["points"]:
+                punto = event_selezionato["selection"]["points"][0]
+                if "customdata" in punto:
+                    uscita_selezionata_id = punto["customdata"][0]
+
+            st.markdown("---")
+            
+            # Menu a discesa al fianco/correlato per la selezione puntuale dell'uscita
+            opzioni_tendina = {f"{row['data_fmt']} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] for _, row in df_g.iterrows()}
+            
+            col_sel1, col_sel2 = st.columns([2, 1])
+            with col_sel1:
+                scelta_utente_tendina = st.selectbox(
+                    "Seleziona Uscita Dettaglio",
+                    options=list(opzioni_tendina.keys()),
+                    index=list(opzioni_tendina.values()).index(uscita_selezionata_id) if uscita_selezionata_id in opzioni_tendina.values() else 0
+                )
+            
+            id_attivita_scelta = opzioni_tendina[scelta_utente_tendina]
+            dati_uscita_corrente = df_g[df_g['id_str'] == id_attivita_scelta].iloc[0]
+
+            st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} del {dati_uscita_corrente['data_fmt']}")
+            
+            # Caricamento stream e mappa per l'uscita selezionata dal grafico/menu
+            clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
+            target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
+            
+            with st.spinner("Caricamento mappa e traccia GPX dell'uscita selezionata..."):
+                resp_str_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
+                if resp_str_g.status_code == 200:
+                    stream_data_g = resp_str_g.json()
+                    lats_g, lons_g = [], []
+                    
+                    if isinstance(stream_data_g, list):
+                        for stream in stream_data_g:
+                            if isinstance(stream, dict) and stream.get("type") in ["latlng", "lating"]:
+                                lat_data = stream.get("data", [])
+                                lon_data = stream.get("data2", [])
+                                if lat_data and lon_data and len(lat_data) == len(lon_data):
+                                    for lat, lon in zip(lat_data, lon_data):
+                                        if lat and lon:
+                                            lats_g.append(float(lat))
+                                            lons_g.append(float(lon))
+                                    break
+
+                    if lats_g and lons_g:
+                        fig_map = go.Figure()
+                        fig_map.add_trace(go.Scattermapbox(
+                            lat=lats_g, lon=lons_g, mode='lines',
+                            line=dict(width=4, color='orange'), name='Tracciato'
+                        ))
+                        fig_map.update_layout(
+                            mapbox=dict(
+                                style="open-street-map",
+                                center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons)/len(lons)),
+                                zoom=12
+                            ),
+                            margin=dict(l=0, r=0, t=0, b=0),
+                            height=400,
+                            showlegend=False
+                        )
+                        st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True})
+
+                        # Generazione file GPX per il download
+                        gpx_lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">', '<trk>', f'<name>{dati_uscita_corrente["titolo_uscita"]}</name>', '<trkseg>']
+                        for lat, lon in zip(lats_g, lons_g):
+                            gpx_lines.append(f'<trkpt lat="{lat}" lon="{lon}"></trkpt>')
+                        gpx_lines.extend(['</trkseg>', '</trk>', '</gpx>'])
+                        b64_gpx = base64.b64encode("\n".join(gpx_lines).encode()).decode()
+                        st.markdown(f'<a href="data:application/gpx+xml;base64,{b64_gpx}" download="uscita_{id_attivita_scelta}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem; border-radius: 0.5rem; text-align: center; font-weight: bold;">📥 Scarica Tracciato GPX Uscita</div></a>', unsafe_allow_html=True)
+                    else:
+                        st.info("Nessuna coordinata GPS disponibile per questa specifica uscita.")
+        else:
+            st.info("Nessuna attività trovata nel range temporale selezionato per il grafico.")
+    else:
+      st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
