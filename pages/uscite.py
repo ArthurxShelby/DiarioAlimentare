@@ -132,7 +132,15 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
         
     data_singola_specifica = None
     if attiva_data_singola:
-        data_singola_specifica = st.date_input("Seleziona Data Specifica", value=date.today(), key="widget_single_date")
+        sub_col1, sub_col2 = st.columns([3, 1])
+        with sub_col1:
+            data_singola_specifica = st.date_input("Seleziona Data Specifica", value=date.today(), key="widget_single_date")
+        with sub_col2:
+            st.write("")
+            st.write("")
+            if st.button("📅 Oggi", key="btn_imposta_oggi", use_container_width=True):
+                st.session_state["widget_single_date"] = date.today()
+                st.rerun()
 
     if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
         st.session_state["saved_start"] = data_inizio_custom
