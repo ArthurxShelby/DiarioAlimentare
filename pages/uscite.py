@@ -484,75 +484,110 @@ with st.container(border=True):
             # Costruzione del menu a discesa con le sole uscite della fascia/periodo selezionato
             opzioni_tendina = {
                 f"{row['data_solo']} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] 
-                for _, row in df_filtrato_periodo.sort_values('data_fmt').iterrows()
+                for _, row in df_filtrato_periodo.sort_values('data_fmt', ascending=False).iterrows()
             }
             
-            col_sel1, col_sel2 = st.columns([2, 1])
-            with col_sel1:
-                if opzioni_tendina:
-                    scelta_utente_tendina = st.selectbox(
-                        f"Uscite nel periodo selezionato ({len(opzioni_tendina)} trovate)",
-                        options=list(opzioni_tendina.keys())
-                    )
-                    id_attivita_scelta = opzioni_tendina[scelta_utente_tendina]
-                else:
-                    st.warning("Nessuna uscita trovata per la selezione corrente.")
-                    id_attivita_scelta = None
+            if opzioni_tendina:
+                scelta_utente_tendina = st.selectbox(
+                    f"Seleziona Uscita dal Periodo ({len(opzioni_tendina)} disponibili)",
+                    options=list(opzioni_tendina.keys()),
+                    key="select_uscita_dettaglio_grafico"
+                )
+                id_attivita_scelta = opzioni_tendina[scelta_utente_tendina]
+            else:
+                st.warning("Nessuna uscita trovata per la selezione corrente.")
+                id_attivita_scelta = None
             
             if id_attivita_scelta:
                 dati_uscita_corrente = df_g[df_g['id_str'] == id_attivita_scelta].iloc[0]
 
-                st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} del {dati_uscita_corrente['data_solo']}")
+                st.markdown(f"#### 🗺️ Mappa e Traccia GPX: {dati_uscita_corrente['titolo_uscita']} ({dati_uscita_corrente['data_solo']})")
                 
-                # Caricamento stream e mappa per l'uscita selezionata
+                # Caricamento stream e mappa per l'uscita selezionata dal menu
                 clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
                 target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
                 
-                with st.spinner("Caricamento mappa e traccia GPX dell'uscita selezionata..."):
+                with st.spinner("Caricamento mappa e traccia GPX in corso..."):
                     resp_str_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
+                    if resp_str_g.status_code == 404 and id_attivita_scelta != clean_id_g:
+                        target_url_g = f"https://intervals.icu/api/v1/activity/{id_attivita_scelta}/streams"
+                        resp_str_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
+
                     if resp_str_g.status_code == 200:
                         stream_data_g = resp_str_g.json()
                         lats_g, lons_g = [], []
                         
                         if isinstance(stream_data_g, list):
                             for stream in stream_data_g:
-                                if isinstance(stream, dict) and stream.get("type") in ["latlng", "lating"]:
-                                    lat_data = stream.get("data", [])
-                                    lon_data = stream.get("data2", [])
-                                    if lat_data and lon_data and len(lat_data) == len(lon_data):
-                                        for lat, lon in zip(lat_data, lon_data):
-                                            if lat and lon:
-                                                lats_g.append(float(lat))
-                                                lons_g.append(float(lon))
-                                        break
+                                if isinstance(stream, dict):
+                                    stype = stream.get("type")
+                                    if stype in ["latlng", "lating"]:
+                                        lat_data = stream.get("data", [])
+                                        lon_data = stream.get("data2", [])
+                                        
+                                        if isinstance(lat_data, list) and isinstance(lon_data, list) and len(lat_data) == len(lon_data) and len(lat_data) > 0:
+                                            for lat, lon in zip(lat_data, lon_data):
+                                                if lat is not None and lon is not None:
+                                                    lats_g.append(float(lat))
+                                                    lons_g.append(float(lon))
+                                        elif isinstance(lat_data, list) and len(lat_data) > 0:
+                                            for pt in lat_data:
+                                                if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                                                    if pt[0] is not None and pt[1] is not None:
+                                                        lats_g.append(float(pt[0]))
+                                                        lons_g.append(float(pt[1]))
 
                         if lats_g and lons_g:
                             fig_map = go.Figure()
                             fig_map.add_trace(go.Scattermapbox(
                                 lat=lats_g, lon=lons_g, mode='lines',
-                                line=dict(width=4, color='orange'), name='Tracciato'
+                                line=dict(width=4, color='dodgerblue'), name='Tracciato'
                             ))
+                            fig_map.add_trace(go.Scattermapbox(
+                                lat=[lats_g[0], lats_g[-1]], lon=[lons_g[0], lons_g[-1]], mode='markers',
+                                marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
+                            ))
+                            
                             fig_map.update_layout(
                                 mapbox=dict(
                                     style="open-street-map",
                                     center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons)/len(lons)),
-                                    zoom=12
+                                    zoom=11
                                 ),
                                 margin=dict(l=0, r=0, t=0, b=0),
-                                height=400,
+                                height=450,
                                 showlegend=False
                             )
-                            st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True})
+                            
+                            st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
 
                             # Generazione file GPX per il download
-                            gpx_lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">', '<trk>', f'<name>{dati_uscita_corrente["titolo_uscita"]}</name>', '<trkseg>']
+                            linee_gpx = [
+                                '<?xml version="1.0" encoding="UTF-8"?>',
+                                '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
+                                '  <trk>',
+                                f'    <name>{dati_uscita_corrente["titolo_uscita"]}</name>',
+                                '    <trkseg>'
+                            ]
                             for lat, lon in zip(lats_g, lons_g):
-                                gpx_lines.append(f'<trkpt lat="{lat}" lon="{lon}"></trkpt>')
-                            gpx_lines.extend(['</trkseg>', '</trk>', '</gpx>'])
-                            b64_gpx = base64.b64encode("\n".join(gpx_lines).encode()).decode()
-                            st.markdown(f'<a href="data:application/gpx+xml;base64,{b64_gpx}" download="uscita_{id_attivita_scelta}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem; border-radius: 0.5rem; text-align: center; font-weight: bold;">📥 Scarica Tracciato GPX Uscita</div></a>', unsafe_allow_html=True)
+                                linee_gpx.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
+                            linee_gpx.extend([
+                                '    </trkseg>',
+                                '  </trk>',
+                                '</gpx>'
+                            ])
+                            contenuto_gpx_uscita = "\n".join(linee_gpx)
+                            nome_file_gpx = "".join(c for c in dati_uscita_corrente["titolo_uscita"] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+                            if not nome_file_gpx:
+                                nome_file_gpx = "tracciato_uscita"
+
+                            b64_gpx = base64.b64encode(contenuto_gpx_uscita.encode()).decode()
+                            href_gpx = f'<a href="data:application/gpx+xml;base64,{b64_gpx}" download="{nome_file_gpx}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
+                            st.markdown(href_gpx, unsafe_allow_html=True)
                         else:
-                            st.info("Nessuna coordinata GPS disponibile per questa specifica uscita.")
+                            st.warning("Nessuna coordinata GPS disponibile per questa specifica uscita.")
+                    else:
+                        st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_str_g.status_code})")
         else:
             st.info("Nessuna attività trovata nel range temporale selezionato per il grafico.")
     else:
