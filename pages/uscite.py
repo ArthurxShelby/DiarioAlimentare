@@ -123,7 +123,7 @@ if resp_global.status_code == 200:
                         m_c2.metric("D+ Totale", f"{d_macro:,} m")
                         m_c3.metric("Ore in Sella", f"{ore_macro} h")
                         
-                        # --- NUOVA SEZIONE: DIAGRAMMI CON DOPPIO SELETTORE (METRICA + PERIODO) ---
+                        # --- SEZIONE DIAGRAMMA E BOX LATERALE DELLE USCITE ---
                         st.markdown("---")
                         c_diag_titolo, c_metrica_scelta, c_aggruppa_scelta = st.columns([2, 2, 2])
                         with c_diag_titolo:
@@ -143,7 +143,9 @@ if resp_global.status_code == 200:
                                 label_visibility="collapsed"
                             )
                         
-                        # Preparazione DataFrame per i grafici
+                        # Layout a due colonne: a sinistra il grafico, a destra il riquadro richiesto per le uscite del periodo selezionato
+                        col_grafico_principale, col_elenco_lato = st.columns([2, 1])
+                        
                         if "start_date_local" in df_macro.columns:
                             df_macro["data_dt"] = pd.to_datetime(df_macro["start_date_local"].apply(lambda x: x.split("T")[0]))
                             df_macro["distanza_km"] = (df_macro.get("distance", pd.Series([0])).fillna(0)) / 1000.0
@@ -175,13 +177,52 @@ if resp_global.status_code == 200:
                             fig_bar.update_traces(marker_color=BLU_DIARIO, textfont_size=12, textangle=0, textposition="outside")
                             fig_bar.update_layout(
                                 margin=dict(l=10, r=10, t=10, b=10),
-                                height=250,
+                                height=280,
                                 xaxis_title="",
                                 yaxis_title=y_label,
                                 paper_bgcolor="rgba(0,0,0,0)",
-                                plot_bgcolor="rgba(0,0,0,0)"
+                                plot_bgcolor="rgba(0,0,0,0)",
+                                clickmode="event+select"
                             )
-                            st.plotly_chart(fig_bar, use_container_width=True, config={'displaylogo': False})
+                            
+                            with col_grafico_principale:
+                                evento_clicca = st.plotly_chart(fig_bar, use_container_width=True, on_select="rerun", config={'displaylogo': False})
+                                
+                            # Gestione interattività al click sulla barra del diagramma
+                            periodo_selezionato = None
+                            if evento_clicca and "selection" in evento_clicca and "points" in evento_clicca["selection"]:
+                                punti = evento_clicca["selection"]["points"]
+                                if punti:
+                                    periodo_selezionato = punti[0].get("x")
+                                    st.session_state["ultimo_periodo_cliccato"] = periodo_selezionato
+                            
+                            # Se l'utente ha cliccato in precedenza, manteniamo la selezione attiva
+                            if "ultimo_periodo_cliccato" in st.session_state and not periodo_selezionato:
+                                periodo_selezionato = st.session_state["ultimo_periodo_cliccato"]
+
+                            with col_elenco_lato:
+                                st.markdown("##### 📌 Uscite del Periodo")
+                                if periodo_selezionato:
+                                    st.caption(f"Filtro attivo: **{periodo_selezionato}**")
+                                    
+                                    # Filtriamo le attività del dataframe che appartengono al periodo selezionato
+                                    df_uscite_periodo = df_macro[df_macro["periodo"] == periodo_selezionato]
+                                    
+                                    if not df_uscite_periodo.empty:
+                                        with st.container(height=260):
+                                            for _, row in df_uscite_periodo.iterrows():
+                                                nome_uscita = row.get("name", "Uscita")
+                                                data_uscita = row.get("start_date_local", "").split("T")[0]
+                                                km_uscita = round((row.get("distance") or 0) / 1000.0, 1)
+                                                d_uscita = safe_int(row.get("total_elevation_gain")) or 0
+                                                
+                                                with st.container(border=True):
+                                                    st.markdown(f"**{nome_uscita}** ({data_uscita})")
+                                                    st.markdown(f"📏 {km_uscita} km &nbsp;|&nbsp; ⛰️ {d_uscita} m")
+                                    else:
+                                        st.info("Nessuna uscita trovata per questo periodo.")
+                                else:
+                                    st.info("👆 Clicca su una barra del diagramma per visualizzare qui le relative uscite.")
                         # ----------------------------------------------------------------------
                         
                     else:
