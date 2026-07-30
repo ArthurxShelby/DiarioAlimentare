@@ -124,10 +124,9 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
     with col_c2:
         data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["saved_end"], key="widget_end")
         
-    # --- AGGIUNTA ULTERIORI CAMPI DI RICERCA (Nome e Data Singola) ---
     col_f1, col_f2 = st.columns(2)
     with col_f1:
-        filtro_nome = st.text_input("Filtra per Nome Uscita (opzionale):", value="", placeholder="Es. Sweet Spot, Salita...")
+        filtro_nome = st.text_input("Filtra per Nome Uscita (opzionale):", value="", placeholder="Es. Giro Samu, Salita...")
     with col_f2:
         attiva_data_singola = st.checkbox("Filtra per una data singola specifica")
         
@@ -142,7 +141,6 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
         salva_data_su_file(FILE_DATA_FINE, data_fine_custom)
         
         with st.spinner("Interrogazione in corso..."):
-            # Se l'utente cerca una data singola, ottimizziamo i parametri API stringendo il range a quel giorno esatto
             if attiva_data_singola and data_singola_specifica:
                 oldest_param = data_singola_specifica.strftime("%Y-%m-%d")
                 newest_param = data_singola_specifica.strftime("%Y-%m-%d")
@@ -171,9 +169,6 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                 st.error(f"Errore di connessione a Intervals.icu: {resp_custom.status_code}")
 
     if "custom_activities" in st.session_state and st.session_state["custom_activities"]:
-        df_ext = pd.DataFrame(st.session_state["custom_activities"])
-        
-        # Applicazione filtro testuale sul nome in tempo reale se inserito
         attivita_da_mostrare = st.session_state["custom_activities"]
         if filtro_nome.strip():
             query_testo = filtro_nome.strip().lower()
@@ -280,53 +275,53 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                                 )
                                             
                                             if "Satellite" in stile_mappa_prev:
-                                            basemap_style = "white-bg"
-                                            tile_source = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                            labels_source = "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-                                        else:
-                                            basemap_style = "open-street-map"
-                                            tile_source = None
-                                            labels_source = None
+                                                basemap_style = "white-bg"
+                                                tile_source = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                                labels_source = "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                                            else:
+                                                basemap_style = "open-street-map"
+                                                tile_source = None
+                                                labels_source = None
 
-                                        fig = go.Figure()
-                                        fig.add_trace(go.Scattermapbox(
-                                            lat=lats, lon=lons, mode='lines',
-                                            line=dict(width=4, color='dodgerblue'), name='Tracciato'
-                                        ))
-                                        fig.add_trace(go.Scattermapbox(
-                                            lat=[lats[0], lats[-1]], lon=[lons[0], lons[-1]], mode='markers',
-                                            marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
-                                        ))
-                                        
-                                        mapbox_config = dict(
-                                            style=basemap_style,
-                                            center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
-                                            zoom=11
-                                        )
-
-                                        layers_list = []
-                                        if tile_source:
-                                            layers_list.append({
-                                                "sourcetype": "raster",
-                                                "source": [tile_source],
-                                                "below": "traces"
-                                            })
-                                        if labels_source:
-                                            layers_list.append({
-                                                "sourcetype": "raster",
-                                                "source": [labels_source],
-                                                "below": "traces"
-                                            })
+                                            fig = go.Figure()
+                                            fig.add_trace(go.Scattermapbox(
+                                                lat=lats, lon=lons, mode='lines',
+                                                line=dict(width=4, color='dodgerblue'), name='Tracciato'
+                                            ))
+                                            fig.add_trace(go.Scattermapbox(
+                                                lat=[lats[0], lats[-1]], lon=[lons[0], lons[-1]], mode='markers',
+                                                marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
+                                            ))
                                             
-                                        if layers_list:
-                                            mapbox_config["layers"] = layers_list
+                                            mapbox_config = dict(
+                                                style=basemap_style,
+                                                center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
+                                                zoom=11
+                                            )
 
-                                        fig.update_layout(
-                                            mapbox=mapbox_config,
-                                            margin=dict(l=0, r=0, t=0, b=0),
-                                            height=450,
-                                            showlegend=False
-                                        )
+                                            layers_list = []
+                                            if tile_source:
+                                                layers_list.append({
+                                                    "sourcetype": "raster",
+                                                    "source": [tile_source],
+                                                    "below": "traces"
+                                                })
+                                            if labels_source:
+                                                layers_list.append({
+                                                    "sourcetype": "raster",
+                                                    "source": [labels_source],
+                                                    "below": "traces"
+                                                })
+                                                
+                                            if layers_list:
+                                                mapbox_config["layers"] = layers_list
+
+                                            fig.update_layout(
+                                                mapbox=mapbox_config,
+                                                margin=dict(l=0, r=0, t=0, b=0),
+                                                height=450,
+                                                showlegend=False
+                                            )
                                             
                                             st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
                                             
