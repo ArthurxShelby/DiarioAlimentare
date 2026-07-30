@@ -144,8 +144,8 @@ if resp_global.status_code == 200:
                                 label_visibility="collapsed"
                             )
                         
-                        # Layout espanso: [1, 2] assegna il doppio dello spazio alla colonna di destra delle uscite
-                        col_grafico_principale, col_elenco_lato = st.columns([1, 2])
+                        # Layout espanso ottimizzato: [1, 3] per allargare le uscite a destra e lasciare il grafico più grande
+                        col_grafico_principale, col_elenco_lato = st.columns([1, 3])
                         
                         if "start_date_local" in df_macro.columns:
                             df_macro["data_dt"] = pd.to_datetime(df_macro["start_date_local"].apply(lambda x: x.split("T")[0]))
@@ -178,7 +178,7 @@ if resp_global.status_code == 200:
                             fig_bar.update_traces(marker_color=BLU_DIARIO, textfont_size=12, textangle=0, textposition="outside")
                             fig_bar.update_layout(
                                 margin=dict(l=10, r=10, t=10, b=10),
-                                height=520,
+                                height=620,  # Grafico reso più alto e importante
                                 xaxis_title="",
                                 yaxis_title=y_label,
                                 paper_bgcolor="rgba(0,0,0,0)",
@@ -233,7 +233,7 @@ if resp_global.status_code == 200:
                                     df_uscite_periodo = df_macro[df_macro["periodo"] == periodo_selezionato]
                                     
                                     if not df_uscite_periodo.empty:
-                                        with st.container(height=520):
+                                        with st.container(height=620):  # Contenitore allineato in altezza con il grafico
                                             for idx, row in df_uscite_periodo.iterrows():
                                                 act_id = str(row.get("id"))
                                                 act_title = row.get("name", "Uscita senza titolo")
@@ -314,10 +314,10 @@ if resp_global.status_code == 200:
                                                             except Exception as ex:
                                                                 st.error(f"Errore caricamento mappa: {ex}")
                                     else:
-                                        with st.container(height=520):
+                                        with st.container(height=620):
                                             st.info("Nessuna uscita trovata per questo periodo.")
                                 else:
-                                    with st.container(height=520):
+                                    with st.container(height=620):
                                         st.info("👆 Clicca su una barra del diagramma per visualizzare qui le relative uscite in dettaglio.")
                         # ----------------------------------------------------------------------
                         
