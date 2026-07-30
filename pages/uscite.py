@@ -2,21 +2,25 @@
 import streamlit as st
 st.set_page_config(layout="wide")
 
+# --- CSS PER LARGHEZZA TOTALE FILO A FILO ---
 st.markdown("""
 <style>
     .main .block-container {
-        padding-left: 2rem;
-        padding-right: 2rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
         max-width: 100% !important;
     }
+    /* Rimuove i margini di spaziatura delle colonne affiancate */
     div[data-testid="column"] {
-        padding: 0px !important;
+        padding-left: 0px !important;
+        padding-right: 0px !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 import requests
 from datetime import datetime, date
+# ... resto degli import e del codice
 import pandas as pd
 import os
 import folium
