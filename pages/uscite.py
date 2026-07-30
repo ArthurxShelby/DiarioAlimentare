@@ -128,27 +128,28 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. UNICO CONTENITORE PRINCIPALE CON GRAFICO, RANGE DATE E USCITE CORRELATE ---
+# --- 2. CONTENITORE PRINCIPALE (GRAFICO) IDENTICO ALLO SCREENSHOT ---
 with st.container(border=True):
     st.subheader("📈 Analisi Grafica e Uscite Correlate")
     
-    # 1. Controlli: Metrica e Raggruppamento Temporale
     col_g1, col_g2 = st.columns(2)
     with col_g1:
         tipo_metrica = st.selectbox("Seleziona Metrica Grafico", ["Chilometri (km)", "Dislivello (m)", "Tempo"])
     with col_g2:
         tipo_periodo = st.selectbox("Raggruppamento Temporale", ["Mesi", "Settimane"])
         
-    st.markdown("---")
+    st.info("Area riservata ai grafici riepilogativi basati sulle selezioni sopra.")
+
+# --- 3. BLOCCO SEPARATO PER LA RICERCA E I FILTRI DI DATA ---
+with st.container(border=True):
+    st.markdown("### 🔍 Ricerca e Filtro Intervallo Uscite")
     
-    # 2. Pulsanti e Range di Ricerca Data / Filtri direttamente nel box principale
-    st.markdown("#### 🔍 Filtri di Ricerca e Range Temporale")
-    col_r1, col_r2, col_r3 = st.columns([2, 2, 2])
-    with col_r1:
+    col_c1, col_c2, col_c3 = st.columns(3)
+    with col_c1:
         data_inizio_custom = st.date_input("Data Inizio Range", value=st.session_state["saved_start"], key="widget_start")
-    with col_r2:
+    with col_c2:
         data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["saved_end"], key="widget_end")
-    with col_r3:
+    with col_c3:
         filtro_nome = st.text_input("Filtra per Nome Uscita:", value="", placeholder="Es. Giro Samu...")
 
     col_btn1, col_btn2 = st.columns([2, 4])
@@ -193,12 +194,8 @@ with st.container(border=True):
             else:
                 st.error(f"Errore di connessione a Intervals.icu: {resp_custom.status_code}")
 
-    st.markdown("---")
-    st.info("Area riservata ai grafici riepilogativi basati sulle selezioni sopra.")
-    
-    st.divider()
-    
-    # 3. Sezione dedicata alle Uscite Correlate del Periodo
+# --- 4. USCITE DEL PERIODO (CORRELATE) ---
+with st.container(border=True):
     st.markdown("### 📌 Uscite del Periodo (Correlate)")
     
     if "custom_activities" in st.session_state and st.session_state["custom_activities"]:
