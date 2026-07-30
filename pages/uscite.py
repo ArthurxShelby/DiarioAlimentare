@@ -1,4 +1,5 @@
 
+
 import streamlit as st
 st.set_page_config(layout="wide")
 import requests
@@ -11,6 +12,7 @@ import plotly.graph_objects as go
 import base64
 
 # --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
+
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
 
 if not is_proprietario:
@@ -56,14 +58,16 @@ with st.spinner("Sincronizzazione dati da Intervals.icu in corso..."):
     
     resp_global = requests.get(url_global, auth=auth_global, params=params_global)
 
+df_activities_global = pd.DataFrame()
 if resp_global.status_code == 200:
     activities_net = resp_global.json()
-    
     if activities_net:
-        df_activities = pd.DataFrame(activities_net)
+        df_activities_global = pd.DataFrame(activities_net)
+        # Assicuriamoci che la data locale sia convertita in datetime
+        df_activities_global["date_parsed"] = pd.to_datetime(df_activities_global["start_date_local"]).dt.date
         
-        tot_km = round(df_activities.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
-        tot_dislivello = int(df_activities.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
+        tot_km = round(df_activities_global.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
+        tot_dislivello = int(df_activities_global.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
         
         st.markdown("---")
         st.subheader("📊 Statistiche Dinamiche e Riepilogo (TCR - Dal 15/11/2025)")
@@ -89,7 +93,174 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza su File per Riavvii) ---
+
+# --- 2. CONTENITORE INTERMEDIO: ANALISI GRAFICA E INTERATTIVITÀ USCITE ---
+with st.container(border=True):
+    st.subheader("📈 Analisi Grafica e Uscite per Metrica")
+    st.write("Filtra il periodo temporale, seleziona la metrica e analizza i grafici interattivi con le relative uscite e mappe.")
+
+    # Zona bottoni e range di ricerca per i grafici
+    col_gr1, col_gr2, col_gr3 = st.columns([2, 2, 1])
+    with col_gr1:
+        graf_start = st.date_input("Inizio Range Grafico", value=date(2025, 11, 15), key="graf_start_date")
+    with col_gr2:
+        graf_end = st.date_input("Fine Range Grafico", value=date.today(), key="graf_end_date")
+    with col_gr3:
+        st.write("")
+        st.write("")
+        applica_filtro_grafici = st.button("Aggiorna Grafico", use_container_width=True)
+
+    col_g_sel1, col_g_sel2 = st.columns(2)
+    with col_g_sel1:
+        tipo_metrica = st.selectbox("Seleziona Metrica Grafico", ["Chilometri (km)", "Dislivello (m)", "Ore in sella"])
+    with col_g_sel2:
+        tipo_periodo = st.selectbox("Raggruppamento Temporale", ["Mese", "Settimana"])
+
+    if not df_activities_global.empty:
+        # Filtriamo il dataframe globale in base al range scelto nel contenitore
+        mask = (df_activities_global["date_parsed"] >= graf_start) & (df_activities_global["date_parsed"] <= graf_end)
+        df_grafico = df_activities_global.loc[mask].copy()
+
+        if not df_grafico.empty:
+            # Preparazione colonne metriche
+            df_grafico["km"] = df_grafico.get("distance", 0).fillna(0) / 1000.0
+            df_grafico["d_plus"] = df_grafico.get("total_elevation_gain", 0).fillna(0)
+            df_grafico["ore"] = df_grafico.get("moving_time", 0).fillna(0) / 3600.0
+
+            if tipo_periodo == "Mese":
+                df_grafico["periodo_chiave"] = pd.to_datetime(df_grafico["date_parsed"]).dt.to_period("M").astype(str)
+            else:
+                df_grafico["periodo_chiave"] = pd.to_datetime(df_grafico["date_parsed"]).dt.to_period("W").astype(str)
+
+            colonna_valore = "km"
+            titolo_asse_y = "Km"
+            if tipo_metrica == "Dislivello (m)":
+                colonna_valore = "d_plus"
+                titolo_asse_y = "Metri (D+)"
+            elif tipo_metrica == "Ore in sella":
+                colonna_valore = "ore"
+                titolo_asse_y = "Ore"
+
+            df_agg = df_grafico.groupby("periodo_chiave")[colonna_valore].sum().reset_index()
+
+            # Costruzione Grafico Plotly
+            fig_ana = go.Figure(data=[
+                go.Bar(
+                    x=df_agg["periodo_chiave"],
+                    y=df_agg[colonna_valore],
+                    marker_color='dodgerblue',
+                    text=df_agg[colonna_valore].round(1),
+                    textposition='auto'
+                )
+            ])
+            fig_ana.update_layout(
+                title=f"Andamento {tipo_metrica} per {tipo_periodo}",
+                xaxis_title="Periodo",
+                yaxis_title=titolo_asse_y,
+                margin=dict(l=20, r=20, t=40, b=20),
+                height=350,
+                clickmode='event+select'
+            )
+
+            # Mostriamo il grafico e gestiamo la selezione del periodo
+            c_chart, c_details = st.columns([3, 2])
+            
+            selected_period = None
+            with c_chart:
+                event_data = st.plotly_chart(fig_ana, use_container_width=True, on_select="rerun", key="plot_analitico")
+                # Gestione click sul grafico Plotly in Streamlit
+                if event_data and "selection" in event_data and "points" in event_data["selection"]:
+                    points = event_data["selection"]["points"]
+                    if points:
+                        selected_period = points[0]["x"]
+                        st.session_state["active_chart_period"] = selected_period
+
+            with c_details:
+                st.markdown("#### 🔍 Uscite del Periodo Selezionato")
+                periodo_attivo = st.session_state.get("active_chart_period", df_agg["periodo_chiave"].iloc[-1] if not df_agg.empty else None)
+                
+                # Menu a discesa per scegliere quale periodo analizzare nel dettaglio se non cliccato direttamente
+                lista_periodi_disponibili = df_agg["periodo_chiave"].tolist()
+                if periodo_attivo not in lista_periodi_disponibili and lista_periodi_disponibili:
+                    periodo_attivo = lista_periodi_disponibili[-1]
+
+                if lista_periodi_disponibili:
+                    scelta_periodo_dropdown = st.selectbox(
+                        "Seleziona Periodo (o clicca sul grafico)", 
+                        lista_periodi_disponibili, 
+                        index=lista_periodi_disponibili.index(periodo_attivo) if periodo_attivo in lista_periodi_disponibili else 0,
+                        key="dropdown_periodo_grafico"
+                    )
+                    
+                    # Filtriamo le attività per il periodo scelto
+                    uscite_periodo = df_grafico[df_grafico["periodo_chiave"] == scelta_periodo_dropdown]
+                    
+                    if not uscite_periodo.empty:
+                        # Menu a discesa con le singole uscite della colonna/periodo
+                        options_uscite = {f"{row['start_date_local'].split('T')[0]} - {row.get('name', 'Uscita')}": row for _, row in uscite_periodo.iterrows()}
+                        scelta_uscita_key = st.selectbox("Seleziona Uscita specifica", list(options_uscite.keys()), key="select_uscita_dettaglio")
+                        
+                        uscita_selezionata = options_uscite[scelta_uscita_key]
+                        
+                        # Mostriamo dettagli e mappa dell'uscita selezionata direttamente nel contenitore
+                        act_id = str(uscita_selezionata.get("id"))
+                        act_title = uscita_selezionata.get("name", "Uscita senza titolo")
+                        act_date = uscita_selezionata.get("start_date_local", "").split("T")[0]
+                        act_dist = round(uscita_selezionata.get("distance", 0) / 1000, 2)
+                        act_time = timedelta_to_str(uscita_selezionata.get("moving_time", 0))
+                        act_elev = safe_int(uscita_selezionata.get("total_elevation_gain")) or 0
+
+                        st.markdown(f"**{act_title}** ({act_date})")
+                        st.write(f"Distanza: **{act_dist} km** | D+: **{act_elev} m** | Tempo: **{act_time}**")
+
+                        if st.button("🔍 Apri Pagina Dedicata Mappa", key=f"btn_page_{act_id}", use_container_width=True):
+                            st.session_state["selected_activity_id"] = act_id
+                            st.session_state["selected_activity_title"] = act_title
+                            st.session_state["selected_activity_date"] = act_date
+                            st.switch_page("pages/visualizza_mappa.py")
+
+                        # Anteprima Mappa Rapida
+                        clean_id = ''.join(c for c in act_id if c.isdigit())
+                        target_url = f"https://intervals.icu/api/v1/activity/{clean_id}/streams"
+                        auth_streams = ("API_KEY", API_KEY.strip())
+                        
+                        try:
+                            resp_streams = requests.get(target_url, auth=auth_streams)
+                            if resp_streams.status_code == 200:
+                                data_stream = resp_streams.json()
+                                lats, lons = [], []
+                                if isinstance(data_stream, list):
+                                    for stream in data_stream:
+                                        if isinstance(stream, dict) and stream.get("type") in ["latlng", "lating"]:
+                                            lat_data = stream.get("data", [])
+                                            lon_data = stream.get("data2", [])
+                                            if len(lat_data) == len(lon_data):
+                                                for lat, lon in zip(lat_data, lon_data):
+                                                    if lat and lon:
+                                                        lats.append(float(lat))
+                                                        lons.append(float(lon))
+                                if lats and lons:
+                                    fig_map = go.Figure(go.Scattermapbox(lat=lats, lon=lons, mode='lines', line=dict(width=3, color='red')))
+                                    fig_map.update_layout(
+                                        mapbox=dict(style="open-street-map", center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)), zoom=10),
+                                        margin=dict(l=0, r=0, t=0, b=0),
+                                        height=200,
+                                        showlegend=False
+                                    )
+                                    st.plotly_chart(fig_map, use_container_width=True, config={'displaylogo': False})
+                        except Exception:
+                            pass
+                    else:
+                        st.info("Nessuna uscita in questo periodo.")
+                else:
+                    st.info("Nessun dato temporale disponibile.")
+        else:
+            st.warning("Nessuna attività trovata nell'intervallo di date selezionato per il grafico.")
+    else:
+        st.info("Caricamento dati globali in corso...")
+
+
+# --- 3. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Esplora Archivio) ---
 FILE_DATA_INIZIO = "ultima_data_inizio.txt"
 FILE_DATA_FINE = "ultima_data_fine.txt"
 
