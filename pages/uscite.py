@@ -544,7 +544,7 @@ with st.container(border=True):
                                         break
 
                         if lats_g and lons_g and len(lats_g) > 0:
-                            # Mappa racchiusa nell'expander (si espande solo su click)
+                            # Mappa racchiusa nell'expander con modatità satellite e scaricamento GPX
                             with st.expander("🗺️ Visualizza Mappa e Download GPX", expanded=False):
                                 fig_map = go.Figure()
                                 fig_map.add_trace(go.Scattermapbox(
@@ -558,7 +558,16 @@ with st.container(border=True):
                                 
                                 fig_map.update_layout(
                                     mapbox=dict(
-                                        style="open-street-map",
+                                        style="white-bg",
+                                        layers=[
+                                            {
+                                                "below": 'traces',
+                                                "sourcetype": "raster",
+                                                "source": [
+                                                    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                                ]
+                                            }
+                                        ],
                                         center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
                                         zoom=11
                                     ),
@@ -598,5 +607,7 @@ with st.container(border=True):
                         st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_str_g.status_code})")
         else:
             st.info("Nessuna attività trovata nel range temporale selezionato per il grafico.")
+    else:
+        st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
