@@ -144,49 +144,49 @@ if resp_global.status_code == 200:
                                 label_visibility="collapsed"
                             )
                         
-                        # Layout espanso ottimizzato: [1, 3] per allargare le uscite a destra e lasciare il grafico più grande
-                        col_grafico_principale, col_elenco_lato = st.columns([1, 3])
+                        # Layout espanso a colonna singola per la macro, così l'intera sezione sfrutta tutta la larghezza della pagina
+                        col_macro_intera = st.columns([1])[0]
                         
-                        if "start_date_local" in df_macro.columns:
-                            df_macro["data_dt"] = pd.to_datetime(df_macro["start_date_local"].apply(lambda x: x.split("T")[0]))
-                            df_macro["distanza_km"] = (df_macro.get("distance", pd.Series([0])).fillna(0)) / 1000.0
-                            df_macro["dislivello_m"] = df_macro.get("total_elevation_gain", pd.Series([0])).fillna(0)
-                            
-                            if tipo_aggruppamento == "Mesi":
-                                df_macro["periodo"] = df_macro["data_dt"].dt.strftime("%Y-%m")
-                            else:
-                                df_macro["periodo"] = df_macro["data_dt"].dt.strftime("%Y-W%V")
+                        with col_macro_intera:
+                            if "start_date_local" in df_macro.columns:
+                                df_macro["data_dt"] = pd.to_datetime(df_macro["start_date_local"].apply(lambda x: x.split("T")[0]))
+                                df_macro["distanza_km"] = (df_macro.get("distance", pd.Series([0])).fillna(0)) / 1000.0
+                                df_macro["dislivello_m"] = df_macro.get("total_elevation_gain", pd.Series([0])).fillna(0)
                                 
-                            if "Chilometri" in tipo_metrica:
-                                df_agg = df_macro.groupby("periodo")["distanza_km"].sum().reset_index()
-                                y_col = "distanza_km"
-                                y_label = "km"
-                                text_format = ".1f"
-                            else:
-                                df_agg = df_macro.groupby("periodo")["dislivello_m"].sum().reset_index()
-                                y_col = "dislivello_m"
-                                y_label = "m"
-                                text_format = ",d"
-                            
-                            fig_bar = px.bar(
-                                df_agg,
-                                x="periodo",
-                                y=y_col,
-                                text_auto=text_format,
-                                labels={"periodo": "Periodo", y_col: y_label}
-                            )
-                            fig_bar.update_traces(marker_color=BLU_DIARIO, textfont_size=12, textangle=0, textposition="outside")
-                            fig_bar.update_layout(
-                                margin=dict(l=10, r=10, t=10, b=10),
-                                height=620,  # Grafico reso più alto e importante
-                                xaxis_title="",
-                                yaxis_title=y_label,
-                                paper_bgcolor="rgba(0,0,0,0)",
-                                plot_bgcolor="rgba(0,0,0,0)",
-                                clickmode="event+select"
-                            )
-                            
-                            with col_grafico_principale:
+                                if tipo_aggruppamento == "Mesi":
+                                    df_macro["periodo"] = df_macro["data_dt"].dt.strftime("%Y-%m")
+                                else:
+                                    df_macro["periodo"] = df_macro["data_dt"].dt.strftime("%Y-W%V")
+                                    
+                                if "Chilometri" in tipo_metrica:
+                                    df_agg = df_macro.groupby("periodo")["distanza_km"].sum().reset_index()
+                                    y_col = "distanza_km"
+                                    y_label = "km"
+                                    text_format = ".1f"
+                                else:
+                                    df_agg = df_macro.groupby("periodo")["dislivello_m"].sum().reset_index()
+                                    y_col = "dislivello_m"
+                                    y_label = "m"
+                                    text_format = ",d"
+                                
+                                fig_bar = px.bar(
+                                    df_agg,
+                                    x="periodo",
+                                    y=y_col,
+                                    text_auto=text_format,
+                                    labels={"periodo": "Periodo", y_col: y_label}
+                                )
+                                fig_bar.update_traces(marker_color=BLU_DIARIO, textfont_size=12, textangle=0, textposition="outside")
+                                fig_bar.update_layout(
+                                    margin=dict(l=10, r=10, t=10, b=10),
+                                    height=450,
+                                    xaxis_title="",
+                                    yaxis_title=y_label,
+                                    paper_bgcolor="rgba(0,0,0,0)",
+                                    plot_bgcolor="rgba(0,0,0,0)",
+                                    clickmode="event+select"
+                                )
+                                
                                 evento_clicca = st.plotly_chart(
                                     fig_bar, 
                                     use_container_width=True, 
@@ -195,37 +195,36 @@ if resp_global.status_code == 200:
                                     key="grafico_macro_attivita", 
                                     config={'displaylogo': False}
                                 )
-                                
-                            # Gestione interattività al click sulla barra del diagramma
-                            periodo_selezionato = None
-                            if evento_clicca and "selection" in evento_clicca and "points" in evento_clicca["selection"]:
-                                punti = evento_clicca["selection"]["points"]
-                                if punti:
-                                    punto = punti[0]
-                                    x_val = punto.get("x")
-                                    if x_val:
-                                        try:
-                                            dt_parsed = pd.to_datetime(x_val, format="%b %Y")
-                                            if tipo_aggruppamento == "Mesi":
-                                                periodo_selezionato = dt_parsed.strftime("%Y-%m")
-                                            else:
-                                                periodo_selezionato = dt_parsed.strftime("%Y-W%V")
-                                        except Exception:
+                                    
+                                # Gestione interattività al click sulla barra del diagramma
+                                periodo_selezionato = None
+                                if evento_clicca and "selection" in evento_clicca and "points" in evento_clicca["selection"]:
+                                    punti = evento_clicca["selection"]["points"]
+                                    if punti:
+                                        punto = punti[0]
+                                        x_val = punto.get("x")
+                                        if x_val:
                                             try:
-                                                dt_parsed = pd.to_datetime(x_val)
+                                                dt_parsed = pd.to_datetime(x_val, format="%b %Y")
                                                 if tipo_aggruppamento == "Mesi":
                                                     periodo_selezionato = dt_parsed.strftime("%Y-%m")
                                                 else:
                                                     periodo_selezionato = dt_parsed.strftime("%Y-W%V")
                                             except Exception:
-                                                periodo_selezionato = str(x_val)
-                                                
-                                    st.session_state["ultimo_periodo_cliccato"] = periodo_selezionato
-                            
-                            if "ultimo_periodo_cliccato" in st.session_state and not periodo_selezionato:
-                                periodo_selezionato = st.session_state["ultimo_periodo_cliccato"]
+                                                try:
+                                                    dt_parsed = pd.to_datetime(x_val)
+                                                    if tipo_aggruppamento == "Mesi":
+                                                        periodo_selezionato = dt_parsed.strftime("%Y-%m")
+                                                    else:
+                                                        periodo_selezionato = dt_parsed.strftime("%Y-W%V")
+                                                except Exception:
+                                                    periodo_selezionato = str(x_val)
+                                                    
+                                        st.session_state["ultimo_periodo_cliccato"] = periodo_selezionato
+                                
+                                if "ultimo_periodo_cliccato" in st.session_state and not periodo_selezionato:
+                                    periodo_selezionato = st.session_state["ultimo_periodo_cliccato"]
 
-                            with col_elenco_lato:
                                 st.markdown("##### 📌 Uscite del Periodo")
                                 if periodo_selezionato:
                                     st.caption(f"Filtro attivo: **{periodo_selezionato}**")
@@ -233,7 +232,7 @@ if resp_global.status_code == 200:
                                     df_uscite_periodo = df_macro[df_macro["periodo"] == periodo_selezionato]
                                     
                                     if not df_uscite_periodo.empty:
-                                        with st.container(height=620):  # Contenitore allineato in altezza con il grafico
+                                        with st.container(height=520):
                                             for idx, row in df_uscite_periodo.iterrows():
                                                 act_id = str(row.get("id"))
                                                 act_title = row.get("name", "Uscita senza titolo")
@@ -314,10 +313,10 @@ if resp_global.status_code == 200:
                                                             except Exception as ex:
                                                                 st.error(f"Errore caricamento mappa: {ex}")
                                     else:
-                                        with st.container(height=620):
+                                        with st.container(height=200):
                                             st.info("Nessuna uscita trovata per questo periodo.")
                                 else:
-                                    with st.container(height=620):
+                                    with st.container(height=200):
                                         st.info("👆 Clicca su una barra del diagramma per visualizzare qui le relative uscite in dettaglio.")
                         # ----------------------------------------------------------------------
                         
@@ -592,7 +591,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
 
                                             b64 = base64.b64encode(contenuto_gpx.encode()).decode()
                                             href = f'<a href="data:application/gpx+xml;base64,{b64}" download="{nome_file}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
-                                            st.markdown(href, unsafe_allow_html=True)
+                                            st.markdown(href, unsafe_agent_options=True)
                                         else:
                                             st.warning("Nessun punto di coordinate valido trovato in questa attività.")
                                     else:
