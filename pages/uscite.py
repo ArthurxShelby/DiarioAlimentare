@@ -438,7 +438,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                             mapbox_config = dict(
                                                 style=basemap_style,
                                                 center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
-                               5                     zoom=11
+                                                     zoom=11
                                             )
 
                                             layers_list = []
