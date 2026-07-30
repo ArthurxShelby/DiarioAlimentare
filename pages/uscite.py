@@ -2,7 +2,6 @@
 import streamlit as st
 st.set_page_config(layout="wide")
 
-# --- CSS PERSONALIZZATO PER LARGHEZZA ESTREMA (FILO A FILO) ---
 st.markdown("""
 <style>
     .main .block-container {
@@ -10,14 +9,13 @@ st.markdown("""
         padding-right: 2rem;
         max-width: 100% !important;
     }
-    /* Forza le colonne a usare tutto lo spazio senza margini interni restrittivi */
     div[data-testid="column"] {
         padding: 0px !important;
     }
 </style>
-""", unsafe_allow_html=True))
+""", unsafe_allow_html=True)
 
-import requests
+import requestss
 from datetime import datetime, date
 import pandas as pd
 import os
