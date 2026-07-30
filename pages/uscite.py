@@ -144,8 +144,8 @@ if resp_global.status_code == 200:
                                 label_visibility="collapsed"
                             )
                         
-                        # Layout espanso a larghezza piena: [1, 1] per distribuire equamente lo spazio della pagina
-                        col_grafico_principale, col_elenco_lato = st.columns([1, 1])
+                        # Layout espanso: [1, 2] assegna il doppio dello spazio alla colonna di destra delle uscite
+                        col_grafico_principale, col_elenco_lato = st.columns([1, 2])
                         
                         if "start_date_local" in df_macro.columns:
                             df_macro["data_dt"] = pd.to_datetime(df_macro["start_date_local"].apply(lambda x: x.split("T")[0]))
