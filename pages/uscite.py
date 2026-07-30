@@ -432,7 +432,34 @@ with st.container(border=True):
                 df_g['periodo_chiave'] = df_g['data_solo']
                 df_aggregato = df_g.copy().rename(columns={'data_solo': 'asse_x'})
 
-            # Creazione grafico a barre (colonne blu) editabile passando la chiave periodo nel customdata
+            # --- 1. PRIMA IL MENU A DISCESA PER LA SELEZIONE DELL'USCITA ---
+            # Calcolo preventivo dei totali del range intero per popolare correttamente le opzioni della tendina
+            tot_km_periodo = df_g['Km'].sum()
+            tot_d_periodo = df_g['D+'].sum()
+            tot_ore_periodo = df_g['Ore in sella'].sum()
+
+            st.markdown("---")
+            st.markdown("#### 🚴 Menu a Discesa Dettaglio Uscite")
+            opzioni_tendina = {
+                f"{row['data_solo']} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] 
+                for _, row in df_g.sort_values('data_fmt', ascending=False).iterrows()
+            }
+            
+            if opzioni_tendina:
+                scelta_utente_tendina = st.selectbox(
+                    f"Seleziona Uscita dal Periodo ({len(opzioni_tendina)} disponibili)",
+                    options=list(opzioni_tendina.keys()),
+                    key="select_uscita_dettaglio_grafico"
+                )
+                id_attivita_scelta = opzioni_tendina[scelta_utente_tendina]
+            else:
+                st.warning("Nessuna uscita trovata per la selezione corrente.")
+                id_attivita_scelta = None
+
+            # --- 2. POI L'ANALISI GRAFICA (GRAFICO A BARRE) SOTTO IL MENU A DISCESA ---
+            st.markdown("---")
+            st.markdown("#### 📊 Analisi Grafica")
+
             fig_stat = go.Figure()
             
             fig_stat.add_trace(go.Bar(
@@ -455,14 +482,13 @@ with st.container(border=True):
             # Visualizzazione del grafico e intercettazione del click
             event_selezionato = st.plotly_chart(fig_stat, use_container_width=True, on_select="rerun", key="chart_uscite_interattivo")
 
-            # Estrazione del periodo associato alla barra cliccata
+            # Estrazione del periodo associato alla barra cliccata (opzionale per i totali di riepilogo)
             periodo_selezionato = None
             if event_selezionato and "selection" in event_selezionato and event_selezionato["selection"]["points"]:
                 punto = event_selezionato["selection"]["points"][0]
                 if "customdata" in punto:
                     periodo_selezionato = punto["customdata"]
 
-            # Filtro delle uscite in base all'aggregazione e alla barra selezionata
             if periodo_selezionato:
                 p_date = datetime.strptime(periodo_selezionato, "%Y-%m-%d").date()
                 df_filtrato_periodo = df_g[df_g['periodo_chiave'] == p_date]
@@ -472,14 +498,12 @@ with st.container(border=True):
             if df_filtrato_periodo.empty:
                 df_filtrato_periodo = df_g
 
-            # Calcolo dei totali dinamici (del range intero o della colonna selezionata)
             tot_km_periodo = df_filtrato_periodo['Km'].sum()
             tot_d_periodo = df_filtrato_periodo['D+'].sum()
             tot_ore_periodo = df_filtrato_periodo['Ore in sella'].sum()
 
             st.markdown("---")
             
-            # Mostra i totali adattati con l'indicazione precisa del periodo di riferimento nelle parentesi
             if periodo_selezionato:
                 p_date_str = datetime.strptime(periodo_selezionato, "%Y-%m-%d").strftime("%d/%m/%Y")
                 if tipo_aggregazione == "Settimanale":
@@ -492,7 +516,7 @@ with st.container(border=True):
             else:
                 titolo_totali = "Totale Intero Periodo"
 
-            st.markdown(f"#### 📊 {titolo_totali}")
+            st.markdown(f"#### 📈 {titolo_totali}")
             
             col_tot1, col_tot2, col_tot3 = st.columns(3)
             col_tot1.metric("Km", f"{tot_km_periodo:,.2f} km")
@@ -500,24 +524,6 @@ with st.container(border=True):
             col_tot3.metric("Ore in sella", f"{timedelta_to_str(tot_ore_periodo * 3600)}")
 
             st.markdown("---")
-            
-            # Costruzione del menu a discesa con le sole uscite della fascia/periodo selezionato (posizionato sotto il grafico e i totali)
-            st.markdown("#### 🚴 Menu a Discesa Dettaglio Uscite")
-            opzioni_tendina = {
-                f"{row['data_solo']} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] 
-                for _, row in df_filtrato_periodo.sort_values('data_fmt', ascending=False).iterrows()
-            }
-            
-            if opzioni_tendina:
-                scelta_utente_tendina = st.selectbox(
-                    f"Seleziona Uscita dal Periodo ({len(opzioni_tendina)} disponibili)",
-                    options=list(opzioni_tendina.keys()),
-                    key="select_uscita_dettaglio_grafico"
-                )
-                id_attivita_scelta = opzioni_tendina[scelta_utente_tendina]
-            else:
-                st.warning("Nessuna uscita trovata per la selezione corrente.")
-                id_attivita_scelta = None
             
             if id_attivita_scelta:
                 dati_uscita_corrente = df_g[df_g['id_str'] == id_attivita_scelta].iloc[0]
