@@ -1,5 +1,4 @@
 
-
 import streamlit as st
 st.set_page_config(layout="wide")
 import requests
@@ -439,7 +438,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                             mapbox_config = dict(
                                                 style=basemap_style,
                                                 center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
-                                                zoom=11
+                               5                     zoom=11
                                             )
 
                                             layers_list = []
@@ -496,4 +495,3 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                         st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_streams.status_code})")
                                 except Exception as e:
                                     st.error(f"Errore durante il caricamento della mappa: {e}")
-```[cite: 3]
