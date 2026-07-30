@@ -120,9 +120,26 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
     
     col_c1, col_c2 = st.columns(2)
     with col_c1:
-        data_inizio_custom = st.date_input("Data Inizio Range", value=st.session_state["saved_start"], key="widget_start")
+        sub_s1, sub_s2 = st.columns([3, 1])
+        with sub_s1:
+            data_inizio_custom = st.date_input("Data Inizio Range", value=st.session_state["saved_start"], key="widget_start")
+        with sub_s2:
+            st.write("")
+            st.write("")
+            if st.button("📅 Oggi", key="btn_oggi_start", use_container_width=True):
+                st.session_state["widget_start"] = date.today()
+                st.rerun()
+                
     with col_c2:
-        data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["saved_end"], key="widget_end")
+        sub_e1, sub_e2 = st.columns([3, 1])
+        with sub_e1:
+            data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["saved_end"], key="widget_end")
+        with sub_e2:
+            st.write("")
+            st.write("")
+            if st.button("📅 Oggi", key="btn_oggi_end", use_container_width=True):
+                st.session_state["widget_end"] = date.today()
+                st.rerun()
         
     col_f1, col_f2 = st.columns(2)
     with col_f1:
