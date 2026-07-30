@@ -544,7 +544,7 @@ with st.container(border=True):
                                         break
 
                         if lats_g and lons_g and len(lats_g) > 0:
-                            # Mappa racchiusa nell'expander con modatità satellite e scaricamento GPX
+                            # Mappa racchiusa nell'expander con modalità satellite e scaricamento GPX
                             with st.expander("🗺️ Visualizza Mappa e Download GPX", expanded=False):
                                 fig_map = go.Figure()
                                 fig_map.add_trace(go.Scattermapbox(
@@ -607,7 +607,5 @@ with st.container(border=True):
                         st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_str_g.status_code})")
         else:
             st.info("Nessuna attività trovata nel range temporale selezionato per il grafico.")
-    else:
-        st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
