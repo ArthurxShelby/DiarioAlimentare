@@ -193,14 +193,7 @@ if resp_global.status_code == 200:
                                 evento_clicca = st.plotly_chart(fig_bar, use_container_width=True, on_select="rerun", config={'displaylogo': False})
                                 
                             with col_grafico_principale:
-                                evento_clicca = st.plotly_chart(
-                                    fig_bar, 
-                                    use_container_width=True, 
-                                    on_select="rerun", 
-                                    selection_mode="points",
-                                    key="grafico_macro_attivita", 
-                                    config={'displaylogo': False}
-                                )
+                                evento_clicca = st.plotly_chart(fig_bar, use_container_width=True, on_select="rerun", config={'displaylogo': False})
                                 
                             # Gestione interattività al click sulla barra del diagramma
                             periodo_selezionato = None
@@ -208,25 +201,20 @@ if resp_global.status_code == 200:
                                 punti = evento_clicca["selection"]["points"]
                                 if punti:
                                     punto = punti[0]
+                                    # Se Plotly restituisce una data formattata (es. "Jul 1, 2026"), la convertiamo nel formato YYYY-MM corrispondente
                                     x_val = punto.get("x")
                                     if x_val:
-                                        # Se Plotly restituisce la stringa dell'asse X (es. "Jan 2026"), la convertiamo nel formato YYYY-MM
                                         try:
-                                            dt_parsed = pd.to_datetime(x_val, format="%b %Y")
+                                            # Tentativo di parsing se è una data leggibile (es. "Jul 1, 2026")
+                                            dt_parsed = pd.to_datetime(x_val)
                                             if tipo_aggruppamento == "Mesi":
                                                 periodo_selezionato = dt_parsed.strftime("%Y-%m")
                                             else:
                                                 periodo_selezionato = dt_parsed.strftime("%Y-W%V")
                                         except Exception:
-                                            try:
-                                                dt_parsed = pd.to_datetime(x_val)
-                                                if tipo_aggruppamento == "Mesi":
-                                                    periodo_selezionato = dt_parsed.strftime("%Y-%m")
-                                                else:
-                                                    periodo_selezionato = dt_parsed.strftime("%Y-W%V")
-                                            except Exception:
-                                                periodo_selezionato = str(x_val)
-                                                
+                                            # Se è già nel formato stringa del periodo (es. "2026-07")
+                                            periodo_selezionato = str(x_val)
+                                            
                                     st.session_state["ultimo_periodo_cliccato"] = periodo_selezionato
                             
                             if "ultimo_periodo_cliccato" in st.session_state and not periodo_selezionato:
