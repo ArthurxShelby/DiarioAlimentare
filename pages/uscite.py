@@ -544,8 +544,15 @@ with st.container(border=True):
                                         break
 
                         if lats_g and lons_g and len(lats_g) > 0:
-                            # Mappa racchiusa nell'expander con modalità satellite e scaricamento GPX
+                            # Mappa racchiusa nell'expander con selettore tipo mappa (Satellite / Standard) e scaricamento GPX
                             with st.expander("🗺️ Visualizza Mappa e Download GPX", expanded=False):
+                                tipo_mappa = st.radio(
+                                    "Stile Mappa",
+                                    ["Satellite", "Standard"],
+                                    horizontal=True,
+                                    key=f"stile_mappa_{id_attivita_scelta}"
+                                )
+
                                 fig_map = go.Figure()
                                 fig_map.add_trace(go.Scattermapbox(
                                     lat=lats_g, lon=lons_g, mode='lines',
@@ -556,8 +563,8 @@ with st.container(border=True):
                                     marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
                                 ))
                                 
-                                fig_map.update_layout(
-                                    mapbox=dict(
+                                if tipo_mappa == "Satellite":
+                                    mapbox_config = dict(
                                         style="white-bg",
                                         layers=[
                                             {
@@ -570,7 +577,16 @@ with st.container(border=True):
                                         ],
                                         center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
                                         zoom=11
-                                    ),
+                                    )
+                                else:
+                                    mapbox_config = dict(
+                                        style="open-street-map",
+                                        center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
+                                        zoom=11
+                                    )
+
+                                fig_map.update_layout(
+                                    mapbox=mapbox_config,
                                     margin=dict(l=0, r=0, t=0, b=0),
                                     height=450,
                                     showlegend=False
