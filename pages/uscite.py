@@ -63,6 +63,9 @@ if resp_global.status_code == 200:
         
         tot_km = round(df_activities.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
         tot_dislivello = int(df_activities.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
+        tot_uscite = len(df_activities)
+        tot_tempo_sec = df_activities.get("moving_time", pd.Series([0])).fillna(0).sum()
+        tot_tempo_str = timedelta_to_str(tot_tempo_sec)
         
         st.markdown("---")
         st.subheader("📊 Statistiche Dinamiche e Riepilogo (TCR - Dal 15/11/2025)")
@@ -71,8 +74,11 @@ if resp_global.status_code == 200:
         
         with col_m1:
             st.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
+            st.metric("Uscite Totali", f"{tot_uscite}")
         with col_m2:
             st.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
+            st.metric("Tempo Totale in Sella", f"{tot_tempo_str}")
+            
         with col_img:
             st.subheader("TCR Advanced Pro 0")
             try:
