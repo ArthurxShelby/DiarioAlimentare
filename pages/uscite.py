@@ -355,9 +355,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                     st.error(f"Errore durante il caricamento della mappa: {e}")
 # --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE ---
 st.markdown("---")
-st.subheader("📈 Analisi Grafica e Dettaglio Uscite per Metrica")
-
-with st.container(border=True):
+with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded=False):
     st.write("Fissa il range temporale di ricerca, il livello di aggregazione (Settimane/Mesi) e seleziona il parametro da analizzare.")
     
     # Zona con i bottoni / filtri per inserire il range di ricerca e il selettore periodicità
