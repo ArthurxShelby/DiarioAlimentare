@@ -353,7 +353,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                         st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_streams.status_code})")
                                 except Exception as e:
                                     st.error(f"Errore durante il caricamento della mappa: {e}")
-# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE ---
+## --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE ---
 st.markdown("---")
 st.subheader("📈 Analisi Grafica e Dettaglio Uscite per Metrica")
 
@@ -501,13 +501,13 @@ with st.container(border=True):
             if id_attivita_scelta:
                 dati_uscita_corrente = df_g[df_g['id_str'] == id_attivita_scelta].iloc[0]
 
-                st.markdown(f"#### 🗺️ Mappa e Traccia GPX: {dati_uscita_corrente['titolo_uscita']} ({dati_uscita_corrente['data_solo']})")
+                st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} ({dati_uscita_corrente['data_solo']})")
                 
                 # Caricamento stream e mappa per l'uscita selezionata dal menu
                 clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
                 target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
                 
-                with st.spinner("Caricamento mappa e traccia GPX in corso..."):
+                with st.spinner("Caricamento traccia GPS in corso..."):
                     resp_str_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
                     if resp_str_g.status_code == 404 and id_attivita_scelta != clean_id_g:
                         target_url_g = f"https://intervals.icu/api/v1/activity/{id_attivita_scelta}/streams"
@@ -533,52 +533,54 @@ with st.container(border=True):
                                         break
 
                         if lats_g and lons_g and len(lats_g) > 0:
-                            fig_map = go.Figure()
-                            fig_map.add_trace(go.Scattermapbox(
-                                lat=lats_g, lon=lons_g, mode='lines',
-                                line=dict(width=4, color='dodgerblue'), name='Tracciato'
-                            ))
-                            fig_map.add_trace(go.Scattermapbox(
-                                lat=[lats_g[0], lats_g[-1]], lon=[lons_g[0], lons_g[-1]], mode='markers',
-                                marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
-                            ))
-                            
-                            fig_map.update_layout(
-                                mapbox=dict(
-                                    style="open-street-map",
-                                    center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
-                                    zoom=11
-                                ),
-                                margin=dict(l=0, r=0, t=0, b=0),
-                                height=450,
-                                showlegend=False
-                            )
-                            
-                            st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
+                            # Mappa racchiusa nell'expander (si espande solo su click)
+                            with st.expander("🗺️ Visualizza Mappa e Download GPX", expanded=False):
+                                fig_map = go.Figure()
+                                fig_map.add_trace(go.Scattermapbox(
+                                    lat=lats_g, lon=lons_g, mode='lines',
+                                    line=dict(width=4, color='dodgerblue'), name='Tracciato'
+                                ))
+                                fig_map.add_trace(go.Scattermapbox(
+                                    lat=[lats_g[0], lats_g[-1]], lon=[lons_g[0], lons_g[-1]], mode='markers',
+                                    marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
+                                ))
+                                
+                                fig_map.update_layout(
+                                    mapbox=dict(
+                                        style="open-street-map",
+                                        center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
+                                        zoom=11
+                                    ),
+                                    margin=dict(l=0, r=0, t=0, b=0),
+                                    height=450,
+                                    showlegend=False
+                                )
+                                
+                                st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
 
-                            # Generazione file GPX per il download
-                            linee_gpx = [
-                                '<?xml version="1.0" encoding="UTF-8"?>',
-                                '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
-                                '  <trk>',
-                                f'    <name>{dati_uscita_corrente["titolo_uscita"]}</name>',
-                                '    <trkseg>'
-                            ]
-                            for lat, lon in zip(lats_g, lons_g):
-                                linee_gpx.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
-                            linee_gpx.extend([
-                                '    </trkseg>',
-                                '  </trk>',
-                                '</gpx>'
-                            ])
-                            contenuto_gpx_uscita = "\n".join(linee_gpx)
-                            nome_file_gpx = "".join(c for c in dati_uscita_corrente["titolo_uscita"] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
-                            if not nome_file_gpx:
-                                nome_file_gpx = "tracciato_uscita"
+                                # Generazione file GPX per il download
+                                linee_gpx = [
+                                    '<?xml version="1.0" encoding="UTF-8"?>',
+                                    '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
+                                    '  <trk>',
+                                    f'    <name>{dati_uscita_corrente["titolo_uscita"]}</name>',
+                                    '    <trkseg>'
+                                ]
+                                for lat, lon in zip(lats_g, lons_g):
+                                    linee_gpx.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
+                                linee_gpx.extend([
+                                    '    </trkseg>',
+                                    '  </trk>',
+                                    '</gpx>'
+                                ])
+                                contenuto_gpx_uscita = "\n".join(linee_gpx)
+                                nome_file_gpx = "".join(c for c in dati_uscita_corrente["titolo_uscita"] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+                                if not nome_file_gpx:
+                                    nome_file_gpx = "tracciato_uscita"
 
-                            b64_gpx = base64.b64encode(contenuto_gpx_uscita.encode()).decode()
-                            href_gpx = f'<a href="data:application/gpx+xml;base64,{b64_gpx}" download="{nome_file_gpx}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
-                            st.markdown(href_gpx, unsafe_allow_html=True)
+                                b64_gpx = base64.b64encode(contenuto_gpx_uscita.encode()).decode()
+                                href_gpx = f'<a href="data:application/gpx+xml;base64,{b64_gpx}" download="{nome_file_gpx}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
+                                st.markdown(href_gpx, unsafe_allow_html=True)
                         else:
                             st.warning("⚠️ Nessuna coordinata GPS valida disponibile per questa specifica uscita su Intervals.icu.")
                     else:
