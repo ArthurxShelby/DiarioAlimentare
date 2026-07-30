@@ -453,24 +453,34 @@ with st.container(border=True):
                 if "customdata" in punto:
                     periodo_selezionato = punto["customdata"]
 
-            st.markdown("---")
-            
             # Filtro delle uscite in base all'aggregazione e alla barra selezionata
             if periodo_selezionato:
                 p_date = datetime.strptime(periodo_selezionato, "%Y-%m-%d").date()
-                if tipo_aggregazione == "Settimanale":
-                    df_filtrato_periodo = df_g[df_g['periodo_chiave'] == p_date]
-                elif tipo_aggregazione == "Mensile":
-                    df_filtrato_periodo = df_g[df_g['periodo_chiave'] == p_date]
-                else:
-                    df_filtrato_periodo = df_g[df_g['periodo_chiave'] == p_date]
+                df_filtrato_periodo = df_g[df_g['periodo_chiave'] == p_date]
             else:
-                # Se non viene cliccata nessuna barra, mostra tutte le uscite del range
                 df_filtrato_periodo = df_g
 
             if df_filtrato_periodo.empty:
-                df_filtrato_periodo = df_g  # Fallback di sicurezza se il filtro risulta vuoto
+                df_filtrato_periodo = df_g
 
+            # Calcolo dei totali dinamici (del range intero o della colonna selezionata)
+            tot_km_periodo = df_filtrato_periodo['Km'].sum()
+            tot_d_periodo = df_filtrato_periodo['D+'].sum()
+            tot_ore_periodo = df_filtrato_periodo['Ore in sella'].sum()
+
+            st.markdown("---")
+            
+            # Mostra i totali adattati (Intero periodo o Barra selezionata)
+            titolo_totali = "Totale Selezionato (Barra)" if periodo_selezionato else "Totale Intero Periodo"
+            st.markdown(f"#### 📊 {titolo_totali}")
+            
+            col_tot1, col_tot2, col_tot3 = st.columns(3)
+            col_tot1.metric("Km", f"{tot_km_periodo:,.2f} km")
+            col_tot2.metric("D+", f"{tot_d_periodo:,.0f} m")
+            col_tot3.metric("Ore in sella", f"{timedelta_to_str(tot_ore_periodo * 3600)}")
+
+            st.markdown("---")
+            
             # Costruzione del menu a discesa con le sole uscite della fascia/periodo selezionato
             opzioni_tendina = {
                 f"{row['data_solo']} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] 
