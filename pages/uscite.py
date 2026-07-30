@@ -119,32 +119,10 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
     st.write("Seleziona un periodo, filtra per data specifica o cerca per nome dell'uscita all'interno del flusso di Intervals.")
     
     col_c1, col_c2 = st.columns(2)
-    
     with col_c1:
-        sub_s1, sub_s2 = st.columns([4, 1])
-        with sub_s1:
-            data_inizio_custom = st.date_input("Data Inizio Range", value=st.session_state["saved_start"], key="widget_start")
-        with sub_s2:
-            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-            if st.button("📅 Oggi", key="btn_oggi_start", use_container_width=True):
-                oggi = date.today()
-                st.session_state["saved_start"] = oggi
-                st.session_state["widget_start"] = oggi
-                salva_data_su_file(FILE_DATA_INIZIO, oggi)
-                st.rerun()
-                
+        data_inizio_custom = st.date_input("Data Inizio Range", value=st.session_state["saved_start"], key="widget_start")
     with col_c2:
-        sub_e1, sub_e2 = st.columns([4, 1])
-        with sub_e1:
-            data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["saved_end"], key="widget_end")
-        with sub_e2:
-            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-            if st.button("📅 Oggi", key="btn_oggi_end", use_container_width=True):
-                oggi = date.today()
-                st.session_state["saved_end"] = oggi
-                st.session_state["widget_end"] = oggi
-                salva_data_su_file(FILE_DATA_FINE, oggi)
-                st.rerun()
+        data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["saved_end"], key="widget_end")
         
     col_f1, col_f2 = st.columns(2)
     with col_f1:
@@ -157,22 +135,18 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
         data_singola_specifica = st.date_input("Seleziona Data Specifica", value=date.today(), key="widget_single_date")
 
     if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
-        # Aggiorna lo stato con i valori correnti dei widget (gestendo il caso in cui siano stati modificati a mano)
-        if "widget_start" in st.session_state:
-            st.session_state["saved_start"] = st.session_state["widget_start"]
-        if "widget_end" in st.session_state:
-            st.session_state["saved_end"] = st.session_state["widget_end"]
-            
-        salva_data_su_file(FILE_DATA_INIZIO, st.session_state["saved_start"])
-        salva_data_su_file(FILE_DATA_FINE, st.session_state["saved_end"])
+        st.session_state["saved_start"] = data_inizio_custom
+        st.session_state["saved_end"] = data_fine_custom
+        salva_data_su_file(FILE_DATA_INIZIO, data_inizio_custom)
+        salva_data_su_file(FILE_DATA_FINE, data_fine_custom)
         
         with st.spinner("Interrogazione in corso..."):
             if attiva_data_singola and data_singola_specifica:
                 oldest_param = data_singola_specifica.strftime("%Y-%m-%d")
                 newest_param = data_singola_specifica.strftime("%Y-%m-%d")
             else:
-                oldest_param = st.session_state["saved_start"].strftime("%Y-%m-%d")
-                newest_param = st.session_state["saved_end"].strftime("%Y-%m-%d")
+                oldest_param = data_inizio_custom.strftime("%Y-%m-%d")
+                newest_param = data_fine_custom.strftime("%Y-%m-%d")
 
             url_custom = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
             params_custom = {
