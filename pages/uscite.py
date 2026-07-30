@@ -6,6 +6,7 @@ import pandas as pd
 import os
 import folium
 from streamlit_folium import st_folium
+import plotly.express as px
 import plotly.graph_objects as go
 import base64
 
@@ -42,6 +43,9 @@ def safe_int(val):
         return int(float(val))
     except (ValueError, TypeError):
         return None
+
+# Colore blu coerente con il diario alimentare
+BLU_DIARIO = "#2b5c8f"
 
 # --- 1. STATISTICHE DINAMICHE GLOBALI & MACRO INDIPENDENTE ---
 with st.spinner("Sincronizzazione dati da Intervals.icu in corso..."):
@@ -118,6 +122,52 @@ if resp_global.status_code == 200:
                         m_c1.metric("Km Totali", f"{km_macro:,.2f} km")
                         m_c2.metric("D+ Totale", f"{d_macro:,} m")
                         m_c3.metric("Ore in Sella", f"{ore_macro} h")
+                        
+                        # --- NUOVA SEZIONE: DIAGRAMMI NEL RANGE SELEZIONATO ---
+                        st.markdown("---")
+                        c_diag_titolo, c_diag_scelta = st.columns([2, 2])
+                        with c_diag_titolo:
+                            st.markdown("##### 📈 Analisi Grafica Periodo")
+                        with c_diag_scelta:
+                            tipo_aggruppamento = st.selectbox(
+                                "Raggruppa per",
+                                ["Mesi", "Settimane"],
+                                key="selettore_raggruppamento",
+                                label_visibility="collapsed"
+                            )
+                        
+                        # Preparazione DataFrame per i grafici
+                        if "start_date_local" in df_macro.columns:
+                            df_macro["data_dt"] = pd.to_datetime(df_macro["start_date_local"].apply(lambda x: x.split("T")[0]))
+                            df_macro["distanza_km"] = (df_macro.get("distance", pd.Series([0])).fillna(0)) / 1000.0
+                            
+                            if tipo_aggruppamento == "Mesi":
+                                df_macro["periodo"] = df_macro["data_dt"].dt.to_period("M").astype(str)
+                            else:
+                                # Settimana dell'anno (Anno-WXX)
+                                df_macro["periodo"] = df_macro["data_dt"].dt.strftime("%Y-W%V")
+                                
+                            df_agg = df_macro.groupby("periodo")["distanza_km"].sum().reset_index()
+                            
+                            fig_bar = px.bar(
+                                df_agg,
+                                x="periodo",
+                                y="distanza_km",
+                                text_auto=".1f",
+                                labels={"periodo": "Periodo", "distanza_km": "Chilometri (km)"}
+                            )
+                            fig_bar.update_traces(marker_color=BLU_DIARIO, textfont_size=12, textangle=0, textposition="outside")
+                            fig_bar.update_layout(
+                                margin=dict(l=10, r=10, t=10, b=10),
+                                height=250,
+                                xaxis_title="",
+                                yaxis_title="km",
+                                paper_bgcolor="rgba(0,0,0,0)",
+                                plot_bgcolor="rgba(0,0,0,0)"
+                            )
+                            st.plotly_chart(fig_bar, use_container_width=True, config={'displaylogo': False})
+                        # -----------------------------------------------------
+                        
                     else:
                         st.info("Nessuna attività trovata in questo range personalizzato.")
                 else:
