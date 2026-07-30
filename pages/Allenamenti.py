@@ -9,7 +9,7 @@ st.set_page_config(
     page_title="Pianificazione Allenamento", page_icon="🏋️", layout="wide"
 )
 
-# --- STYLING CSS PER INGRANDIRE CARATTERI DATE, CALENDARIO E SEZIONI SPECIFICHE ---
+# --- STYLING CSS PER INGRANDIRE CARATTERI DATE E CALENDARIO ---
 st.markdown("""
 <style>
     /* Ingrandisce il testo dentro gli input data */
@@ -21,28 +21,6 @@ st.markdown("""
     }
     /* Ingrandisce i caratteri all'interno del popup del calendario (giorni, mesi, anni) */
     div[data-baseweb="calendar"] * {
-        font-size: 1.1rem !important;
-    }
-    
-    /* --- AUMENTO CARATTERI SEZIONI GESTIONE, MODIFICA E PROGRAMMAZIONE CICLI --- */
-    
-    /* Ingrandisce i titoli delle sezioni principali (h2 e h3) */
-    h2, h3, .stSubheader {
-        font-size: 1.4rem !important;
-    }
-    
-    /* Ingrandisce il testo generale all'interno delle tabelle (st.data_editor) */
-    div[data-testid="stDataEditor"] * {
-        font-size: 1.1rem !important;
-    }
-    
-    /* Ingrandisce le etichette delle colonne nelle tabelle e nei widget */
-    th, span[data-testid="stMarkdownContainer"] p {
-        font-size: 1.1rem !important;
-    }
-    
-    /* Ingrandisce il testo descrittivo e i sottotitoli delle sezioni target */
-    .stMarkdown div p {
         font-size: 1.1rem !important;
     }
 </style>
