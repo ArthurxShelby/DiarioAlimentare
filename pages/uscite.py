@@ -124,30 +124,30 @@ if resp_global.status_code == 200:
                         m_c2.metric("D+ Totale", f"{d_macro:,} m")
                         m_c3.metric("Ore in Sella", f"{ore_macro} h")
                         
-                        # --- SEZIONE DIAGRAMMA E SELETTORI ---
                         st.markdown("---")
-                        c_diag_titolo, c_metrica_scelta, c_aggruppa_scelta = st.columns([1.5, 2.2, 2.2])
-                        with c_diag_titolo:
-                            st.markdown("##### 📈 Analisi Grafica")
-                        with c_metrica_scelta:
-                            tipo_metrica = st.selectbox(
-                                "Metrica Grafico",
-                                ["Chilometri (km)", "Dislivello (D+ m)"],
-                                key="selettore_metrica_grafico",
-                                label_visibility="collapsed"
-                            )
-                        with c_aggruppa_scelta:
-                            tipo_aggruppamento = st.selectbox(
-                                "Raggruppa per",
-                                ["Mesi", "Settimane"],
-                                key="selettore_raggruppamento",
-                                label_visibility="collapsed"
-                            )
                         
-                        # Layout espanso a colonna singola per la macro, così l'intera sezione sfrutta tutta la larghezza della pagina
-                        col_macro_intera = st.columns([1])[0]
+                        # --- 2 COLONNE AFFIANCATE A TUTTA LARGHEZZA: SINISTRA GRAFICO, DESTRA USCITE DEL PERIODO ---
+                        col_grafico_macro, col_uscite_macro = st.columns(2)
                         
-                        with col_macro_intera:
+                        with col_grafico_macro:
+                            c_diag_titolo, c_metrica_scelta, c_aggruppa_scelta = st.columns([1.5, 2.2, 2.2])
+                            with c_diag_titolo:
+                                st.markdown("##### 📈 Analisi Grafica")
+                            with c_metrica_scelta:
+                                tipo_metrica = st.selectbox(
+                                    "Metrica Grafico",
+                                    ["Chilometri (km)", "Dislivello (D+ m)"],
+                                    key="selettore_metrica_grafico",
+                                    label_visibility="collapsed"
+                                )
+                            with c_aggruppa_scelta:
+                                tipo_aggruppamento = st.selectbox(
+                                    "Raggruppa per",
+                                    ["Mesi", "Settimane"],
+                                    key="selettore_raggruppamento",
+                                    label_visibility="collapsed"
+                                )
+                            
                             if "start_date_local" in df_macro.columns:
                                 df_macro["data_dt"] = pd.to_datetime(df_macro["start_date_local"].apply(lambda x: x.split("T")[0]))
                                 df_macro["distanza_km"] = (df_macro.get("distance", pd.Series([0])).fillna(0)) / 1000.0
@@ -225,100 +225,101 @@ if resp_global.status_code == 200:
                                 if "ultimo_periodo_cliccato" in st.session_state and not periodo_selezionato:
                                     periodo_selezionato = st.session_state["ultimo_periodo_cliccato"]
 
-                                st.markdown("##### 📌 Uscite del Periodo")
-                                if periodo_selezionato:
-                                    st.caption(f"Filtro attivo: **{periodo_selezionato}**")
-                                    
-                                    df_uscite_periodo = df_macro[df_macro["periodo"] == periodo_selezionato]
-                                    
-                                    if not df_uscite_periodo.empty:
-                                        with st.container(height=520):
-                                            for idx, row in df_uscite_periodo.iterrows():
-                                                act_id = str(row.get("id"))
-                                                act_title = row.get("name", "Uscita senza titolo")
-                                                act_date = row.get("start_date_local", "").split("T")[0]
-                                                km_uscita = round((row.get("distance") or 0) / 1000.0, 1)
-                                                d_uscita = safe_int(row.get("total_elevation_gain")) or 0
-                                                act_time = timedelta_to_str(row.get("moving_time", 0))
+                        with col_uscite_macro:
+                            st.markdown("##### 📌 Uscite del Periodo")
+                            if periodo_selezionato:
+                                st.caption(f"Filtro attivo: **{periodo_selezionato}**")
+                                
+                                df_uscite_periodo = df_macro[df_macro["periodo"] == periodo_selezionato]
+                                
+                                if not df_uscite_periodo.empty:
+                                    with st.container(height=520):
+                                        for idx, row in df_uscite_periodo.iterrows():
+                                            act_id = str(row.get("id"))
+                                            act_title = row.get("name", "Uscita senza titolo")
+                                            act_date = row.get("start_date_local", "").split("T")[0]
+                                            km_uscita = round((row.get("distance") or 0) / 1000.0, 1)
+                                            d_uscita = safe_int(row.get("total_elevation_gain")) or 0
+                                            act_time = timedelta_to_str(row.get("moving_time", 0))
+                                            
+                                            key_toggle_macro = f"show_map_macro_{act_id}_{idx}"
+                                            if key_toggle_macro not in st.session_state:
+                                                st.session_state[key_toggle_macro] = False
+                                            
+                                            with st.container(border=True):
+                                                st.markdown(f"**{act_title}** ({act_date})")
+                                                st.markdown(f"📏 {km_uscita} km &nbsp;|&nbsp; ⛰️ {d_uscita} m &nbsp;|&nbsp; ⏱️ {act_time}")
                                                 
-                                                key_toggle_macro = f"show_map_macro_{act_id}_{idx}"
-                                                if key_toggle_macro not in st.session_state:
-                                                    st.session_state[key_toggle_macro] = False
-                                                
-                                                with st.container(border=True):
-                                                    st.markdown(f"**{act_title}** ({act_date})")
-                                                    st.markdown(f"📏 {km_uscita} km &nbsp;|&nbsp; ⛰️ {d_uscita} m &nbsp;|&nbsp; ⏱️ {act_time}")
-                                                    
-                                                    c_b1, c_b2 = st.columns(2)
-                                                    with c_b1:
-                                                        lbl_map = "🗺️ Nascondi Mappa" if st.session_state[key_toggle_macro] else "🗺️ Anteprima Mappa"
-                                                        if st.button(lbl_map, key=f"btn_macro_map_{act_id}_{idx}", use_container_width=True):
-                                                            st.session_state[key_toggle_macro] = not st.session_state[key_toggle_macro]
-                                                            st.rerun()
-                                                    with c_b2:
-                                                        if st.button("🔍 Pagina Dedicata", key=f"btn_macro_page_{act_id}_{idx}", use_container_width=True):
-                                                            st.session_state["selected_activity_id"] = act_id
-                                                            st.session_state["selected_activity_title"] = act_title
-                                                            st.session_state["selected_activity_date"] = act_date
-                                                            st.switch_page("pages/visualizza_mappa.py")
-                                                            
-                                                    if st.session_state[key_toggle_macro]:
-                                                        st.markdown("---")
-                                                        clean_id = ''.join(c for c in act_id if c.isdigit())
-                                                        target_url = f"https://intervals.icu/api/v1/activity/{clean_id}/streams"
-                                                        auth_streams = ("API_KEY", API_KEY.strip())
+                                                c_b1, c_b2 = st.columns(2)
+                                                with c_b1:
+                                                    lbl_map = "🗺️ Nascondi Mappa" if st.session_state[key_toggle_macro] else "🗺️ Anteprima Mappa"
+                                                    if st.button(lbl_map, key=f"btn_macro_map_{act_id}_{idx}", use_container_width=True):
+                                                        st.session_state[key_toggle_macro] = not st.session_state[key_toggle_macro]
+                                                        st.rerun()
+                                                with c_b2:
+                                                    if st.button("🔍 Pagina Dedicata", key=f"btn_macro_page_{act_id}_{idx}", use_container_width=True):
+                                                        st.session_state["selected_activity_id"] = act_id
+                                                        st.session_state["selected_activity_title"] = act_title
+                                                        st.session_state["selected_activity_date"] = act_date
+                                                        st.switch_page("pages/visualizza_mappa.py")
                                                         
-                                                        with st.spinner("Caricamento tracciato..."):
-                                                            try:
+                                                if st.session_state[key_toggle_macro]:
+                                                    st.markdown("---")
+                                                    clean_id = ''.join(c for c in act_id if c.isdigit())
+                                                    target_url = f"https://intervals.icu/api/v1/activity/{clean_id}/streams"
+                                                    auth_streams = ("API_KEY", API_KEY.strip())
+                                                    
+                                                    with st.spinner("Caricamento tracciato..."):
+                                                        try:
+                                                            resp_streams = requests.get(target_url, auth=auth_streams)
+                                                            if resp_streams.status_code == 404 and act_id != clean_id:
+                                                                target_url = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
                                                                 resp_streams = requests.get(target_url, auth=auth_streams)
-                                                                if resp_streams.status_code == 404 and act_id != clean_id:
-                                                                    target_url = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
-                                                                    resp_streams = requests.get(target_url, auth=auth_streams)
-                                                                    
-                                                                if resp_streams.status_code == 200:
-                                                                    data = resp_streams.json()
-                                                                    lats, lons = [], []
-                                                                    if isinstance(data, list):
-                                                                        for stream in data:
-                                                                            if isinstance(stream, dict) and stream.get("type") in ["latlng", "lating"]:
-                                                                                lat_data = stream.get("data", [])
-                                                                                lon_data = stream.get("data2", [])
-                                                                                if isinstance(lat_data, list) and isinstance(lon_data, list) and len(lat_data) == len(lon_data):
-                                                                                    for lat, lon in zip(lat_data, lon_data):
-                                                                                        if lat is not None and lon is not None:
-                                                                                            lats.append(float(lat))
-                                                                                            lons.append(float(lon))
-                                                                    
-                                                                    if lats and lons:
-                                                                        fig_m = go.Figure()
-                                                                        fig_m.add_trace(go.Scattermapbox(
-                                                                            lat=lats, lon=lons, mode='lines',
-                                                                            line=dict(width=4, color='dodgerblue'), name='Tracciato'
-                                                                        ))
-                                                                        fig_m.update_layout(
-                                                                            mapbox=dict(
-                                                                                style="open-street-map",
-                                                                                center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
-                                                                                zoom=11
-                                                                            ),
-                                                                            margin=dict(l=0, r=0, t=0, b=0),
-                                                                            height=300,
-                                                                            showlegend=False
-                                                                        )
-                                                                        st.plotly_chart(fig_m, use_container_width=True, key=f"map_plot_macro_{act_id}_{idx}", config={'displaylogo': False})
-                                                                    else:
-                                                                        st.warning("Coordinate GPS non disponibili per questa uscita.")
+                                                                
+                                                            if resp_streams.status_code == 200:
+                                                                data = resp_streams.json()
+                                                                lats, lons = [], []
+                                                                if isinstance(data, list):
+                                                                    for stream in data:
+                                                                        if isinstance(stream, dict) and stream.get("type") in ["latlng", "lating"]:
+                                                                            lat_data = stream.get("data", [])
+                                                                            lon_data = stream.get("data2", [])
+                                                                            if isinstance(lat_data, list) and isinstance(lon_data, list) and len(lat_data) == len(lon_data):
+                                                                                for lat, lon in zip(lat_data, lon_data):
+                                                                                    if lat is not None and lon is not None:
+                                                                                        lats.append(float(lat))
+                                                                                        lons.append(float(lon))
+                                                                
+                                                                if lats and lons:
+                                                                    fig_m = go.Figure()
+                                                                    fig_m.add_trace(go.Scattermapbox(
+                                                                        lat=lats, lon=lons, mode='lines',
+                                                                        line=dict(width=4, color='dodgerblue'), name='Tracciato'
+                                                                    ))
+                                                                    fig_m.update_layout(
+                                                                        mapbox=dict(
+                                                                            style="open-street-map",
+                                                                            center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
+                                                                            zoom=11
+                                                                        ),
+                                                                        margin=dict(l=0, r=0, t=0, b=0),
+                                                                        height=300,
+                                                                        showlegend=False
+                                                                    )
+                                                                    st.plotly_chart(fig_m, use_container_width=True, key=f"map_plot_macro_{act_id}_{idx}", config={'displaylogo': False})
                                                                 else:
-                                                                    st.error("Errore nel recupero dei flussi GPS.")
-                                                            except Exception as ex:
-                                                                st.error(f"Errore caricamento mappa: {ex}")
-                                    else:
-                                        with st.container(height=200):
-                                            st.info("Nessuna uscita trovata per questo periodo.")
+                                                                    st.warning("Coordinate GPS non disponibili per questa uscita.")
+                                                            else:
+                                                                st.error("Errore nel recupero dei flussi GPS.")
+                                                        except Exception as ex:
+                                                            st.error(f"Errore caricamento mappa: {ex}")
                                 else:
                                     with st.container(height=200):
-                                        st.info("👆 Clicca su una barra del diagramma per visualizzare qui le relative uscite in dettaglio.")
-                        # ----------------------------------------------------------------------
+                                        st.info("Nessuna uscita trovata per questo periodo.")
+                            else:
+                                with st.container(height=520):
+                                    st.info("👆 Clicca su una barra del diagramma (a sinistra) per visualizzare qui le relative uscite in dettaglio.")
+                        # --------------------------------------------------------------------------------------------------
                         
                     else:
                         st.info("Nessuna attività trovata in questo range personalizzato.")
