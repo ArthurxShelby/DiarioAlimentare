@@ -46,60 +46,11 @@ def safe_int(val):
     except (ValueError, TypeError):
         return None
 
-# --- 1. STATISTICHE DINAMICHE DIRETTAMENTE DA INTERVALS (Dal 15/11/2025) ---
-with st.spinner("Sincronizzazione dati da Intervals.icu in corso..."):
-    url_global = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
-    params_global = {
-        "oldest": "2025-11-15",
-        "newest": date.today().strftime("%Y-%m-%d"),
-        "iw": True
-    }
-    auth_global = ("API_KEY", API_KEY.strip())
-    
-    resp_global = requests.get(url_global, auth=auth_global, params=params_global)
-
-df_activities_global = pd.DataFrame()
-if resp_global.status_code == 200:
-    activities_net = resp_global.json()
-    if activities_net:
-        df_activities_global = pd.DataFrame(activities_net)
-        # Assicuriamoci che la data locale sia convertita in datetime
-        df_activities_global["date_parsed"] = pd.to_datetime(df_activities_global["start_date_local"]).dt.date
-        
-        tot_km = round(df_activities_global.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
-        tot_dislivello = int(df_activities_global.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
-        
-        st.markdown("---")
-        st.subheader("📊 Statistiche Dinamiche e Riepilogo (TCR - Dal 15/11/2025)")
-        
-        col_m1, col_m2, col_img = st.columns(3)
-        
-        with col_m1:
-            st.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
-        with col_m2:
-            st.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
-        with col_img:
-            st.subheader("TCR Advanced Pro 0")
-            try:
-                cartella_script = os.path.dirname(__file__)
-                percorso_foto = os.path.join(cartella_script, "TCR.png")
-                st.image(percorso_foto, use_container_width=True)
-            except Exception:
-                st.warning("Immagine TCR.png non trovata.")
-        
-        st.markdown("---")
-    else:
-        st.info("Nessuna attività trovata a partire dal 15/11/2025.")
-else:
-    st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
-
-
-# --- 2. CONTENITORE INTERMEDIO: ANALISI GRAFICA E INTERATTIVITÀ USCITE ---
+# --- 1. CONFIGURAZIONE E PULSANTI RANGE GRAFICO ---
 with st.container(border=True):
     st.subheader("📈 Analisi Grafica e Uscite per Metrica")
     st.write("Filtra il periodo temporale, seleziona la metrica e analizza i grafici interattivi con le relative uscite e mappe.")
 
-    # Zona bottoni e range di ricerca per i grafici
     col_gr1, col_gr2, col_gr3 = st.columns([2, 2, 1])
     with col_gr1:
         graf_start = st.date_input("Inizio Range Grafico", value=date(2025, 11, 15), key="graf_start_date")
@@ -116,13 +67,48 @@ with st.container(border=True):
     with col_g_sel2:
         tipo_periodo = st.selectbox("Raggruppamento Temporale", ["Mese", "Settimana"])
 
-    if not df_activities_global.empty:
-        # Filtriamo il dataframe globale in base al range scelto nel contenitore
-        mask = (df_activities_global["date_parsed"] >= graf_start) & (df_activities_global["date_parsed"] <= graf_end)
-        df_grafico = df_activities_global.loc[mask].copy()
+    # Chiamata API dinamica basata sul range del contenitore grafico
+    with st.spinner("Sincronizzazione dati da Intervals.icu in corso..."):
+        url_global = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
+        params_global = {
+            "oldest": graf_start.strftime("%Y-%m-%d"),
+            "newest": graf_end.strftime("%Y-%m-%d"),
+            "iw": True
+        }
+        auth_global = ("API_KEY", API_KEY.strip())
+        resp_global = requests.get(url_global, auth=auth_global, params=params_global)
 
-        if not df_grafico.empty:
-            # Preparazione colonne metriche
+    df_activities_global = pd.DataFrame()
+    if resp_global.status_code == 200:
+        activities_net = resp_global.json()
+        if activities_net:
+            df_activities_global = pd.DataFrame(activities_net)
+            df_activities_global["date_parsed"] = pd.to_datetime(df_activities_global["start_date_local"]).dt.date
+            
+            tot_km = round(df_activities_global.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
+            tot_dislivello = int(df_activities_global.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
+            
+            st.markdown("---")
+            st.subheader(f"📊 Statistiche del Periodo ({graf_start} al {graf_end}) (TCR)")
+            
+            col_m1, col_m2, col_img = st.columns(3)
+            with col_m1:
+                st.metric("Km Totali Periodo", f"{tot_km:,.2f} km")
+            with col_m2:
+                st.metric("D+ Totale Periodo", f"{tot_dislivello:,} m")
+            with col_img:
+                st.subheader("TCR Advanced Pro 0")
+                try:
+                    cartella_script = os.path.dirname(__file__)
+                    percorso_foto = os.path.join(cartella_script, "TCR.png")
+                    st.image(percorso_foto, use_container_width=True)
+                except Exception:
+                    st.warning("Immagine TCR.png non trovata.")
+            st.markdown("---")
+
+        # Generazione Grafico e Selettori Dettaglio Uscite
+        if not df_activities_global.empty:
+            df_grafico = df_activities_global.copy()
             df_grafico["km"] = df_grafico.get("distance", 0).fillna(0) / 1000.0
             df_grafico["d_plus"] = df_grafico.get("total_elevation_gain", 0).fillna(0)
             df_grafico["ore"] = df_grafico.get("moving_time", 0).fillna(0) / 3600.0
@@ -143,7 +129,6 @@ with st.container(border=True):
 
             df_agg = df_grafico.groupby("periodo_chiave")[colonna_valore].sum().reset_index()
 
-            # Costruzione Grafico Plotly
             fig_ana = go.Figure(data=[
                 go.Bar(
                     x=df_agg["periodo_chiave"],
@@ -162,47 +147,37 @@ with st.container(border=True):
                 clickmode='event+select'
             )
 
-            # Mostriamo il grafico e gestiamo la selezione del periodo
             c_chart, c_details = st.columns([3, 2])
-            
-            selected_period = None
             with c_chart:
                 event_data = st.plotly_chart(fig_ana, use_container_width=True, on_select="rerun", key="plot_analitico")
-                # Gestione click sul grafico Plotly in Streamlit
                 if event_data and "selection" in event_data and "points" in event_data["selection"]:
                     points = event_data["selection"]["points"]
                     if points:
-                        selected_period = points[0]["x"]
-                        st.session_state["active_chart_period"] = selected_period
+                        st.session_state["active_chart_period"] = points[0]["x"]
 
             with c_details:
                 st.markdown("#### 🔍 Uscite del Periodo Selezionato")
-                periodo_attivo = st.session_state.get("active_chart_period", df_agg["periodo_chiave"].iloc[-1] if not df_agg.empty else None)
-                
-                # Menu a discesa per scegliere quale periodo analizzare nel dettaglio se non cliccato direttamente
                 lista_periodi_disponibili = df_agg["periodo_chiave"].tolist()
+                periodo_attivo = st.session_state.get("active_chart_period", lista_periodi_disponibili[-1] if lista_periodi_disponibili else None)
+
                 if periodo_attivo not in lista_periodi_disponibili and lista_periodi_disponibili:
                     periodo_attivo = lista_periodi_disponibili[-1]
 
                 if lista_periodi_disponibili:
                     scelta_periodo_dropdown = st.selectbox(
-                        "Seleziona Periodo (o clicca sul grafico)", 
+                        "Seleziona Periodo", 
                         lista_periodi_disponibili, 
                         index=lista_periodi_disponibili.index(periodo_attivo) if periodo_attivo in lista_periodi_disponibili else 0,
                         key="dropdown_periodo_grafico"
                     )
                     
-                    # Filtriamo le attività per il periodo scelto
                     uscite_periodo = df_grafico[df_grafico["periodo_chiave"] == scelta_periodo_dropdown]
                     
                     if not uscite_periodo.empty:
-                        # Menu a discesa con le singole uscite della colonna/periodo
                         options_uscite = {f"{row['start_date_local'].split('T')[0]} - {row.get('name', 'Uscita')}": row for _, row in uscite_periodo.iterrows()}
                         scelta_uscita_key = st.selectbox("Seleziona Uscita specifica", list(options_uscite.keys()), key="select_uscita_dettaglio")
                         
                         uscita_selezionata = options_uscite[scelta_uscita_key]
-                        
-                        # Mostriamo dettagli e mappa dell'uscita selezionata direttamente nel contenitore
                         act_id = str(uscita_selezionata.get("id"))
                         act_title = uscita_selezionata.get("name", "Uscita senza titolo")
                         act_date = uscita_selezionata.get("start_date_local", "").split("T")[0]
@@ -219,11 +194,10 @@ with st.container(border=True):
                             st.session_state["selected_activity_date"] = act_date
                             st.switch_page("pages/visualizza_mappa.py")
 
-                        # Anteprima Mappa Rapida
+                        # Anteprima mappa rapida
                         clean_id = ''.join(c for c in act_id if c.isdigit())
                         target_url = f"https://intervals.icu/api/v1/activity/{clean_id}/streams"
                         auth_streams = ("API_KEY", API_KEY.strip())
-                        
                         try:
                             resp_streams = requests.get(target_url, auth=auth_streams)
                             if resp_streams.status_code == 200:
@@ -252,15 +226,12 @@ with st.container(border=True):
                             pass
                     else:
                         st.info("Nessuna uscita in questo periodo.")
-                else:
-                    st.info("Nessun dato temporale disponibile.")
         else:
             st.warning("Nessuna attività trovata nell'intervallo di date selezionato per il grafico.")
     else:
-        st.info("Caricamento dati globali in corso...")
+        st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-
-# --- 3. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Esplora Archivio) ---
+# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Esplora Archivio) ---
 FILE_DATA_INIZIO = "ultima_data_inizio.txt"
 FILE_DATA_FINE = "ultima_data_fine.txt"
 
@@ -525,3 +496,4 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                         st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_streams.status_code})")
                                 except Exception as e:
                                     st.error(f"Errore durante il caricamento della mappa: {e}")
+```[cite: 3]
