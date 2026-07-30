@@ -15,7 +15,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-import requestss
+import requests
 from datetime import datetime, date
 import pandas as pd
 import os
