@@ -354,18 +354,26 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                 except Exception as e:
                                     st.error(f"Errore durante il caricamento della mappa: {e}")
 
-# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE (Sotto menu a discesa) ---
+# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE (Sotto menu a discesa con persistenza indipendente) ---
 st.markdown("---")
+
+FILE_GRAFICO_INIZIO = "grafico_data_inizio.txt"
+FILE_GRAFICO_FINE = "grafico_data_fine.txt"
+
+if "grafico_start_val" not in st.session_state:
+    st.session_state["grafico_start_val"] = carica_data_salvata(FILE_GRAFICO_INIZIO, date(2026, 1, 1))
+
+if "grafico_end_val" not in st.session_state:
+    st.session_state["grafico_end_val"] = carica_data_salvata(FILE_GRAFICO_FINE, date.today())
 
 with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded=False):
     st.write("Fissa il range temporale di ricerca, il livello di aggregazione (Settimane/Mesi) e seleziona il parametro da analizzare.")
     
-    # Zona con i bottoni / filtri per inserire il range di ricerca e il selettore periodicità
     col_r1, col_r2, col_r3, col_r4 = st.columns([2, 2, 2, 2])
     with col_r1:
-        range_inizio = st.date_input("Inizio Range Grafico", value=st.session_state.get("saved_start", date(2026, 1, 1)), key="grafico_start")
+        range_inizio = st.date_input("Inizio Range Grafico", value=st.session_state["grafico_start_val"], key="grafico_start_input")
     with col_r2:
-        range_fine = st.date_input("Fine Range Grafico", value=st.session_state.get("saved_end", date.today()), key="grafico_end")
+        range_fine = st.date_input("Fine Range Grafico", value=st.session_state["grafico_end_val"], key="grafico_end_input")
     with col_r3:
         tipo_aggregazione = st.selectbox(
             "Raggruppa per",
@@ -379,7 +387,14 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             key="selettore_metrica_grafico"
         )
 
-    # Recupero o filtraggio delle attività basato sul range selezionato
+    # Aggiorna la persistenza se le date del grafico cambiano
+    if range_inizio != st.session_state["grafico_start_val"] or range_fine != st.session_state["grafico_end_val"]:
+        st.session_state["grafico_start_val"] = range_inizio
+        st.session_state["grafico_end_val"] = range_fine
+        salva_data_su_file(FILE_GRAFICO_INIZIO, range_inizio)
+        salva_data_su_file(FILE_GRAFICO_FINE, range_fine)
+
+    # Recupero o filtraggio delle attività basato sul range indipendente del grafico
     url_grafico = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_grafico = {
         "oldest": range_inizio.strftime("%Y-%m-%d"),
@@ -393,7 +408,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
         if dati_raw_grafico:
             df_g = pd.DataFrame(dati_raw_grafico)
             
-            # Pulizia e preparazione dati di base
             df_g['data_fmt'] = pd.to_datetime(df_g['start_date_local'])
             df_g['data_solo'] = df_g['data_fmt'].dt.date
             df_g['Km'] = df_g.get('distance', 0).fillna(0) / 1000.0
@@ -402,7 +416,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             df_g['titolo_uscita'] = df_g.get('name', 'Uscita senza nome')
             df_g['id_str'] = df_g.get('id').astype(str)
 
-            # Gestione aggregazione (Giornaliero, Settimanale, Mensile)
             if tipo_aggregazione == "Settimanale":
                 df_g['periodo_chiave'] = df_g['data_fmt'].dt.to_period('W').dt.start_time.dt.date
                 df_aggregato = df_g.groupby('periodo_chiave').agg({
@@ -423,7 +436,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                 df_g['periodo_chiave'] = df_g['data_solo']
                 df_aggregato = df_g.copy().rename(columns={'data_solo': 'asse_x'})
 
-            # Creazione grafico a barre (colonne blu) editabile passando la chiave periodo nel customdata
             fig_stat = go.Figure()
             
             fig_stat.add_trace(go.Bar(
@@ -443,17 +455,14 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                 clickmode='event+select'
             )
 
-            # Visualizzazione del grafico e intercettazione del click
             event_selezionato = st.plotly_chart(fig_stat, use_container_width=True, on_select="rerun", key="chart_uscite_interattivo")
 
-            # Estrazione del periodo associato alla barra cliccata
             periodo_selezionato = None
             if event_selezionato and "selection" in event_selezionato and event_selezionato["selection"]["points"]:
                 punto = event_selezionato["selection"]["points"][0]
                 if "customdata" in punto:
                     periodo_selezionato = punto["customdata"]
 
-            # Filtro delle uscite in base all'aggregazione e alla barra selezionata
             if periodo_selezionato:
                 p_date = datetime.strptime(periodo_selezionato, "%Y-%m-%d").date()
                 df_filtrato_periodo = df_g[df_g['periodo_chiave'] == p_date]
@@ -463,14 +472,12 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             if df_filtrato_periodo.empty:
                 df_filtrato_periodo = df_g
 
-            # Calcolo dei totali dinamici (del range intero o della colonna selezionata)
             tot_km_periodo = df_filtrato_periodo['Km'].sum()
             tot_d_periodo = df_filtrato_periodo['D+'].sum()
             tot_ore_periodo = df_filtrato_periodo['Ore in sella'].sum()
 
             st.markdown("---")
             
-            # Mostra i totali adattati con l'indicazione precisa del periodo di riferimento nelle parentesi
             if periodo_selezionato:
                 p_date_str = datetime.strptime(periodo_selezionato, "%Y-%m-%d").strftime("%d/%m/%Y")
                 if tipo_aggregazione == "Settimanale":
@@ -492,7 +499,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
 
             st.markdown("---")
             
-            # Costruzione del menu a discesa con le sole uscite della fascia/periodo selezionato
             opzioni_tendina = {
                 f"{row['data_solo']} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] 
                 for _, row in df_filtrato_periodo.sort_values('data_fmt', ascending=False).iterrows()
@@ -514,7 +520,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
 
                 st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} ({dati_uscita_corrente['data_solo']})")
                 
-                # Caricamento stream e mappa per l'uscita selezionata dal menu
                 clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
                 target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
                 
@@ -544,7 +549,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                         break
 
                         if lats_g and lons_g and len(lats_g) > 0:
-                            # Mappa racchiusa nell'expander con selettore tipo mappa (Satellite / Standard) e scaricamento GPX
                             with st.expander("🗺️ Visualizza Mappa e Download GPX", expanded=False):
                                 tipo_mappa = st.radio(
                                     "Stile Mappa",
@@ -594,7 +598,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                 
                                 st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
 
-                                # Generazione file GPX per il download
                                 linee_gpx = [
                                     '<?xml version="1.0" encoding="UTF-8"?>',
                                     '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
