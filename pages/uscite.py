@@ -396,17 +396,15 @@ with st.container(border=True):
             df_g['titolo_uscita'] = df_g.get('name', 'Uscita senza nome')
             df_g['id_str'] = df_g.get('id').astype(str)
 
-            # Creazione grafico interattivo editabile
+            # Creazione grafico a barre (colonne blu) editabile
             fig_stat = go.Figure()
             y_data = df_g[scelta_metrica]
             
-            fig_stat.add_trace(go.Scatter(
+            fig_stat.add_trace(go.Bar(
                 x=df_g['data_fmt'],
                 y=y_data,
-                mode='lines+markers',
                 name=scelta_metrica,
-                line=dict(width=3, color='#ff4b4b'),
-                marker=dict(size=8),
+                marker=dict(color='dodgerblue'),
                 customdata=df_g[['id_str', 'titolo_uscita']].values
             ))
 
@@ -499,4 +497,4 @@ with st.container(border=True):
         else:
             st.info("Nessuna attività trovata nel range temporale selezionato per il grafico.")
     else:
-      st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
+        st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
