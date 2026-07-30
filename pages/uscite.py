@@ -281,9 +281,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                             
                                             if "Satellite" in stile_mappa_prev:
                                             basemap_style = "white-bg"
-                                            # Tile di sfondo (Immagini Satellitari)
                                             tile_source = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                            # Tile di sovrapposizione con i nomi di luoghi, strade e confini (Reference Layer)
                                             labels_source = "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
                                         else:
                                             basemap_style = "open-street-map"
@@ -306,7 +304,6 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                             zoom=11
                                         )
 
-                                        # Configurazione dei layer raster multipli per Plotly
                                         layers_list = []
                                         if tile_source:
                                             layers_list.append({
@@ -315,11 +312,10 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                                 "below": "traces"
                                             })
                                         if labels_source:
-                                            # Questo layer viene posizionato sopra il tracciato per garantire la leggibilità dei nomi
                                             layers_list.append({
                                                 "sourcetype": "raster",
                                                 "source": [labels_source],
-                                                "below": "traces"  # Oppure sopra le tracce se preferisci i nomi sopra la linea blu
+                                                "below": "traces"
                                             })
                                             
                                         if layers_list:
