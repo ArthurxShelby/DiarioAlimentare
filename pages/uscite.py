@@ -395,6 +395,7 @@ with st.container(border=True):
             
             # Pulizia e preparazione dati di base
             df_g['data_fmt'] = pd.to_datetime(df_g['start_date_local'])
+            df_g['data_solo'] = df_g['data_fmt'].dt.date
             df_g['Km'] = df_g.get('distance', 0).fillna(0) / 1000.0
             df_g['D+'] = df_g.get('total_elevation_gain', 0).fillna(0)
             df_g['Ore in sella'] = df_g.get('moving_time', 0).fillna(0) / 3600.0
@@ -403,37 +404,34 @@ with st.container(border=True):
 
             # Gestione aggregazione (Giornaliero, Settimanale, Mensile)
             if tipo_aggregazione == "Settimanale":
-                df_g['periodo'] = df_g['data_fmt'].dt.to_period('W').dt.start_time.dt.date
-                df_aggregato = df_g.groupby('periodo').agg({
+                df_g['periodo_chiave'] = df_g['data_fmt'].dt.to_period('W').dt.start_time.dt.date
+                df_aggregato = df_g.groupby('periodo_chiave').agg({
                     'Km': 'sum',
                     'D+': 'sum',
                     'Ore in sella': 'sum',
-                    'id_str': lambda x: list(x)[0],  # Per il dettaglio in caso di click
                     'titolo_uscita': lambda x: f"Totale Settimanale ({len(x)} uscite)"
-                }).reset_index().rename(columns={'periodo': 'asse_x'})
+                }).reset_index().rename(columns={'periodo_chiave': 'asse_x'})
             elif tipo_aggregazione == "Mensile":
-                df_g['periodo'] = df_g['data_fmt'].dt.to_period('M').dt.start_time.dt.date
-                df_aggregato = df_g.groupby('periodo').agg({
+                df_g['periodo_chiave'] = df_g['data_fmt'].dt.to_period('M').dt.start_time.dt.date
+                df_aggregato = df_g.groupby('periodo_chiave').agg({
                     'Km': 'sum',
                     'D+': 'sum',
                     'Ore in sella': 'sum',
-                    'id_str': lambda x: list(x)[0],
                     'titolo_uscita': lambda x: f"Totale Mensile ({len(x)} uscite)"
-                }).reset_index().rename(columns={'periodo': 'asse_x'})
+                }).reset_index().rename(columns={'periodo_chiave': 'asse_x'})
             else:
-                df_g['asse_x'] = df_g['data_fmt'].dt.date
-                df_aggregato = df_g.sort_values('asse_x')
+                df_g['periodo_chiave'] = df_g['data_solo']
+                df_aggregato = df_g.copy().rename(columns={'data_solo': 'asse_x'})
 
-            # Creazione grafico a barre (colonne blu) editabile
+            # Creazione grafico a barre (colonne blu) editabile passando la chiave periodo nel customdata
             fig_stat = go.Figure()
-            y_data = df_aggregato[scelta_metrica]
             
             fig_stat.add_trace(go.Bar(
                 x=df_aggregato['asse_x'],
-                y=y_data,
+                y=df_aggregato[scelta_metrica],
                 name=scelta_metrica,
                 marker=dict(color='dodgerblue'),
-                customdata=df_aggregato[['id_str', 'titolo_uscita']].values
+                customdata=df_aggregato['asse_x'].astype(str).values
             ))
 
             fig_stat.update_layout(
@@ -448,81 +446,103 @@ with st.container(border=True):
             # Visualizzazione del grafico e intercettazione del click
             event_selezionato = st.plotly_chart(fig_stat, use_container_width=True, on_select="rerun", key="chart_uscite_interattivo")
 
-            # Gestione interazione al click sul grafico
-            uscita_selezionata_id = None
+            # Estrazione del periodo associato alla barra cliccata
+            periodo_selezionato = None
             if event_selezionato and "selection" in event_selezionato and event_selezionato["selection"]["points"]:
                 punto = event_selezionato["selection"]["points"][0]
                 if "customdata" in punto:
-                    uscita_selezionata_id = punto["customdata"][0]
+                    periodo_selezionato = punto["customdata"]
 
             st.markdown("---")
             
-            # Menu a discesa al fianco/correlato per la selezione puntuale dell'uscita
-            # Se siamo in aggregazione settimanale o mensile, usiamo il dataframe originale per dare accesso a tutte le singole uscite del periodo o della lista
-            opzioni_tendina = {f"{row['data_fmt'].strftime('%Y-%m-%d')} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] for _, row in df_g.sort_values('data_fmt').iterrows()}
+            # Filtro delle uscite in base all'aggregazione e alla barra selezionata
+            if periodo_selezionato:
+                p_date = datetime.strptime(periodo_selezionato, "%Y-%m-%d").date()
+                if tipo_aggregazione == "Settimanale":
+                    df_filtrato_periodo = df_g[df_g['periodo_chiave'] == p_date]
+                elif tipo_aggregazione == "Mensile":
+                    df_filtrato_periodo = df_g[df_g['periodo_chiave'] == p_date]
+                else:
+                    df_filtrato_periodo = df_g[df_g['periodo_chiave'] == p_date]
+            else:
+                # Se non viene cliccata nessuna barra, mostra tutte le uscite del range
+                df_filtrato_periodo = df_g
+
+            if df_filtrato_periodo.empty:
+                df_filtrato_periodo = df_g  # Fallback di sicurezza se il filtro risulta vuoto
+
+            # Costruzione del menu a discesa con le sole uscite della fascia/periodo selezionato
+            opzioni_tendina = {
+                f"{row['data_solo']} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] 
+                for _, row in df_filtrato_periodo.sort_values('data_fmt').iterrows()
+            }
             
             col_sel1, col_sel2 = st.columns([2, 1])
             with col_sel1:
-                scelta_utente_tendina = st.selectbox(
-                    "Seleziona Uscita Dettaglio",
-                    options=list(opzioni_tendina.keys()),
-                    index=list(opzioni_tendina.values()).index(uscita_selezionata_id) if uscita_selezionata_id in opzioni_tendina.values() else 0
-                )
+                if opzioni_tendina:
+                    scelta_utente_tendina = st.selectbox(
+                        f"Uscite nel periodo selezionato ({len(opzioni_tendina)} trovate)",
+                        options=list(opzioni_tendina.keys())
+                    )
+                    id_attivita_scelta = opzioni_tendina[scelta_utente_tendina]
+                else:
+                    st.warning("Nessuna uscita trovata per la selezione corrente.")
+                    id_attivita_scelta = None
             
-            id_attivita_scelta = opzioni_tendina[scelta_utente_tendina]
-            dati_uscita_corrente = df_g[df_g['id_str'] == id_attivita_scelta].iloc[0]
+            if id_attivita_scelta:
+                dati_uscita_corrente = df_g[df_g['id_str'] == id_attivita_scelta].iloc[0]
 
-            st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} del {dati_uscita_corrente['data_fmt'].strftime('%Y-%m-%d')}")
-            
-            # Caricamento stream e mappa per l'uscita selezionata dal grafico/menu
-            clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
-            target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
-            
-            with st.spinner("Caricamento mappa e traccia GPX dell'uscita selezionata..."):
-                resp_str_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
-                if resp_str_g.status_code == 200:
-                    stream_data_g = resp_str_g.json()
-                    lats_g, lons_g = [], []
-                    
-                    if isinstance(stream_data_g, list):
-                        for stream in stream_data_g:
-                            if isinstance(stream, dict) and stream.get("type") in ["latlng", "lating"]:
-                                lat_data = stream.get("data", [])
-                                lon_data = stream.get("data2", [])
-                                if lat_data and lon_data and len(lat_data) == len(lon_data):
-                                    for lat, lon in zip(lat_data, lon_data):
-                                        if lat and lon:
-                                            lats_g.append(float(lat))
-                                            lons_g.append(float(lon))
-                                    break
+                st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} del {dati_uscita_corrente['data_solo']}")
+                
+                # Caricamento stream e mappa per l'uscita selezionata
+                clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
+                target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
+                
+                with st.spinner("Caricamento mappa e traccia GPX dell'uscita selezionata..."):
+                    resp_str_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
+                    if resp_str_g.status_code == 200:
+                        stream_data_g = resp_str_g.json()
+                        lats_g, lons_g = [], []
+                        
+                        if isinstance(stream_data_g, list):
+                            for stream in stream_data_g:
+                                if isinstance(stream, dict) and stream.get("type") in ["latlng", "lating"]:
+                                    lat_data = stream.get("data", [])
+                                    lon_data = stream.get("data2", [])
+                                    if lat_data and lon_data and len(lat_data) == len(lon_data):
+                                        for lat, lon in zip(lat_data, lon_data):
+                                            if lat and lon:
+                                                lats_g.append(float(lat))
+                                                lons_g.append(float(lon))
+                                        break
 
-                    if lats_g and lons_g:
-                        fig_map = go.Figure()
-                        fig_map.add_trace(go.Scattermapbox(
-                            lat=lats_g, lon=lons_g, mode='lines',
-                            line=dict(width=4, color='orange'), name='Tracciato'
-                        ))
-                        fig_map.update_layout(
-                            mapbox=dict(
-                                style="open-street-map",
-                                center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons)/len(lons)),
-                                zoom=12
-                            ),
-                            margin=dict(l=0, r=0, t=0, b=0),
-                            height=400,
-                            showlegend=False
-                        )
-                        st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True})
+                        if lats_g and lons_g:
+                            fig_map = go.Figure()
+                            fig_map.add_trace(go.Scattermapbox(
+                                lat=lats_g, lon=lons_g, mode='lines',
+                                line=dict(width=4, color='orange'), name='Tracciato'
+                            ))
+                            fig_map.update_layout(
+                                mapbox=dict(
+                                    style="open-street-map",
+                                    center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons)/len(lons)),
+                                    zoom=12
+                                ),
+                                margin=dict(l=0, r=0, t=0, b=0),
+                                height=400,
+                                showlegend=False
+                            )
+                            st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True})
 
-                        # Generazione file GPX per il download
-                        gpx_lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">', '<trk>', f'<name>{dati_uscita_corrente["titolo_uscita"]}</name>', '<trkseg>']
-                        for lat, lon in zip(lats_g, lons_g):
-                            gpx_lines.append(f'<trkpt lat="{lat}" lon="{lon}"></trkpt>')
-                        gpx_lines.extend(['</trkseg>', '</trk>', '</gpx>'])
-                        b64_gpx = base64.b64encode("\n".join(gpx_lines).encode()).decode()
-                        st.markdown(f'<a href="data:application/gpx+xml;base64,{b64_gpx}" download="uscita_{id_attivita_scelta}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem; border-radius: 0.5rem; text-align: center; font-weight: bold;">📥 Scarica Tracciato GPX Uscita</div></a>', unsafe_allow_html=True)
-                    else:
-                        st.info("Nessuna coordinata GPS disponibile per questa specifica uscita.")
+                            # Generazione file GPX per il download
+                            gpx_lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">', '<trk>', f'<name>{dati_uscita_corrente["titolo_uscita"]}</name>', '<trkseg>']
+                            for lat, lon in zip(lats_g, lons_g):
+                                gpx_lines.append(f'<trkpt lat="{lat}" lon="{lon}"></trkpt>')
+                            gpx_lines.extend(['</trkseg>', '</trk>', '</gpx>'])
+                            b64_gpx = base64.b64encode("\n".join(gpx_lines).encode()).decode()
+                            st.markdown(f'<a href="data:application/gpx+xml;base64,{b64_gpx}" download="uscita_{id_attivita_scelta}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem; border-radius: 0.5rem; text-align: center; font-weight: bold;">📥 Scarica Tracciato GPX Uscita</div></a>', unsafe_allow_html=True)
+                        else:
+                            st.info("Nessuna coordinata GPS disponibile per questa specifica uscita.")
         else:
             st.info("Nessuna attività trovata nel range temporale selezionato per il grafico.")
     else:
