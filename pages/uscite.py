@@ -358,15 +358,21 @@ st.markdown("---")
 st.subheader("📈 Analisi Grafica e Dettaglio Uscite per Metrica")
 
 with st.container(border=True):
-    st.write("Fissa il range temporale di ricerca e seleziona il parametro da analizzare graficamente.")
+    st.write("Fissa il range temporale di ricerca, il livello di aggregazione (Settimane/Mesi) e seleziona il parametro da analizzare.")
     
-    # Zona con i bottoni / filtri per inserire il range di ricerca
-    col_r1, col_r2, col_r3 = st.columns([2, 2, 2])
+    # Zona con i bottoni / filtri per inserire il range di ricerca e il selettore periodicità
+    col_r1, col_r2, col_r3, col_r4 = st.columns([2, 2, 2, 2])
     with col_r1:
         range_inizio = st.date_input("Inizio Range Grafico", value=st.session_state.get("saved_start", date(2026, 1, 1)), key="grafico_start")
     with col_r2:
         range_fine = st.date_input("Fine Range Grafico", value=st.session_state.get("saved_end", date.today()), key="grafico_end")
     with col_r3:
+        tipo_aggregazione = st.selectbox(
+            "Raggruppa per",
+            ["Giornaliero", "Settimanale", "Mensile"],
+            key="selettore_aggregazione"
+        )
+    with col_r4:
         scelta_metrica = st.selectbox(
             "Seleziona Dato Grafico",
             ["Km", "D+", "Ore in sella"],
@@ -387,30 +393,52 @@ with st.container(border=True):
         if dati_raw_grafico:
             df_g = pd.DataFrame(dati_raw_grafico)
             
-            # Pulizia e preparazione dati
-            df_g['data_fmt'] = pd.to_datetime(df_g['start_date_local']).dt.date
-            df_g = df_g.sort_values('data_fmt')
+            # Pulizia e preparazione dati di base
+            df_g['data_fmt'] = pd.to_datetime(df_g['start_date_local'])
             df_g['Km'] = df_g.get('distance', 0).fillna(0) / 1000.0
             df_g['D+'] = df_g.get('total_elevation_gain', 0).fillna(0)
             df_g['Ore in sella'] = df_g.get('moving_time', 0).fillna(0) / 3600.0
             df_g['titolo_uscita'] = df_g.get('name', 'Uscita senza nome')
             df_g['id_str'] = df_g.get('id').astype(str)
 
+            # Gestione aggregazione (Giornaliero, Settimanale, Mensile)
+            if tipo_aggregazione == "Settimanale":
+                df_g['periodo'] = df_g['data_fmt'].dt.to_period('W').dt.start_time.dt.date
+                df_aggregato = df_g.groupby('periodo').agg({
+                    'Km': 'sum',
+                    'D+': 'sum',
+                    'Ore in sella': 'sum',
+                    'id_str': lambda x: list(x)[0],  # Per il dettaglio in caso di click
+                    'titolo_uscita': lambda x: f"Totale Settimanale ({len(x)} uscite)"
+                }).reset_index().rename(columns={'periodo': 'asse_x'})
+            elif tipo_aggregazione == "Mensile":
+                df_g['periodo'] = df_g['data_fmt'].dt.to_period('M').dt.start_time.dt.date
+                df_aggregato = df_g.groupby('periodo').agg({
+                    'Km': 'sum',
+                    'D+': 'sum',
+                    'Ore in sella': 'sum',
+                    'id_str': lambda x: list(x)[0],
+                    'titolo_uscita': lambda x: f"Totale Mensile ({len(x)} uscite)"
+                }).reset_index().rename(columns={'periodo': 'asse_x'})
+            else:
+                df_g['asse_x'] = df_g['data_fmt'].dt.date
+                df_aggregato = df_g.sort_values('asse_x')
+
             # Creazione grafico a barre (colonne blu) editabile
             fig_stat = go.Figure()
-            y_data = df_g[scelta_metrica]
+            y_data = df_aggregato[scelta_metrica]
             
             fig_stat.add_trace(go.Bar(
-                x=df_g['data_fmt'],
+                x=df_aggregato['asse_x'],
                 y=y_data,
                 name=scelta_metrica,
                 marker=dict(color='dodgerblue'),
-                customdata=df_g[['id_str', 'titolo_uscita']].values
+                customdata=df_aggregato[['id_str', 'titolo_uscita']].values
             ))
 
             fig_stat.update_layout(
-                title=f"Andamento temporale: {scelta_metrica}",
-                xaxis_title="Data",
+                title=f"Andamento {tipo_aggregazione.lower()}: {scelta_metrica}",
+                xaxis_title="Periodo",
                 yaxis_title=scelta_metrica,
                 margin=dict(l=20, r=20, t=40, b=20),
                 height=350,
@@ -430,7 +458,8 @@ with st.container(border=True):
             st.markdown("---")
             
             # Menu a discesa al fianco/correlato per la selezione puntuale dell'uscita
-            opzioni_tendina = {f"{row['data_fmt']} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] for _, row in df_g.iterrows()}
+            # Se siamo in aggregazione settimanale o mensile, usiamo il dataframe originale per dare accesso a tutte le singole uscite del periodo o della lista
+            opzioni_tendina = {f"{row['data_fmt'].strftime('%Y-%m-%d')} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] for _, row in df_g.sort_values('data_fmt').iterrows()}
             
             col_sel1, col_sel2 = st.columns([2, 1])
             with col_sel1:
@@ -443,7 +472,7 @@ with st.container(border=True):
             id_attivita_scelta = opzioni_tendina[scelta_utente_tendina]
             dati_uscita_corrente = df_g[df_g['id_str'] == id_attivita_scelta].iloc[0]
 
-            st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} del {dati_uscita_corrente['data_fmt']}")
+            st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} del {dati_uscita_corrente['data_fmt'].strftime('%Y-%m-%d')}")
             
             # Caricamento stream e mappa per l'uscita selezionata dal grafico/menu
             clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
