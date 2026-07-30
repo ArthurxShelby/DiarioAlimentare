@@ -124,7 +124,7 @@ if resp_global.status_code == 200:
                         m_c2.metric("D+ Totale", f"{d_macro:,} m")
                         m_c3.metric("Ore in Sella", f"{ore_macro} h")
                         
-                        # --- SEZIONE DIAGRAMMA E SELETTORI SPOSTATI A DESTRA ---
+                        # --- SEZIONE DIAGRAMMA E SELETTORI ---
                         st.markdown("---")
                         c_diag_titolo, c_metrica_scelta, c_aggruppa_scelta = st.columns([1.5, 2.2, 2.2])
                         with c_diag_titolo:
@@ -144,8 +144,8 @@ if resp_global.status_code == 200:
                                 label_visibility="collapsed"
                             )
                         
-                        # Layout a due colonne: a sinistra il grafico più alto, a destra il riquadro uscite esteso
-                        col_grafico_principale, col_elenco_lato = st.columns([1.8, 1.2])
+                        # Layout espanso a larghezza piena: [1, 1] per distribuire equamente lo spazio della pagina
+                        col_grafico_principale, col_elenco_lato = st.columns([1, 1])
                         
                         if "start_date_local" in df_macro.columns:
                             df_macro["data_dt"] = pd.to_datetime(df_macro["start_date_local"].apply(lambda x: x.split("T")[0]))
@@ -178,7 +178,7 @@ if resp_global.status_code == 200:
                             fig_bar.update_traces(marker_color=BLU_DIARIO, textfont_size=12, textangle=0, textposition="outside")
                             fig_bar.update_layout(
                                 margin=dict(l=10, r=10, t=10, b=10),
-                                height=380,
+                                height=520,
                                 xaxis_title="",
                                 yaxis_title=y_label,
                                 paper_bgcolor="rgba(0,0,0,0)",
