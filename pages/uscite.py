@@ -128,7 +128,7 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. CONTENITORE PRINCIPALE (GRAFICO) IDENTICO ALLO SCREENSHOT ---
+# --- 2. CONTENITORE PRINCIPALE (ANALISI GRAFICA) ---
 with st.container(border=True):
     st.subheader("📈 Analisi Grafica e Uscite Correlate")
     
@@ -140,22 +140,22 @@ with st.container(border=True):
         
     st.info("Area riservata ai grafici riepilogativi basati sulle selezioni sopra.")
 
-# --- 3. BLOCCO SEPARATO PER LA RICERCA E I FILTRI DI DATA ---
-with st.container(border=True):
-    st.markdown("### 🔍 Ricerca e Filtro Intervallo Uscite")
+# --- 3. EXPANDER DI RICERCA STORICA E FILTRI ---
+with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato e Filtri)", expanded=True):
+    st.write("Seleziona un periodo, filtra per data specifica o cerca per nome dell'uscita all'interno del flusso di Intervals.")
     
-    col_c1, col_c2, col_c3 = st.columns(3)
+    col_c1, col_c2 = st.columns(2)
     with col_c1:
         data_inizio_custom = st.date_input("Data Inizio Range", value=st.session_state["saved_start"], key="widget_start")
     with col_c2:
         data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["saved_end"], key="widget_end")
-    with col_c3:
-        filtro_nome = st.text_input("Filtra per Nome Uscita:", value="", placeholder="Es. Giro Samu...")
-
-    col_btn1, col_btn2 = st.columns([2, 4])
-    with col_btn1:
-        attiva_data_singola = st.checkbox("Filtra per data singola")
-    
+        
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        filtro_nome = st.text_input("Filtra per Nome Uscita (opzionale):", value="", placeholder="Es. Giro Samu, Salita...")
+    with col_f2:
+        attiva_data_singola = st.checkbox("Filtra per una data singola specifica")
+        
     data_singola_specifica = None
     if attiva_data_singola:
         data_singola_specifica = st.date_input("Seleziona Data Specifica", value=date.today(), key="widget_single_date")
