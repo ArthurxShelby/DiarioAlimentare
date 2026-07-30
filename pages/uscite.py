@@ -1,6 +1,18 @@
 
 import streamlit as st
 st.set_page_config(layout="wide")
+
+# --- CSS PER ALLINEAMENTO LARGHEZZA FILO A FILO ---
+st.markdown("""
+<style>
+    .block-container {
+        max-width: 100% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 import requests
 from datetime import datetime, date
 import pandas as pd
@@ -89,7 +101,26 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza su File per Riavvii) ---
+# --- 2. UNICO CONTENITORE PRINCIPALE (GRAFICO/FILTRI + USCITE CORRELATE) ---
+with st.container(border=True):
+    st.subheader("📈 Analisi Grafica e Uscite Correlate")
+    
+    # Controlli / Menu a tendina per i grafici e le metriche
+    col_g1, col_g2 = st.columns(2)
+    with col_g1:
+        tipo_metrica = st.selectbox("Seleziona Metrica Grafico", ["Chilometri (km)", "Dislivello (m)", "Tempo"])
+    with col_g2:
+        tipo_periodo = st.selectbox("Raggruppamento Temporale", ["Mesi", "Settimane"])
+        
+    st.info("Area riservata ai grafici riepilogativi basati sulle selezioni sopra.")
+    
+    st.divider()
+    
+    # Sezione dedicata al contesto delle uscite relative
+    st.markdown("### 📌 Uscite del Periodo (Correlate)")
+    st.write("Qui verranno visualizzate le schede delle singole uscite filtrate in base all'analisi grafica o ai parametri selezionati.")
+
+# --- 3. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza su File per Riavvii) ---
 FILE_DATA_INIZIO = "ultima_data_inizio.txt"
 FILE_DATA_FINE = "ultima_data_fine.txt"
 
