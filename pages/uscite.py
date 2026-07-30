@@ -197,7 +197,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                     act_id = str(act.get("id"))
                     act_title = act.get("name", "Uscita senza titolo")
                     act_date = act.get("start_date_local", "").split("T")[0]
-                    act_dist = round(act.get("distance", 0) / 1000, 2)
+                    act_dist = round((act.get("distance") or 0) / 1000, 2)
                     act_time = timedelta_to_str(act.get("moving_time", 0))
                     act_elev = safe_int(act.get("total_elevation_gain")) or 0
                     
