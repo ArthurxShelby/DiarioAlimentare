@@ -654,7 +654,7 @@ with st.expander("🧬 Analisi Scientifica: TSS, Carico e Forma Fisica (CTL/ATL/
             df_s['data_fmt'] = pd.to_datetime(df_s['start_date_local'])
             df_s['data_solo'] = df_s['data_fmt'].dt.date
             df_s['TSS'] = df_s.get('icu_training_load', 0).fillna(0)
-            df_s['Watt_Medi'] = df_s.get('device_watts', 0).fillna(0) # o average_watts se disponibile
+            df_s['Watt_Medi'] = df_s.get('device_watts', 0).fillna(0)
             if 'average_watts' in df_s.columns:
                 df_s['Watt_Medi'] = df_s['average_watts'].fillna(df_s['Watt_Medi'])
             df_s['BPM_Medi'] = df_s.get('average_heartrate', 0).fillna(0)
@@ -663,14 +663,13 @@ with st.expander("🧬 Analisi Scientifica: TSS, Carico e Forma Fisica (CTL/ATL/
             # Ordinamento cronologico per calcoli di fitness (CTL/ATL)
             df_s = df_s.sort_values('data_fmt').reset_index(drop=True)
 
-            # Calcolo approssimativo/stimato di CTL (Fitness - 42 giorni) e ATL (Fatigue - 7 giorni) se non forniti direttamente dall'API
-            # CTL = media mobile esponenziale o semplice del TSS
+            # Calcolo approssimativo/stimato di CTL (Fitness - 42 giorni) e ATL (Fatigue - 7 giorni)
             df_s['CTL'] = df_s['TSS'].ewm(span=42, adjust=False).mean()
             df_s['ATL'] = df_s['TSS'].ewm(span=7, adjust=False).mean()
             df_s['TSB'] = df_s['CTL'].shift(1) - df_s['ATL'].shift(1)
             df_s['TSB'] = df_s['TSB'].fillna(0)
 
-            # Efficienza (EF): Rapporto Watt / BPM (filtrando i valori nulli o a zero)
+            # Efficienza (EF): Rapporto Watt / BPM
             df_s['EF'] = df_s.apply(lambda row: (row['Watt_Medi'] / row['BPM_Medi']) if row['BPM_Medi'] > 0 and row['Watt_Medi'] > 0 else 0, axis=1)
 
             # Metriche riassuntive globali del periodo
@@ -689,7 +688,7 @@ with st.expander("🧬 Analisi Scientifica: TSS, Carico e Forma Fisica (CTL/ATL/
 
             st.markdown("---")
 
-            # Grafico combinato Performance Management Chart (TSS barre + CTL / ATL / TSB linee)
+            # Grafico combinato Performance Management Chart (TSS, CTL, ATL, TSB con asse y secondario)
             fig_pmc = go.Figure()
 
             # Barre TSS giornaliero
@@ -697,7 +696,7 @@ with st.expander("🧬 Analisi Scientifica: TSS, Carico e Forma Fisica (CTL/ATL/
                 x=df_s['data_solo'],
                 y=df_s['TSS'],
                 name='TSS (Carico)',
-                marker=dict(color='rgba(31, 119, 180, 0.6)')
+                marker=dict(color='rgba(31, 119, 180, 0.5)')
             ))
 
             # Linea CTL (Fitness)
@@ -709,7 +708,7 @@ with st.expander("🧬 Analisi Scientifica: TSS, Carico e Forma Fisica (CTL/ATL/
                 line=dict(color='blue', width=2)
             ))
 
-            # Linea ATL (Fatigue)
+            # Linea ATL (Fatica)
             fig_pmc.add_trace(go.Scatter(
                 x=df_s['data_solo'],
                 y=df_s['ATL'],
@@ -718,13 +717,30 @@ with st.expander("🧬 Analisi Scientifica: TSS, Carico e Forma Fisica (CTL/ATL/
                 line=dict(color='magenta', width=2)
             ))
 
+            # Linea TSB (Forma / Stress Balance) su asse y secondario
+            fig_pmc.add_trace(go.Scatter(
+                x=df_s['data_solo'],
+                y=df_s['TSB'],
+                name='TSB (Forma)',
+                mode='lines',
+                line=dict(color='darkorange', width=2),
+                yaxis='y2'
+            ))
+
             fig_pmc.update_layout(
-                title="Performance Management Chart (TSS, Fitness CTL & Fatica ATL)",
+                title="Performance Management Chart (TSS, Fitness CTL, Fatica ATL & Forma TSB)",
                 xaxis_title="Data",
-                yaxis_title="Valore / Carico",
-                margin=dict(l=20, r=20, t=40, b=20),
-                height=400,
-                hovermode='x unified'
+                yaxis=dict(title="Carico / Fitness / Fatica"),
+                yaxis2=dict(
+                    title="Forma (TSB)",
+                    overlaying='y',
+                    side='right',
+                    showgrid=False
+                ),
+                margin=dict(l=20, r=40, t=40, b=20),
+                height=420,
+                hovermode='x unified',
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
 
             st.plotly_chart(fig_pmc, use_container_width=True, config={'displaylogo': False})
