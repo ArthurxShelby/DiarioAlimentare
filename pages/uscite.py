@@ -1,6 +1,18 @@
 
 import streamlit as st
 st.set_page_config(layout="wide")
+
+# --- CSS PERSONALIZZATO PER LARGHEZZA ESTREMA (FILO A FILO) ---
+st.markdown("""
+<style>
+    .block-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+        max-width: 100% !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 import requests
 from datetime import datetime, date
 import pandas as pd
@@ -592,7 +604,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
 
                                             b64 = base64.b64encode(contenuto_gpx.encode()).decode()
                                             href = f'<a href="data:application/gpx+xml;base64,{b64}" download="{nome_file}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
-                                            st.markdown(href, unsafe_agent_options=True)
+                                            st.markdown(href, unsafe_allow_html=True)
                                         else:
                                             st.warning("Nessun punto di coordinate valido trovato in questa attività.")
                                     else:
