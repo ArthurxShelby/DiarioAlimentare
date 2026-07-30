@@ -43,7 +43,7 @@ def safe_int(val):
     except (ValueError, TypeError):
         return None
 
-# --- 1. STATISTICHE DINAMICHE GENERALI (TCR - Dal 15/11/2025) ---
+# --- 1. STATISTICHE DINAMICHE DIRETTAMENTE DA INTERVALS (Dal 15/11/2025) ---
 with st.spinner("Sincronizzazione dati da Intervals.icu in corso..."):
     url_global = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_global = {
@@ -73,7 +73,6 @@ if resp_global.status_code == 200:
             st.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
         with col_m2:
             st.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
-            
         with col_img:
             st.subheader("TCR Advanced Pro 0")
             try:
@@ -89,7 +88,7 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. ANALISI AD HOC PER RANGE DI DATE PERSONALIZZATO ---
+# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza su File per Riavvii) ---
 FILE_DATA_INIZIO = "ultima_data_inizio.txt"
 FILE_DATA_FINE = "ultima_data_fine.txt"
 
@@ -116,68 +115,15 @@ if "saved_start" not in st.session_state:
 if "saved_end" not in st.session_state:
     st.session_state["saved_end"] = carica_data_salvata(FILE_DATA_FINE, date.today())
 
-st.subheader("🎯 Analisi Ad Hoc per Periodo di Riferimento")
-st.write("Seleziona il range di date per calcolare le metriche specifiche ed estrarre le relative uscite dal flusso API.")
-
-col_r1, col_r2, col_r3 = st.columns([2, 2, 1])
-with col_r1:
-    data_inizio_custom = st.date_input("Data Inizio Periodo", value=st.session_state["saved_start"], key="widget_start")
-with col_r2:
-    data_fine_custom = st.date_input("Data Fine Periodo", value=st.session_state["saved_end"], key="widget_end")
-with col_r3:
-    st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-    btn_calcola = st.button("🚀 Calcola Periodo", use_container_width=True)
-
-if btn_calcola:
-    st.session_state["saved_start"] = data_inizio_custom
-    st.session_state["saved_end"] = data_fine_custom
-    salva_data_su_file(FILE_DATA_INIZIO, data_inizio_custom)
-    salva_data_su_file(FILE_DATA_FINE, data_fine_custom)
+with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato e Filtri)", expanded=False):
+    st.write("Seleziona un periodo, filtra per data specifica o cerca per nome dell'uscita all'interno del flusso di Intervals.")
     
-    with st.spinner("Interrogazione in corso..."):
-        url_custom = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
-        params_custom = {
-            "oldest": data_inizio_custom.strftime("%Y-%m-%d"),
-            "newest": data_fine_custom.strftime("%Y-%m-%d"),
-            "iw": True
-        }
-        auth_custom = ("API_KEY", API_KEY.strip())
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        data_inizio_custom = st.date_input("Data Inizio Range", value=st.session_state["saved_start"], key="widget_start")
+    with col_c2:
+        data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["saved_end"], key="widget_end")
         
-        resp_custom = requests.get(url_custom, auth=auth_custom, params=params_custom)
-        
-        if resp_custom.status_code == 200:
-            attivita_ext_custom = resp_custom.json()
-            if attivita_ext_custom:
-                st.session_state["custom_activities"] = attivita_ext_custom
-            else:
-                st.session_state["custom_activities"] = []
-                st.info("Nessuna attività trovata in questo intervallo nel flusso di Intervals.")
-        else:
-            st.error(f"Errore di connessione a Intervals.icu: {resp_custom.status_code}")
-
-if "custom_activities" in st.session_state:
-    attivita_da_mostrare = st.session_state["custom_activities"]
-    
-    if attivita_da_mostrare:
-        df_filtrato_vista = pd.DataFrame(attivita_da_mostrare)
-        distanza_tot_km = round(df_filtrato_vista.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
-        dislivello_tot_m = int(df_filtrato_vista.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
-        num_uscite = len(df_filtrato_vista)
-        tempo_tot_sec = df_filtrato_vista.get("moving_time", pd.Series([0])).fillna(0).sum()
-        tempo_tot_str = timedelta_to_str(tempo_tot_sec)
-        
-        st.markdown("---")
-        mc1, mc2, mc3, mc4 = st.columns(4)
-        mc1.metric("Km Periodo", f"{distanza_tot_km:,.2f} km")
-        mc2.metric("D+ Periodo", f"{dislivello_tot_m:,} m")
-        mc3.metric("Uscite Nel Periodo", f"{num_uscite}")
-        mc4.metric("Tempo in Sella", f"{tempo_tot_str}")
-        st.markdown("---")
-    else:
-        st.info("Nessun dato statistico da mostrare per il periodo selezionato.")
-
-# --- 3. ESPLORATORE STORICO E FILTRI ATTIVITÀ ---
-with st.expander("🔍 Esplora e Filtra Uscite del Periodo (Nome o Data Singola)", expanded=False):
     col_f1, col_f2 = st.columns(2)
     with col_f1:
         filtro_nome = st.text_input("Filtra per Nome Uscita (opzionale):", value="", placeholder="Es. Giro Samu, Salita...")
@@ -188,16 +134,42 @@ with st.expander("🔍 Esplora e Filtra Uscite del Periodo (Nome o Data Singola)
     if attiva_data_singola:
         data_singola_specifica = st.date_input("Seleziona Data Specifica", value=date.today(), key="widget_single_date")
 
+    if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
+        st.session_state["saved_start"] = data_inizio_custom
+        st.session_state["saved_end"] = data_fine_custom
+        salva_data_su_file(FILE_DATA_INIZIO, data_inizio_custom)
+        salva_data_su_file(FILE_DATA_FINE, data_fine_custom)
+        
+        with st.spinner("Interrogazione in corso..."):
+            if attiva_data_singola and data_singola_specifica:
+                oldest_param = data_singola_specifica.strftime("%Y-%m-%d")
+                newest_param = data_singola_specifica.strftime("%Y-%m-%d")
+            else:
+                oldest_param = data_inizio_custom.strftime("%Y-%m-%d")
+                newest_param = data_fine_custom.strftime("%Y-%m-%d")
+
+            url_custom = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
+            params_custom = {
+                "oldest": oldest_param,
+                "newest": newest_param,
+                "iw": True
+            }
+            auth_custom = ("API_KEY", API_KEY.strip())
+            
+            resp_custom = requests.get(url_custom, auth=auth_custom, params=params_custom)
+            
+            if resp_custom.status_code == 200:
+                attivita_ext_custom = resp_custom.json()
+                if attivita_ext_custom:
+                    st.session_state["custom_activities"] = attivita_ext_custom
+                else:
+                    st.session_state["custom_activities"] = []
+                    st.info("Nessuna attività trovata in questo intervallo nel flusso di Intervals.")
+            else:
+                st.error(f"Errore di connessione a Intervals.icu: {resp_custom.status_code}")
+
     if "custom_activities" in st.session_state and st.session_state["custom_activities"]:
         attivita_da_mostrare = st.session_state["custom_activities"]
-        
-        if attiva_data_singola and data_singola_specifica:
-            str_data_target = data_singola_specifica.strftime("%Y-%m-%d")
-            attivita_da_mostrare = [
-                act for act in attivita_da_mostrare 
-                if act.get("start_date_local", "").split("T")[0] == str_data_target
-            ]
-
         if filtro_nome.strip():
             query_testo = filtro_nome.strip().lower()
             attivita_da_mostrare = [
@@ -206,15 +178,26 @@ with st.expander("🔍 Esplora e Filtra Uscite del Periodo (Nome o Data Singola)
             ]
 
         if not attivita_da_mostrare:
-            st.warning("Nessuna attività corrisponde ai filtri di ricerca inseriti.")
+            st.warning("Nessuna attività corrisponde al filtro di ricerca inserito.")
         else:
+            df_filtrato_vista = pd.DataFrame(attivita_da_mostrare)
+            distanza_tot_km = round(df_filtrato_vista.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
+            dislivello_tot_m = int(df_filtrato_vista.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
+            num_uscite = len(df_filtrato_vista)
+            
+            st.markdown("---")
+            mc1, mc2, mc3 = st.columns(3)
+            mc1.metric("Km Totali Periodo", f"{distanza_tot_km:,.2f} km")
+            mc2.metric("Dislivello (D+) Periodo", f"{dislivello_tot_m:,} m")
+            mc3.metric("Uscite Registrate", f"{num_uscite}")
+            st.markdown("---")
+            
             with st.container(height=650):
                 for idx, act in enumerate(attivita_da_mostrare):
                     act_id = str(act.get("id"))
                     act_title = act.get("name", "Uscita senza titolo")
                     act_date = act.get("start_date_local", "").split("T")[0]
-                    raw_dist = act.get("distance")
-                    act_dist = round((raw_dist if raw_dist is not None else 0) / 1000, 2)
+                    act_dist = round(act.get("distance", 0) / 1000, 2)
                     act_time = timedelta_to_str(act.get("moving_time", 0))
                     act_elev = safe_int(act.get("total_elevation_gain")) or 0
                     
