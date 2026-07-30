@@ -147,7 +147,7 @@ if "saved_start" not in st.session_state:
 if "saved_end" not in st.session_state:
     st.session_state["saved_end"] = carica_data_salvata(FILE_DATA_FINE, date.today())
 
-with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato e Filtri)", expanded=False):
+with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato e Filtri)", expanded=True):
     st.write("Seleziona un periodo, filtra per data specifica o cerca per nome dell'uscita all'interno del flusso di Intervals.")
     
     col_c1, col_c2 = st.columns(2)
