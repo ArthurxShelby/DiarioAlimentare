@@ -25,23 +25,15 @@ st.markdown("""
     }
     
     /* --- AUMENTO CARATTERI SEZIONI GESTIONE, MODIFICA E PROGRAMMAZIONE CICLI --- */
-    
-    /* Ingrandisce i titoli delle sezioni principali (h2 e h3) */
     h2, h3, .stSubheader {
         font-size: 1.4rem !important;
     }
-    
-    /* Ingrandisce il testo generale all'interno delle tabelle (st.data_editor) */
     div[data-testid="stDataEditor"] * {
         font-size: 1.1rem !important;
     }
-    
-    /* Ingrandisce le etichette delle colonne nelle tabelle e nei widget */
     th, span[data-testid="stMarkdownContainer"] p {
         font-size: 1.1rem !important;
     }
-    
-    /* Ingrandisce il testo descrittivo e i sottotitoli delle sezioni target */
     .stMarkdown div p {
         font-size: 1.1rem !important;
     }
@@ -158,6 +150,9 @@ if "database_allenamenti" not in st.session_state:
 if "version_editor" not in st.session_state:
     st.session_state.version_editor = 0
 
+if "ultimo_file_caricato" not in st.session_state:
+    st.session_state.ultimo_file_caricato = None
+
 if anno_selezionato not in st.session_state.database_allenamenti:
     st.session_state.database_allenamenti[anno_selezionato] = {}
 
@@ -223,31 +218,35 @@ if is_proprietario:
         )
 
         if file_caricato is not None:
-            try:
-                df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
-                df_caricato.columns = df_caricato.columns.str.strip()
+            # Verifica univoca basata sul nome e dimensione del file per evitare il loop infinito
+            identificativo_file = (file_caricato.name, file_caricato.size, anno_selezionato, mese_selezionato)
+            
+            if st.session_state.ultimo_file_caricato != identificativo_file:
+                try:
+                    df_caricato = pd.read_csv(file_caricato, sep=None, engine="python")
+                    df_caricato.columns = df_caricato.columns.str.strip()
 
-                if "Ripetizioni" in df_caricato.columns and "Serie" not in df_caricato.columns:
-                    df_caricato = df_caricato.rename(columns={"Ripetizioni": "Serie"})
+                    if "Ripetizioni" in df_caricato.columns and "Serie" not in df_caricato.columns:
+                        df_caricato = df_caricato.rename(columns={"Ripetizioni": "Serie"})
 
-                colonne_attese = [
-                    "Settimana", "Giorno", "Esercizio / Nome", "Watt",
-                    "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
-                ]
+                    colonne_attese = [
+                        "Settimana", "Giorno", "Esercizio / Nome", "Watt",
+                        "RPM", "Serie", "Lavoro (min)", "Recupero (min)",
+                    ]
 
-                if all(col in df_caricato.columns for col in colonne_attese):
-                    df_filtrato = df_caricato[colonne_attese].copy()
-                    st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_filtrato
-                    salva_database()
-                    
-                    df_da_mostrare = df_filtrato
-                    st.session_state.version_editor += 1
-                    st.success(f"File CSV caricato e salvato con successo per {mese_selezionato} {anno_selezionato}!")
-                    st.rerun()
-                else:
-                    st.error(f"Il file CSV non contiene le colonne corrette. Colonne trovate: {list(df_caricato.columns)}. Attese: {colonne_attese}")
-            except Exception as e:
-                st.error(f"Errore nella lettura del file CSV: {e}")
+                    if all(col in df_caricato.columns for col in colonne_attese):
+                        df_filtrato = df_caricato[colonne_attese].copy()
+                        st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_filtrato
+                        salva_database()
+                        
+                        st.session_state.ultimo_file_caricato = identificativo_file
+                        st.session_state.version_editor += 1
+                        st.success(f"File CSV caricato e salvato con successo per {mese_selezionato} {anno_selezionato}!")
+                        st.rerun()
+                    else:
+                        st.error(f"Il file CSV non contiene le colonne corrette. Colonne trovate: {list(df_caricato.columns)}. Attese: {colonne_attese}")
+                except Exception as e:
+                    st.error(f"Errore nella lettura del file CSV: {e}")
 
     with st.expander("🗑️ Pannello di Pulizia / Cancellazione Periodo (Avanzato)", expanded=False):
         st.markdown(f"### Svuota solo il mese in evidenza: **{mese_selezionato} {anno_selezionato}**")
@@ -260,6 +259,7 @@ if is_proprietario:
                     ]
                 )
                 st.session_state.database_allenamenti[anno_selezionato][mese_selezionato] = df_vuoto.copy()
+                st.session_state.ultimo_file_caricato = None
                 salva_database()
                 
                 st.session_state.version_editor += 1
@@ -308,6 +308,7 @@ if is_proprietario:
                             if m in st.session_state.database_allenamenti[anno_target]:
                                 st.session_state.database_allenamenti[anno_target][m] = df_vuoto.copy()
 
+                    st.session_state.ultimo_file_caricato = None
                     salva_database()
                     
                     st.session_state.version_editor += 1
@@ -320,7 +321,6 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 4. SECONDA TABELLA: PROGRAMMAZIONE CICLI (SINCRONIZZATA AUTOMATICAMENTE) ---
 st.subheader("📋 Programmazione Cicli di Allenamento (Perpetua)")
-# Sottotitolo con font ingrandito tramite HTML span style
 st.markdown(
     f"I dati sottostanti si sincronizzano automaticamente con il periodo selezionato in alto: "
     f"<span style='font-size: 1.15rem; font-weight: bold;'>{mese_selezionato} {anno_selezionato}</span>.",
