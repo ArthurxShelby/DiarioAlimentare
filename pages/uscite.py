@@ -5,13 +5,17 @@ st.set_page_config(layout="wide")
 # --- CSS PERSONALIZZATO PER LARGHEZZA ESTREMA (FILO A FILO) ---
 st.markdown("""
 <style>
-    .block-container {
-        padding-left: 1rem;
-        padding-right: 1rem;
+    .main .block-container {
+        padding-left: 2rem;
+        padding-right: 2rem;
         max-width: 100% !important;
     }
+    /* Forza le colonne a usare tutto lo spazio senza margini interni restrittivi */
+    div[data-testid="column"] {
+        padding: 0px !important;
+    }
 </style>
-""", unsafe_allow_html=True)
+""", unsafe_allow_html=True))
 
 import requests
 from datetime import datetime, date
