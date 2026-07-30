@@ -1,5 +1,5 @@
-import streamlit as st
-st.set_page_config(layout="wide")
+import streamlit as st[cite: 6]
+st.set_page_config(layout="wide")[cite: 6]
 import requests
 from datetime import datetime, date
 import pandas as pd
@@ -18,7 +18,7 @@ if not is_proprietario:
     st.stop()
 
 # --- Configurazione ---
-st.title("🚴 Gestione Uscite da Intervals.icu")
+st.title("🚴 Gestione Uscite da Intervals.icu")[cite: 6]
 
 try:
     API_KEY = st.secrets["intervals"]["api_key"]
@@ -120,12 +120,11 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
     
     col_c1, col_c2 = st.columns(2)
     with col_c1:
-        sub_s1, sub_s2 = st.columns([3, 1])
+        sub_s1, sub_s2 = st.columns([4, 1])
         with sub_s1:
             data_inizio_custom = st.date_input("Data Inizio Range", value=st.session_state["saved_start"], key="widget_start")
         with sub_s2:
-            st.write("")
-            st.write("")
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
             if st.button("📅 Oggi", key="btn_oggi_start", use_container_width=True):
                 st.session_state["saved_start"] = date.today()
                 if "widget_start" in st.session_state:
@@ -133,12 +132,11 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                 st.rerun()
                 
     with col_c2:
-        sub_e1, sub_e2 = st.columns([3, 1])
+        sub_e1, sub_e2 = st.columns([4, 1])
         with sub_e1:
             data_fine_custom = st.date_input("Data Fine Range", value=st.session_state["saved_end"], key="widget_end")
         with sub_e2:
-            st.write("")
-            st.write("")
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
             if st.button("📅 Oggi", key="btn_oggi_end", use_container_width=True):
                 st.session_state["saved_end"] = date.today()
                 if "widget_end" in st.session_state:
@@ -158,7 +156,6 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
     if st.button("🚀 Estrai Dati dal Flusso", key="btn_calcola_custom"):
         st.session_state["saved_start"] = data_inizio_custom
         st.session_state["saved_end"] = data_fine_custom
-        
         salva_data_su_file(FILE_DATA_INIZIO, data_inizio_custom)
         salva_data_su_file(FILE_DATA_FINE, data_fine_custom)
         
