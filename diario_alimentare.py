@@ -40,6 +40,33 @@ st.set_page_config(
     layout="wide",
 )
 
+# --- CSS PERSONALIZZATO PER AUMENTARE LA GRANDEZZA CARATTERI ---
+st.markdown("""
+<style>
+    /* Ingrandisce i testi generali, le tabelle e i widget nelle sezioni specificate */
+    .stDataFrame, .stTable {
+        font-size: 16px !important;
+    }
+    
+    /* Titoli delle sezioni avanzate, inserimento e pasti */
+    h3 {
+        font-size: 1.4rem !important;
+    }
+    
+    /* Testi delle label dei form e dei selectbox/number input */
+    .stTextInput label, .stNumberInput label, .stSelectbox label, .stMultiSelect label, .stFileUploader label {
+        font-size: 16px !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Contenuto delle tabelle Streamlit */
+    div[data-testid="stTable"] td, div[data-testid="stTable"] th, 
+    div[data-testid="dataframe"] div {
+        font-size: 15px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # --- Gestione Toast persistente ---
 if "notifica_toast" in st.session_state and st.session_state.notifica_toast:
     st.toast(st.session_state.notifica_toast, icon="✅")
@@ -449,7 +476,6 @@ tdee = bmr * pal_val
 if is_proprietario and atleta_corrente == "Atleta Principale":
     st.sidebar.markdown("### ⚙️ Gestione Calcolo Macronutrienti")
     
-    # Recuperiamo i valori salvati nel profilo dell'atleta (se presenti)
     saved_usa_mifflin = atleta_data.get("usa_mifflin", False)
     saved_giornata_tipo = atleta_data.get("giornata_tipo_scelta", "1) Giornata scarico/riposo")
     
@@ -463,7 +489,6 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
     
     idx_giornata = opzioni_giornate.index(saved_giornata_tipo) if saved_giornata_tipo in opzioni_giornate else 0
 
-    # Checkbox e Radio collegati allo stato salvato dell'atleta
     usa_mifflin_proprietario = st.sidebar.checkbox(
         "Usa calcolo Mifflin-St Jeor (Esclude giornate tipo)", 
         value=saved_usa_mifflin, 
@@ -471,7 +496,7 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
     )
     
     if usa_mifflin_proprietario:
-        giornata_tipo_scelta = saved_giornata_tipo # Manteniamo l'ultimo valore per coerenza
+        giornata_tipo_scelta = saved_giornata_tipo 
         obj_kcal = round(tdee, 0)
         obj_carbo = round((obj_kcal * 0.50) / 4, 1)
         obj_prot = round((obj_kcal * 0.25) / 4, 1)
@@ -485,7 +510,6 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
             key="giornata_tipo_scelta"
         )
         
-        # Paletti fissi basati sul peso corporeo (75 kg)
         obj_prot = round(peso * 2.0, 1)    
         obj_grassi = round(peso * 0.9, 1)  
         
@@ -497,7 +521,7 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
             obj_carbo = 300.0  
         elif "4) Giornata bici" in giornata_tipo_scelta:
             obj_carbo = 270.0  
-        else: # 5) Giornata pesi
+        else: 
             obj_carbo = 250.0  
             
         cal_prot = obj_prot * 4
@@ -507,7 +531,6 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
         
         st.sidebar.markdown(f"**Giornata Tipo Attiva:**\n*{giornata_tipo_scelta}*")
 
-    # Salviamo le scelte nel dizionario dell'atleta e su Supabase se cambiano
     if atleta_data.get("usa_mifflin") != usa_mifflin_proprietario or atleta_data.get("giornata_tipo_scelta") != giornata_tipo_scelta:
         atleta_data["usa_mifflin"] = usa_mifflin_proprietario
         atleta_data["giornata_tipo_scelta"] = giornata_tipo_scelta
