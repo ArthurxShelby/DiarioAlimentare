@@ -530,14 +530,9 @@ with st.container(border=True):
                                                 if lat is not None and lon is not None:
                                                     lats_g.append(float(lat))
                                                     lons_g.append(float(lon))
-                                        elif isinstance(lat_data, list) and len(lat_data) > 0:
-                                            for pt in lat_data:
-                                                if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                                                    if pt[0] is not None and pt[1] is not None:
-                                                        lats_g.append(float(pt[0]))
-                                                        lons_g.append(float(pt[1]))
+                                        break
 
-                        if lats_g and lons_g:
+                        if lats_g and lons_g and len(lats_g) > 0:
                             fig_map = go.Figure()
                             fig_map.add_trace(go.Scattermapbox(
                                 lat=lats_g, lon=lons_g, mode='lines',
@@ -551,7 +546,7 @@ with st.container(border=True):
                             fig_map.update_layout(
                                 mapbox=dict(
                                     style="open-street-map",
-                                    center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons)/len(lons)),
+                                    center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
                                     zoom=11
                                 ),
                                 margin=dict(l=0, r=0, t=0, b=0),
@@ -585,7 +580,7 @@ with st.container(border=True):
                             href_gpx = f'<a href="data:application/gpx+xml;base64,{b64_gpx}" download="{nome_file_gpx}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
                             st.markdown(href_gpx, unsafe_allow_html=True)
                         else:
-                            st.warning("Nessuna coordinata GPS disponibile per questa specifica uscita.")
+                            st.warning("⚠️ Nessuna coordinata GPS valida disponibile per questa specifica uscita su Intervals.icu.")
                     else:
                         st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_str_g.status_code})")
         else:
