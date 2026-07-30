@@ -101,7 +101,26 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- GESTIONE PERSISTENZA DATE ARCHIVIO ---
+# --- 2. UNICO CONTENITORE PRINCIPALE (SOLO GRAFICO E USCITE CORRELATE) ---
+with st.container(border=True):
+    st.subheader("📈 Analisi Grafica e Uscite Correlate")
+    
+    # Controlli / Menu a tendina per i grafici e le metriche
+    col_g1, col_g2 = st.columns(2)
+    with col_g1:
+        tipo_metrica = st.selectbox("Seleziona Metrica Grafico", ["Chilometri (km)", "Dislivello (m)", "Tempo"])
+    with col_g2:
+        tipo_periodo = st.selectbox("Raggruppamento Temporale", ["Mesi", "Settimane"])
+        
+    st.info("Area riservata ai grafici riepilogativi basati sulle selezioni sopra.")
+    
+    st.divider()
+    
+    # Sezione dedicata al contesto delle uscite relative
+    st.markdown("### 📌 Uscite del Periodo (Correlate)")
+    st.write("Qui verranno visualizzate le schede delle singole uscite filtrate in base all'analisi grafica o ai parametri selezionati.")
+
+# --- 3. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza su File per Riavvii) ---
 FILE_DATA_INIZIO = "ultima_data_inizio.txt"
 FILE_DATA_FINE = "ultima_data_fine.txt"
 
@@ -128,24 +147,7 @@ if "saved_start" not in st.session_state:
 if "saved_end" not in st.session_state:
     st.session_state["saved_end"] = carica_data_salvata(FILE_DATA_FINE, date.today())
 
-
-# --- 2. UNICO CONTENITORE PRINCIPALE (GRAFICO, CAMPI DI RICERCA E USCITE) ---
-with st.container(border=True):
-    st.subheader("📈 Analisi Grafica e Ricerca Uscite")
-    
-    # Menu a tendina per i grafici e le metriche
-    col_g1, col_g2 = st.columns(2)
-    with col_g1:
-        tipo_metrica = st.selectbox("Seleziona Metrica Grafico", ["Chilometri (km)", "Dislivello (m)", "Tempo"])
-    with col_g2:
-        tipo_periodo = st.selectbox("Raggruppamento Temporale", ["Mesi", "Settimane"])
-        
-    st.info("Area riservata ai grafici riepilogativi basati sulle selezioni sopra.")
-    
-    st.divider()
-    
-    # --- CAMPI DI RICERCA E FILTRI INTERNI AL CONTENITORE ---
-    st.markdown("### 🔍 Parametri di Ricerca e Filtri Archivio")
+with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato e Filtri)", expanded=False):
     st.write("Seleziona un periodo, filtra per data specifica o cerca per nome dell'uscita all'interno del flusso di Intervals.")
     
     col_c1, col_c2 = st.columns(2)
@@ -198,11 +200,6 @@ with st.container(border=True):
             else:
                 st.error(f"Errore di connessione a Intervals.icu: {resp_custom.status_code}")
 
-    st.divider()
-    
-    # Sezione dedicata al contesto delle uscite relative e loro visualizzazione
-    st.markdown("### 📌 Uscite del Periodo (Correlate)")
-    
     if "custom_activities" in st.session_state and st.session_state["custom_activities"]:
         attivita_da_mostrare = st.session_state["custom_activities"]
         if filtro_nome.strip():
@@ -388,5 +385,3 @@ with st.container(border=True):
                                         st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_streams.status_code})")
                                 except Exception as e:
                                     st.error(f"Errore durante il caricamento della mappa: {e}")
-    else:
-        st.write("Esegui un'estrazione dati tramite il pulsante sopra per visualizzare le uscite filtrate in questa sezione.")
