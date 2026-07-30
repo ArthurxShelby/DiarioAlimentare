@@ -123,12 +123,19 @@ if resp_global.status_code == 200:
                         m_c2.metric("D+ Totale", f"{d_macro:,} m")
                         m_c3.metric("Ore in Sella", f"{ore_macro} h")
                         
-                        # --- NUOVA SEZIONE: DIAGRAMMI NEL RANGE SELEZIONATO ---
+                        # --- NUOVA SEZIONE: DIAGRAMMI CON DOPPIO SELETTORE (METRICA + PERIODO) ---
                         st.markdown("---")
-                        c_diag_titolo, c_diag_scelta = st.columns([2, 2])
+                        c_diag_titolo, c_metrica_scelta, c_aggruppa_scelta = st.columns([2, 2, 2])
                         with c_diag_titolo:
                             st.markdown("##### 📈 Analisi Grafica Periodo")
-                        with c_diag_scelta:
+                        with c_metrica_scelta:
+                            tipo_metrica = st.selectbox(
+                                "Metrica Grafico",
+                                ["Chilometri (km)", "Dislivello (D+ m)"],
+                                key="selettore_metrica_grafico",
+                                label_visibility="collapsed"
+                            )
+                        with c_aggruppa_scelta:
                             tipo_aggruppamento = st.selectbox(
                                 "Raggruppa per",
                                 ["Mesi", "Settimane"],
@@ -140,33 +147,42 @@ if resp_global.status_code == 200:
                         if "start_date_local" in df_macro.columns:
                             df_macro["data_dt"] = pd.to_datetime(df_macro["start_date_local"].apply(lambda x: x.split("T")[0]))
                             df_macro["distanza_km"] = (df_macro.get("distance", pd.Series([0])).fillna(0)) / 1000.0
+                            df_macro["dislivello_m"] = df_macro.get("total_elevation_gain", pd.Series([0])).fillna(0)
                             
                             if tipo_aggruppamento == "Mesi":
                                 df_macro["periodo"] = df_macro["data_dt"].dt.to_period("M").astype(str)
                             else:
-                                # Settimana dell'anno (Anno-WXX)
                                 df_macro["periodo"] = df_macro["data_dt"].dt.strftime("%Y-W%V")
                                 
-                            df_agg = df_macro.groupby("periodo")["distanza_km"].sum().reset_index()
+                            if "Chilometri" in tipo_metrica:
+                                df_agg = df_macro.groupby("periodo")["distanza_km"].sum().reset_index()
+                                y_col = "distanza_km"
+                                y_label = "km"
+                                text_format = ".1f"
+                            else:
+                                df_agg = df_macro.groupby("periodo")["dislivello_m"].sum().reset_index()
+                                y_col = "dislivello_m"
+                                y_label = "m"
+                                text_format = ",d"
                             
                             fig_bar = px.bar(
                                 df_agg,
                                 x="periodo",
-                                y="distanza_km",
-                                text_auto=".1f",
-                                labels={"periodo": "Periodo", "distanza_km": "Chilometri (km)"}
+                                y=y_col,
+                                text_auto=text_format,
+                                labels={"periodo": "Periodo", y_col: y_label}
                             )
                             fig_bar.update_traces(marker_color=BLU_DIARIO, textfont_size=12, textangle=0, textposition="outside")
                             fig_bar.update_layout(
                                 margin=dict(l=10, r=10, t=10, b=10),
                                 height=250,
                                 xaxis_title="",
-                                yaxis_title="km",
+                                yaxis_title=y_label,
                                 paper_bgcolor="rgba(0,0,0,0)",
                                 plot_bgcolor="rgba(0,0,0,0)"
                             )
                             st.plotly_chart(fig_bar, use_container_width=True, config={'displaylogo': False})
-                        # -----------------------------------------------------
+                        # ----------------------------------------------------------------------
                         
                     else:
                         st.info("Nessuna attività trovata in questo range personalizzato.")
