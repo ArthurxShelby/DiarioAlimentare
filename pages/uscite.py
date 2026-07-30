@@ -43,6 +43,33 @@ def safe_int(val):
     except (ValueError, TypeError):
         return None
 
+# --- PERSISTENZA DEL RANGE TEMPORALE ---
+FILE_DATA_INIZIO = "ultima_data_inizio.txt"
+FILE_DATA_FINE = "ultima_data_fine.txt"
+
+def carica_data_salvata(file_path, default_val):
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r") as f:
+                val = f.read().strip()
+                return datetime.strptime(val, "%Y-%m-%d").date()
+        except Exception:
+            pass
+    return default_val
+
+def salva_data_su_file(file_path, data_val):
+    try:
+        with open(file_path, "w") as f:
+            f.write(data_val.strftime("%Y-%m-%d"))
+    except Exception:
+        pass
+
+if "saved_start" not in st.session_state:
+    st.session_state["saved_start"] = carica_data_salvata(FILE_DATA_INIZIO, date(2026, 1, 1))
+
+if "saved_end" not in st.session_state:
+    st.session_state["saved_end"] = carica_data_salvata(FILE_DATA_FINE, date.today())
+
 # --- 1. STATISTICHE DINAMICHE DIRETTAMENTE DA INTERVALS (Dal 15/11/2025) ---
 with st.spinner("Sincronizzazione dati da Intervals.icu in corso..."):
     url_global = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
@@ -89,32 +116,6 @@ else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
 # --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza su File per Riavvii) ---
-FILE_DATA_INIZIO = "ultima_data_inizio.txt"
-FILE_DATA_FINE = "ultima_data_fine.txt"
-
-def carica_data_salvata(file_path, default_val):
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, "r") as f:
-                val = f.read().strip()
-                return datetime.strptime(val, "%Y-%m-%d").date()
-        except Exception:
-            pass
-    return default_val
-
-def salva_data_su_file(file_path, data_val):
-    try:
-        with open(file_path, "w") as f:
-            f.write(data_val.strftime("%Y-%m-%d"))
-    except Exception:
-        pass
-
-if "saved_start" not in st.session_state:
-    st.session_state["saved_start"] = carica_data_salvata(FILE_DATA_INIZIO, date(2026, 1, 1))
-
-if "saved_end" not in st.session_state:
-    st.session_state["saved_end"] = carica_data_salvata(FILE_DATA_FINE, date.today())
-
 with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizzato e Filtri)", expanded=False):
     st.write("Seleziona un periodo, filtra per data specifica o cerca per nome dell'uscita all'interno del flusso di Intervals.")
     
@@ -353,6 +354,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                         st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_streams.status_code})")
                                 except Exception as e:
                                     st.error(f"Errore durante il caricamento della mappa: {e}")
+
 # --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE ---
 st.markdown("---")
 st.subheader("📈 Analisi Grafica e Dettaglio Uscite per Metrica")
@@ -360,12 +362,12 @@ st.subheader("📈 Analisi Grafica e Dettaglio Uscite per Metrica")
 with st.container(border=True):
     st.write("Fissa il range temporale di ricerca, il livello di aggregazione (Settimane/Mesi) e seleziona il parametro da analizzare.")
     
-    # Zona con i bottoni / filtri per inserire il range di ricerca e il selettore periodicità
+    # Zona con i bottoni / filtri per inserire il range di ricerca e il selettore periodicità (con valori persistenti)
     col_r1, col_r2, col_r3, col_r4 = st.columns([2, 2, 2, 2])
     with col_r1:
-        range_inizio = st.date_input("Inizio Range Grafico", value=st.session_state.get("saved_start", date(2026, 1, 1)), key="grafico_start")
+        range_inizio = st.date_input("Inizio Range Grafico", value=st.session_state["saved_start"], key="grafico_start")
     with col_r2:
-        range_fine = st.date_input("Fine Range Grafico", value=st.session_state.get("saved_end", date.today()), key="grafico_end")
+        range_fine = st.date_input("Fine Range Grafico", value=st.session_state["saved_end"], key="grafico_end")
     with col_r3:
         tipo_aggregazione = st.selectbox(
             "Raggruppa per",
@@ -378,6 +380,13 @@ with st.container(border=True):
             ["Km", "D+", "Ore in sella"],
             key="selettore_metrica_grafico"
         )
+
+    # Sincronizzazione delle date modificate nel grafico con lo stato persistente globale
+    if range_inizio != st.session_state["saved_start"] or range_fine != st.session_state["saved_end"]:
+        st.session_state["saved_start"] = range_inizio
+        st.session_state["saved_end"] = range_fine
+        salva_data_su_file(FILE_DATA_INIZIO, range_inizio)
+        salva_data_su_file(FILE_DATA_FINE, range_fine)
 
     # Recupero o filtraggio delle attività basato sul range selezionato
     url_grafico = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
@@ -492,7 +501,8 @@ with st.container(border=True):
 
             st.markdown("---")
             
-            # Costruzione del menu a discesa con le sole uscite della fascia/periodo selezionato
+            # Costruzione del menu a discesa con le sole uscite della fascia/periodo selezionato (posizionato sotto il grafico e i totali)
+            st.markdown("#### 🚴 Menu a Discesa Dettaglio Uscite")
             opzioni_tendina = {
                 f"{row['data_solo']} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] 
                 for _, row in df_filtrato_periodo.sort_values('data_fmt', ascending=False).iterrows()
@@ -512,7 +522,7 @@ with st.container(border=True):
             if id_attivita_scelta:
                 dati_uscita_corrente = df_g[df_g['id_str'] == id_attivita_scelta].iloc[0]
 
-                st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} ({dati_uscita_corrente['data_solo']})")
+                st.markdown(f"#### Dettaglio Uscita: {dati_uscita_corrente['titolo_uscita']} ({dati_uscita_corrente['data_solo']})")
                 
                 # Caricamento stream e mappa per l'uscita selezionata dal menu
                 clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
