@@ -623,3 +623,133 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             st.info("Nessuna attività trovata nel range temporale selezionato per il grafico.")
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
+
+# --- 4. ANALISI SCIENTIFICA E CARICO DI ALLENAMENTO (TSS, CTL, ATL, TSB) ---
+st.markdown("---")
+with st.expander("🧬 Analisi Scientifica: TSS, Carico e Forma Fisica (CTL/ATL/TSB)", expanded=False):
+    st.write("Valutazione avanzata dello stress allenante, della potenza, della frequenza cardiaca e degli indici di condizione atletica.")
+
+    # Filtro temporale dedicato o sincronizzato con i dati generali
+    col_a1, col_a2 = st.columns(2)
+    with col_a1:
+        start_sci = st.date_input("Inizio Analisi Scientifica", value=st.session_state.get("saved_start", date(2026, 1, 1)), key="sci_start")
+    with col_a2:
+        end_sci = st.date_input("Fine Analisi Scientifica", value=st.session_state.get("saved_end", date.today()), key="sci_end")
+
+    url_sci = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
+    params_sci = {
+        "oldest": start_sci.strftime("%Y-%m-%d"),
+        "newest": end_sci.strftime("%Y-%m-%d"),
+        "iw": True
+    }
+    
+    resp_sci = requests.get(url_sci, auth=("API_KEY", API_KEY.strip()), params=params_sci)
+
+    if resp_sci.status_code == 200:
+        dati_raw_sci = resp_sci.json()
+        if dati_raw_sci:
+            df_s = pd.DataFrame(dati_raw_sci)
+            
+            # Pulizia e mappatura campi scientifici
+            df_s['data_fmt'] = pd.to_datetime(df_s['start_date_local'])
+            df_s['data_solo'] = df_s['data_fmt'].dt.date
+            df_s['TSS'] = df_s.get('icu_training_load', 0).fillna(0)
+            df_s['Watt_Medi'] = df_s.get('device_watts', 0).fillna(0) # o average_watts se disponibile
+            if 'average_watts' in df_s.columns:
+                df_s['Watt_Medi'] = df_s['average_watts'].fillna(df_s['Watt_Medi'])
+            df_s['BPM_Medi'] = df_s.get('average_heartrate', 0).fillna(0)
+            df_s['Titolo'] = df_s.get('name', 'Uscita')
+
+            # Ordinamento cronologico per calcoli di fitness (CTL/ATL)
+            df_s = df_s.sort_values('data_fmt').reset_index(drop=True)
+
+            # Calcolo approssimativo/stimato di CTL (Fitness - 42 giorni) e ATL (Fatigue - 7 giorni) se non forniti direttamente dall'API
+            # CTL = media mobile esponenziale o semplice del TSS
+            df_s['CTL'] = df_s['TSS'].ewm(span=42, adjust=False).mean()
+            df_s['ATL'] = df_s['TSS'].ewm(span=7, adjust=False).mean()
+            df_s['TSB'] = df_s['CTL'].shift(1) - df_s['ATL'].shift(1)
+            df_s['TSB'] = df_s['TSB'].fillna(0)
+
+            # Efficienza (EF): Rapporto Watt / BPM (filtrando i valori nulli o a zero)
+            df_s['EF'] = df_s.apply(lambda row: (row['Watt_Medi'] / row['BPM_Medi']) if row['BPM_Medi'] > 0 and row['Watt_Medi'] > 0 else 0, axis=1)
+
+            # Metriche riassuntive globali del periodo
+            tot_tss = df_s['TSS'].sum()
+            media_tss_giorn = df_s['TSS'].mean()
+            media_watt = df_s[df_s['Watt_Medi'] > 0]['Watt_Medi'].mean()
+            media_bpm = df_s[df_s['BPM_Medi'] > 0]['BPM_Medi'].mean()
+            media_ef = df_s[df_s['EF'] > 0]['EF'].mean()
+
+            st.markdown("#### 📊 Sintesi Indicatori Interni ed Esterni")
+            col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+            col_m1.metric("TSS Totale", f"{tot_tss:,.0f}")
+            col_m2.metric("Watt Medi (Sessione)", f"{media_watt:.1f} W" if not pd.isna(media_watt) else "N/D")
+            col_m3.metric("BPM Medi", f"{media_bpm:.0f} bpm" if not pd.isna(media_bpm) else "N/D")
+            col_m4.metric("Efficiency Factor (EF)", f"{media_ef:.2f}" if not pd.isna(media_ef) else "N/D")
+
+            st.markdown("---")
+
+            # Grafico combinato Performance Management Chart (TSS barre + CTL / ATL / TSB linee)
+            fig_pmc = go.Figure()
+
+            # Barre TSS giornaliero
+            fig_pmc.add_trace(go.Bar(
+                x=df_s['data_solo'],
+                y=df_s['TSS'],
+                name='TSS (Carico)',
+                marker=dict(color='rgba(31, 119, 180, 0.6)')
+            ))
+
+            # Linea CTL (Fitness)
+            fig_pmc.add_trace(go.Scatter(
+                x=df_s['data_solo'],
+                y=df_s['CTL'],
+                name='CTL (Fitness)',
+                mode='lines',
+                line=dict(color='blue', width=2)
+            ))
+
+            # Linea ATL (Fatigue)
+            fig_pmc.add_trace(go.Scatter(
+                x=df_s['data_solo'],
+                y=df_s['ATL'],
+                name='ATL (Fatica)',
+                mode='lines',
+                line=dict(color='magenta', width=2)
+            ))
+
+            fig_pmc.update_layout(
+                title="Performance Management Chart (TSS, Fitness CTL & Fatica ATL)",
+                xaxis_title="Data",
+                yaxis_title="Valore / Carico",
+                margin=dict(l=20, r=20, t=40, b=20),
+                height=400,
+                hovermode='x unified'
+            )
+
+            st.plotly_chart(fig_pmc, use_container_width=True, config={'displaylogo': False})
+
+            st.markdown("---")
+            st.markdown("#### 🧠 Resoconto e Valutazione Scientifica")
+
+            # Generazione automatica di un testo valutativo basato sui dati correnti
+            ultimo_ctl = df_s['CTL'].iloc[-1] if not df_s.empty else 0
+            ultimo_tsb = df_s['TSB'].iloc[-1] if not df_s.empty else 0
+
+            if ultimo_tsb > 5:
+                status_forma = "🟢 **Condizione di Freschezza / Supercompensazione**: Il corpo ha ampiamente smaltito i carichi passati. Ottimale per massimali o gare."
+            elif -10 <= ultimo_tsb <= 5:
+                status_forma = "🔵 **Stato di Assimilazione / equilibrio ottimale**: Il carico e il recupero sono perfettamente bilanciati per la crescita della forma."
+            else:
+                status_forma = "🟠 **Affaticamento / Sovraccarico funzionale**: Il bilancio energetico e di stress (TSB negativo) indica stanchezza accumulata; valutare riposo o scarico."
+
+            st.markdown(f"""
+            * **Fitness Attuale (CTL stimato):** `{ultimo_ctl:.1f}` punti.
+            * **Bilancio di Forma (TSB corrente):** `{ultimo_tsb:.1f}`.
+            * **Valutazione Clinico-Sportiva:** {status_forma}
+            * **Analisi Efficienza Cardiometabolica:** Un Efficiency Factor medio di `{media_ef:.2f}` indica una solida coerenza tra spinta energetica espressa in Watt e risposta cardiaca nel periodo selezionato.
+            """)
+        else:
+            st.info("Nessuna attività disponibile nel range selezionato per l'analisi scientifica.")
+    else:
+        st.error("Errore nel recupero dati per l'analisi scientifica da Intervals.icu.")
