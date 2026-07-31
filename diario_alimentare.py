@@ -520,6 +520,15 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
     # Pulsante o logica per sbloccare/modificare se già confermato
     if giorno_storico["dispendio_confermato"]:
         st.sidebar.success(f"Dispendio Confermato ({giorno_storico['tipo_scelta_energia']})")
+        previsti = giorno_storico["dati_previsti"]
+        obj_kcal = previsti.get("calorie", 0.0)
+        obj_carbo = previsti.get("carboidrati", 0.0)
+        obj_prot = previsti.get("proteine", 0.0)
+        obj_grassi = previsti.get("grassi", 0.0)
+        
+        st.sidebar.markdown(f"**Nome/Tipo:** {giorno_storico['tipo_scelta_energia']}")
+        st.sidebar.markdown(f"**Kcal:** {obj_kcal} | **C:** {obj_carbo}g | **P:** {obj_prot}g | **G:** {obj_grassi}g")
+        
         if st.sidebar.button("Modifica Dispendio Giornaliero", key=f"btn_sblocca_{data_str}"):
             giorno_storico["dispendio_confermato"] = False
             salva_dati_disco()
@@ -576,17 +585,19 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
         
         obj_kcal, obj_carbo, obj_prot, obj_grassi = 0.0, 0.0, 0.0, 0.0
         st.sidebar.warning("⚠️ Dispendio energetico non ancora confermato per questa giornata (parte da 0).")
-    else:
+else:
+    st.sidebar.markdown("### ⚙️ Profilo Altri Utenti")
+    if giorno_storico["dispendio_confermato"]:
+        st.sidebar.success("Dispendio Standard Confermato")
         previsti = giorno_storico["dati_previsti"]
         obj_kcal = previsti.get("calorie", 0.0)
         obj_carbo = previsti.get("carboidrati", 0.0)
         obj_prot = previsti.get("proteine", 0.0)
         obj_grassi = previsti.get("grassi", 0.0)
+        
+        st.sidebar.markdown(f"**Nome/Tipo:** {giorno_storico['tipo_scelta_energia']}")
         st.sidebar.markdown(f"**Kcal:** {obj_kcal} | **C:** {obj_carbo}g | **P:** {obj_prot}g | **G:** {obj_grassi}g")
-else:
-    st.sidebar.markdown("### ⚙️ Profilo Altri Utenti")
-    if giorno_storico["dispendio_confermato"]:
-        st.sidebar.success("Dispendio Standard Confermato")
+        
         if st.sidebar.button("Modifica Dispendio Giornaliero", key=f"btn_sblocca_std_{data_str}"):
             giorno_storico["dispendio_confermato"] = False
             salva_dati_disco()
