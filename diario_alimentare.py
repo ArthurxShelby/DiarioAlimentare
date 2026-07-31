@@ -510,19 +510,15 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
     st.sidebar.markdown("### ⚙️ Gestione Calcolo Macronutrienti")
     
     opzioni_maffettone = [
-        "Maffettone - 1) Sedentario",
-        "Maffettone - 2) Attività Leggera",
-        "Maffettone - 3) Moderatamente Attivo",
-        "Maffettone - 4) Molto Attivo",
-        "Maffettone - 5) Estremamente Attivo",
+        "Maffettone - Sedentario",
+        "Maffettone - Attivo",
     ]
     
     opzioni_giornate_tipo = [
-        "Giornata Tipo - 1) Scarico / Riposo",
-        "Giornata Tipo - 2) Bici Intensa",
-        "Giornata Tipo - 3) Bici Specifica",
-        "Giornata Tipo - 4) Bici Aerobica",
-        "Giornata Tipo - 5) Pesi / Forza",
+        "Giornata Tipo - Scarico",
+        "Giornata Tipo - Carico",
+        "Giornata Tipo - Bici",
+        "Giornata Tipo - Pesi",
     ]
 
     # Pulsante o logica per sbloccare/modificare se già confermato
@@ -557,12 +553,7 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
             if btn_conferma_giornata:
                 if "Maffettone" in scelta_metodo:
                     tipo_scelta = profilo_scelto
-                    # Fattori Maffettone basati sulle 5 opzioni
-                    pal_mef = 1.2
-                    if "2) Attività Leggera" in profilo_scelto: pal_mef = 1.375
-                    elif "3) Moderatamente Attivo" in profilo_scelto: pal_mef = 1.55
-                    elif "4) Molto Attivo" in profilo_scelto: pal_mef = 1.725
-                    elif "5) Estremamente Attivo" in profilo_scelto: pal_mef = 1.9
+                    pal_mef = 1.2 if "Sedentario" in profilo_scelto else 1.55
                     
                     obj_kcal = round(bmr * pal_mef, 0)
                     obj_carbo = round((obj_kcal * 0.45) / 4, 1)
@@ -573,14 +564,12 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
                     obj_prot = round(peso * 2.0, 1)    
                     obj_grassi = round(peso * 0.9, 1)  
                     
-                    if "1) Scarico / Riposo" in profilo_scelto:
+                    if "Scarico" in profilo_scelto:
                         obj_carbo = 180.0
-                    elif "2) Bici Intensa" in profilo_scelto:
+                    elif "Carico" in profilo_scelto:
                         obj_carbo = 400.0  
-                    elif "3) Bici Specifica" in profilo_scelto:
+                    elif "Bici" in profilo_scelto:
                         obj_carbo = 300.0  
-                    elif "4) Bici Aerobica" in profilo_scelto:
-                        obj_carbo = 270.0  
                     else: 
                         obj_carbo = 250.0  
                         
