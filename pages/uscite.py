@@ -323,7 +323,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                                 showlegend=False
                                             )
                                             
-                                            st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
+                                            st.plotly_chart(fig, use_container_width=True, key=f"plotly_hist_{act_id}_{idx}", config={'scrollZoom': True, 'displaylogo': False})
                                             
                                             linee = [
                                                 '<?xml version="1.0" encoding="UTF-8"?>',
@@ -594,7 +594,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                     showlegend=False
                                 )
                                 
-                                st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
+                                st.plotly_chart(fig_map, use_container_width=True, key=f"plotly_grafico_det_{id_attivita_scelta}", config={'scrollZoom': True, 'displaylogo': False})
 
                                 linee_gpx = [
                                     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -632,7 +632,6 @@ st.markdown("---")
 with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Uscita", expanded=True):
     st.write("Seleziona un'uscita specifica per analizzare il dispendio energetico reale e calcolare i carboidrati e l'idratazione necessari per il recupero.")
     
-    # Recuperiamo la lista di tutte le attività disponibili globalmente o dal dataframe precedente
     if 'df_g' in locals() and not df_g.empty:
         df_nutri_source = df_g.sort_values('data_fmt', ascending=False)
     elif 'df_activities' in locals() and not df_activities.empty:
@@ -663,7 +662,6 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
         id_sel_nutri = opzioni_nutri[scelta_chiave_nutri]
         act_nutri = df_nutri_source[df_nutri_source['id_str'] == id_sel_nutri].iloc[0]
         
-        # Estrazione energetica (kJ / energy)
         raw_energy = act_nutri.get('energy', 0)
         if pd.isna(raw_energy) or raw_energy == 0:
             ore_mov = act_nutri.get('Ore in sella', 1)
@@ -693,7 +691,6 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
             f"Reteidratarsi bevendo almeno **{litri_acqua} litri** di acqua con aggiunta di elettroliti (sodio/magnesio) persi durante lo sforzo."
         )
 
-        # --- MAPPA E TRACCIATO GPX DELLA SEZIONE NUTRIZIONE ---
         clean_id_n = ''.join(c for c in id_sel_nutri if c.isdigit())
         target_url_n = f"https://intervals.icu/api/v1/activity/{clean_id_n}/streams"
         
@@ -770,7 +767,8 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
                         showlegend=False
                     )
                     
-                    st.plotly_chart(fig_map_n, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
+                    # CORRETTO: aggiunta la chiave univoca per evitare il conflitto StreamlitDuplicateElementId
+                    st.plotly_chart(fig_map_n, use_container_width=True, key=f"plotly_nutri_{id_sel_nutri}", config={'scrollZoom': True, 'displaylogo': False})
 
                     linee_gpx_n = [
                         '<?xml version="1.0" encoding="UTF-8"?>',
