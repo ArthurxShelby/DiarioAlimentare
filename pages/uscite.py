@@ -497,36 +497,59 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
 
             st.markdown("---")
             
-            # --- GESTIONE INDIPENDENTE E PERSISTENTE DELLA SELEZIONE USCITA ---
-            df_ordinato_periodo = df_filtrato_periodo.sort_values('data_fmt', ascending=False)
-            opzioni_tendina = {
-                f"{row['data_solo']} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] 
-                for _, row in df_ordinato_periodo.iterrows()
-            }
+            # --- CALENDARIO / SELETTORE TEMPORALE INDIPENDENTE E PERSISTENTE ---
+            st.markdown("#### 📅 Calendario Selezione Uscite")
+            st.write("Seleziona una data specifica per richiamare l'uscita effettuata in quel giorno (o scegli direttamente dal menu correlato se ci sono più uscite).")
             
-            if opzioni_tendina:
-                # Verifica se l'uscita precedentemente salvata in sessione esiste ancora nelle opzioni correnti
-                lista_chiavi_opzioni = list(opzioni_tendina.keys())
-                indice_default = 0
+            df_ordinato_periodo = df_filtrato_periodo.sort_values('data_fmt', ascending=False)
+            
+            # Estraiamo le date disponibili per abilitare/guidare il calendario
+            date_disponibili = sorted(list(df_ordinato_periodo['data_solo'].unique()))
+            
+            if date_disponibili:
+                min_data_Uscita = min(date_disponibili)
+                max_data_Uscita = max(date_disponibili)
                 
-                if "id_uscita_selezionata_pers" in st.session_state:
-                    # Cerca se l'id salvato corrisponde a una delle opzioni attuali
-                    for i, (k, v) in enumerate(opzioni_tendina.items()):
-                        if v == st.session_state["id_uscita_selezionata_pers"]:
-                            indice_default = i
-                            break
+                # Default calendar date recuperato dallo stato o impostato sull'ultima data disponibile
+                if "calendario_uscita_val" not in st.session_state:
+                    st.session_state["calendario_uscita_val"] = max_data_Uscita
                 
-                scelta_utente_tendina = st.selectbox(
-                    f"Seleziona Uscita dal Periodo ({len(opzioni_tendina)} disponibili)",
-                    options=lista_chiavi_opzioni,
-                    index=indice_default,
-                    key="select_uscita_dettaglio_grafico"
-                )
+                col_cal1, col_cal2 = st.columns([1, 1])
+                with col_cal1:
+                    data_calendario_scelta = st.date_input(
+                        "Seleziona la data dell'uscita",
+                        value=st.session_state["calendario_uscita_val"],
+                        min_value=min_data_Uscita,
+                        max_value=max_data_Uscita,
+                        key="widget_calendario_uscita"
+                    )
+                    st.session_state["calendario_uscita_val"] = data_calendario_scelta
                 
-                id_attivita_scelta = opzioni_tendina[scelta_utente_tendina]
-                st.session_state["id_uscita_selezionata_pers"] = id_attivita_scelta
+                # Filtriamo le uscite effettuate esattamente nel giorno selezionato nel calendario
+                df_giorno_scelto = df_ordinato_periodo[df_ordinato_periodo['data_solo'] == data_calendario_scelta]
+                
+                if not df_giorno_scelto.empty:
+                    opzioni_giorno = {
+                        f"{row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] 
+                        for _, row in df_giorno_scelto.iterrows()
+                    }
+                    
+                    with col_cal2:
+                        scelta_utente_tendina = st.selectbox(
+                            f"Uscite nel giorno ({len(opzioni_giorno)} disponibili)",
+                            options=list(opzioni_giorno.keys()),
+                            key="select_uscita_da_calendario"
+                        )
+                    
+                    id_attivita_scelta = opzioni_giorno[scelta_utente_tendina]
+                    st.session_state["id_uscita_selezionata_pers"] = id_attivita_scelta
+                else:
+                    with col_cal2:
+                        st.info(f"Nessuna uscita registrata il giorno {data_calendario_scelta.strftime('%d/%m/%Y')}.")
+                    # Fallback sull'ultima uscita salvata se esiste
+                    id_attivita_scelta = st.session_state.get("id_uscita_selezionata_pers", df_ordinato_periodo.iloc[0]['id_str'])
             else:
-                st.warning("Nessuna uscita trovata per la selezione corrente.")
+                st.warning("Nessuna data disponibile nel periodo corrente.")
                 id_attivita_scelta = None
             
             if id_attivita_scelta:
@@ -676,7 +699,6 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
             for _, row in df_nutri_source.iterrows()
         }
         
-        # Gestione persistenza anche per il selettore nutrizionale
         lista_chiavi_nutri = list(opzioni_nutri.keys())
         indice_default_nutri = 0
         if "id_uscita_nutri_pers" in st.session_state:
