@@ -575,6 +575,13 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                                 "source": [
                                                     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                                                 ]
+                                            },
+                                            {
+                                                "below": 'traces',
+                                                "sourcetype": "raster",
+                                                "source": [
+                                                    "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                                                ]
                                             }
                                         ],
                                         center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
@@ -748,6 +755,13 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
                                     "source": [
                                         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                                     ]
+                                },
+                                {
+                                    "below": 'traces',
+                                    "sourcetype": "raster",
+                                    "source": [
+                                        "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                                    ]
                                 }
                             ],
                             center=dict(lat=sum(lats_n)/len(lats_n), lon=sum(lons_n)/len(lons_n)),
@@ -767,7 +781,6 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
                         showlegend=False
                     )
                     
-                    # CORRETTO: aggiunta la chiave univoca per evitare il conflitto StreamlitDuplicateElementId
                     st.plotly_chart(fig_map_n, use_container_width=True, key=f"plotly_nutri_{id_sel_nutri}", config={'scrollZoom': True, 'displaylogo': False})
 
                     linee_gpx_n = [
