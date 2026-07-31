@@ -639,14 +639,12 @@ st.markdown("---")
 with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Uscita", expanded=True):
     st.write("Fissa un intervallo di date per filtrare e popolare le uscite all'interno del menu a tendina.")
     
-    # --- Ricerca da Data a Data per popolare il menu a tendina ---
     col_d1, col_d2 = st.columns(2)
     with col_d1:
         nutri_data_inizio = st.date_input("Data Inizio Ricerca", value=date(2026, 1, 1), key="nutri_start_date")
     with col_d2:
         nutri_data_fine = st.date_input("Data Fine Ricerca", value=date.today(), key="nutri_end_date")
 
-    # Chiamata API dedicata per il range nutrizionale selezionato
     url_nutri_range = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_nutri_range = {
         "oldest": nutri_data_inizio.strftime("%Y-%m-%d"),
@@ -696,22 +694,53 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
         titolo_att = act_nutri.get('titolo_uscita', 'Uscita')
         data_att = act_nutri.get('data_solo', date.today())
 
-        carb_recupero_immediato = int(durata_ore * 50) if durata_ore > 0 else int(kcal_consumate * 0.15 / 4)
-        litri_acqua = round(durata_ore * 0.8, 1)
+        # Fabbisogni consigliati totali stimati per l'intera uscita
+        carb_consigliati = int(durata_ore * 50) if durata_ore > 0 else int(kcal_consumate * 0.15 / 4)
+        acqua_consigliata = round(durata_ore * 0.8, 1)
+        elettroliti_consigliati = round(durata_ore * 1.0, 1) # Unità di misura indicativa o misurini
+        bcaa_consigliati = 5.0 # Stima di riferimento in grammi per uscite lunghe
 
-        st.markdown(f"### 🎯 Resoconto Nutrizionale per: *{titolo_att}* ({data_att})")
+        st.markdown(f"### 📊 1. Dati dall'Uscita (Intervals.icu): *{titolo_att}* ({data_att})")
         
         col_n1, col_n2, col_n3, col_n4 = st.columns(4)
         col_n1.metric("🔥 Dispendio Energetico", f"{kcal_consumate:,.0f} kcal")
         col_n2.metric("⏱️ Tempo in Sella", f"{timedelta_to_str(durata_ore * 3600)}")
-        col_n3.metric("🍞 Carboidrati Post (Stima)", f"~{carb_recupero_immediato} g")
-        col_n4.metric("💧 Reidratazione Consigliata", f"~{litri_acqua} L")
+        col_n3.metric("📏 Distanza", f"{dist_km:.1f} km")
+        col_n4.metric("⛰️ Dislivello (D+)", f"{safe_int(act_nutri.get('D+')) or 0} m")
+
+        st.markdown("---")
+        st.markdown("### ✏️ 2. Inserisci Valori Assunti in Bici")
+        st.write("Registra cosa hai effettivamente consumato durante l'allenamento:")
+
+        col_in1, col_in2, col_in3, col_in4 = st.columns(4)
+        with col_in1:
+            carbo_assunti = st.number_input("Carboidrati assunti (g)", min_value=0.0, value=0.0, step=5.0, key="input_carbo_bici")
+        with col_in2:
+            bcaa_assunti = st.number_input("BCAA assunti (g)", min_value=0.0, value=0.0, step=1.0, key="input_bcaa_bici")
+        with col_in3:
+            elettroliti_assunti = st.number_input("Elettroliti assunti (misurini/bustine)", min_value=0.0, value=0.0, step=0.5, key="input_elettroliti_bici")
+        with col_in4:
+            acqua_assunta = st.number_input("Acqua assunta (L)", min_value=0.0, value=0.0, step=0.25, key="input_acqua_bici")
+
+        # Calcolo dei valori da reintegrare (sottrazione)
+        carbo_da_reintegrare = max(0.0, carb_consigliati - carbo_assunti)
+        bcaa_da_reintegrare = max(0.0, bcaa_consigliati - bcaa_assunti)
+        elettroliti_da_reintegrare = max(0.0, elettroliti_consigliati - elettroliti_assunti)
+        acqua_da_reintegrare = max(0.0, acqua_consigliata - acqua_assunta)
+
+        st.markdown("---")
+        st.markdown("### 🎯 3. Valori da Reintegrare (Bilancio Netto Post-Uscita)")
+        st.write("Quantità residue calcolate sottraendo quanto assunto in bici dai target consigliati:")
+
+        col_out1, col_out2, col_out3, col_out4 = st.columns(4)
+        col_out1.metric("🍞 Carboidrati Residui", f"{carbo_da_reintegrare:.1f} g", delta=f"-{carbo_assunti}g assunti", delta_color="off")
+        col_out2.metric("💊 BCAA Residui", f"{bcaa_da_reintegrare:.1f} g", delta=f"-{bcaa_assunti}g assunti", delta_color="off")
+        col_out3.metric("🧂 Elettroliti Residui", f"{elettroliti_da_reintegrare:.1f}", delta=f"-{elettroliti_assunti} assunti", delta_color="off")
+        col_out4.metric("💧 Acqua Residua", f"{acqua_da_reintegrare:.1f} L", delta=f"-{acqua_assunta}L assunti", delta_color="off")
 
         st.info(
-            f"**Linee guida nutrizionali post-allenamento:** Per recuperare le **{kcal_consumate:,.0f} kcal** consumate in {dist_km:.1f} km, "
-            f"è consigliato assumere un pasto o uno shake di recupero ricco di carboidrati ad alto indice glicemico nelle prime 2 ore "
-            f"(circa **{carb_recupero_immediato}g di carboidrati**) insieme a una quota proteica adeguata. "
-            f"Reteidratarsi bevendo almeno **{litri_acqua} litri** di acqua con aggiunta di elettroliti (sodio/magnesio) persi durante lo sforzo."
+            f"**Nota di reintegro:** Sulla base di un dispendio di **{kcal_consumate:,.0f} kcal** in {durata_ore:.1f} ore di sella, "
+            f"pianifica il recupero immediato coprendo i valori residui sopra indicati con una nutrizione post-allenamento mirata e una corretta reidratazione."
         )
 
         clean_id_n = ''.join(c for c in id_sel_nutri if c.isdigit())
