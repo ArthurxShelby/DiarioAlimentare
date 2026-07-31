@@ -204,6 +204,10 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                     key_toggle = f"show_map_{act_id}_{idx}"
                     if key_toggle not in st.session_state:
                         st.session_state[key_toggle] = False
+
+                    key_edit_toggle = f"edit_name_{act_id}_{idx}"
+                    if key_edit_toggle not in st.session_state:
+                        st.session_state[key_edit_toggle] = False
                     
                     with st.container(border=True):
                         col_info, col_btn1, col_btn2 = st.columns([3, 1, 1])
@@ -223,6 +227,27 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                 st.session_state["selected_activity_title"] = act_title
                                 st.session_state["selected_activity_date"] = act_date
                                 st.switch_page("pages/visualizza_mappa.py")
+
+                        # Pulsante e logica per modificare il nome dell'uscita nell'archivio storico
+                        if st.button("✏️ Modifica Nome", key=f"btn_edit_toggle_{act_id}_{idx}"):
+                            st.session_state[key_edit_toggle] = not st.session_state[key_edit_toggle]
+                            st.rerun()
+
+                        if st.session_state[key_edit_toggle]:
+                            with st.form(key=f"form_mod_nome_{act_id}_{idx}"):
+                                nuovo_nome_input = st.text_input("Nuovo nome uscita", value=act_title)
+                                btn_salva_nome = st.form_submit_button("💾 Salva su Intervals")
+                                if btn_salva_nome:
+                                    url_put = f"https://intervals.icu/api/v1/activity/{act_id}"
+                                    resp_put = requests.put(url_put, auth=("API_KEY", API_KEY.strip()), json={"name": nuovo_nome_input})
+                                    if resp_put.status_code == 200:
+                                        st.success("Nome aggiornato con successo!")
+                                        st.session_state[key_edit_toggle] = False
+                                        # Aggiorna in memoria locale l'elemento e ricarica
+                                        act["name"] = nuovo_nome_input
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Errore durante l'aggiornamento: {resp_put.status_code} - {resp_put.text}")
 
                         if st.session_state[key_toggle]:
                             st.markdown("---")
@@ -528,6 +553,28 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
 
                     st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} ({dati_uscita_corrente['data_solo']})")
                     
+                    # Pulsante per modificare il nome dell'uscita anche nella sezione del grafico
+                    key_edit_grafico = f"edit_name_grafico_{id_attivita_scelta}"
+                    if key_edit_grafico not in st.session_state:
+                        st.session_state[key_edit_grafico] = False
+
+                    if st.button("✏️ Modifica Nome Uscita Selezionata", key=f"btn_edit_grafico_{id_attivita_scelta}"):
+                        st.session_state[key_edit_grafico] = not st.session_state[key_edit_grafico]
+                        st.rerun()
+
+                    if st.session_state[key_edit_grafico]:
+                        with st.form(key=f"form_mod_grafico_{id_attivita_scelta}"):
+                            nuovo_nome_g = st.text_input("Nuovo nome uscita", value=dati_uscita_corrente['titolo_uscita'])
+                            if st.form_submit_button("💾 Salva su Intervals"):
+                                url_put_g = f"https://intervals.icu/api/v1/activity/{id_attivita_scelta}"
+                                resp_put_g = requests.put(url_put_g, auth=("API_KEY", API_KEY.strip()), json={"name": nuovo_nome_g})
+                                if resp_put_g.status_code == 200:
+                                    st.success("Nome aggiornato con successo!")
+                                    st.session_state[key_edit_grafico] = False
+                                    st.rerun()
+                                else:
+                                    st.error(f"Errore durante l'aggiornamento: {resp_put_g.status_code} - {resp_put_g.text}")
+
                     clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
                     target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
                     
