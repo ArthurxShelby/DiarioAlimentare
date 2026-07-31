@@ -726,24 +726,22 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
         with col_ex2:
             acqua_assunta = st.number_input("Acqua assunta (L)", min_value=0.0, value=0.0, step=0.25, key="input_acqua_bici")
 
-        # --- CALCOLO MATEMATICO RIGOROSO INTEGRATO ---
+        # --- CALCOLO MATEMATICO RIGOROSO INTEGRATO CORRETTO ---
         # 1. Kcal nette da carboidrati (scorporando i BCAA)
         kcal_nette_da_carbo = max(0.0, kcal_consumate - (bcaa_assunti * 4.0))
         
         # 2. Fabbisogno teorico totale di carboidrati per coprire il dispendio
         carbo_teorici_totali = kcal_nette_da_carbo / 4.0
         
-        # 3. Bilancio netto: Fabbisogno Totale - Carbo Giornata Tipo - Carbo Post consumati nei pasti
-        # (Nota: i carbo assunti in bici fanno già parte del conteggio energetico dell'attività o del piano, 
-        #  ma qui scaliamo direttamente il target residuo rispetto alla giornata tipo)
-        carbo_da_reintegrare = max(0.0, carbo_teorici_totali - carbo_giornata_tipo - carbo_consumati_post)
+        # 3. Bilancio netto: Fabbisogno Totale - Carbo Giornata Tipo - Carbo in Bici - Carbo Post consumati nei pasti
+        carbo_da_reintegrare = max(0.0, carbo_teorici_totali - carbo_giornata_tipo - carbo_assunti_bici - carbo_consumati_post)
         
         elettroliti_da_reintegrare = max(0.0, elettroliti_consigliati - elettroliti_assunti)
         acqua_da_reintegrare = max(0.0, acqua_consigliata - acqua_assunta)
 
         st.markdown("---")
         st.markdown("### 🎯 3. Valori da Reintegrare (Bilancio Giornaliero Netto)")
-        st.write("Residuo scalato sottraendo la giornata tipo e i carboidrati via via assunti nei pasti:")
+        st.write("Residuo scalato sottraendo la giornata tipo, i carbo in bici e quelli via via assunti nei pasti:")
 
         col_out1, col_out2, col_out3, col_out4 = st.columns(4)
         col_out1.metric("🍞 Carbo Residui da Mangiare", f"{carbo_da_reintegrare:.1f} g", delta=f"Teorici totali: {carbo_teorici_totali:.1f}g", delta_color="off")
