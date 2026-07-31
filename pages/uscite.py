@@ -354,7 +354,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                 except Exception as e:
                                     st.error(f"Errore durante il caricamento della mappa: {e}")
 
-# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE (Sotto menu a discesa con persistenza indipendente) ---
+# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE (Range Persistente Indipendente) ---
 st.markdown("---")
 
 FILE_GRAFICO_INIZIO = "grafico_data_inizio.txt"
@@ -387,14 +387,12 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             key="selettore_metrica_grafico"
         )
 
-    # Aggiorna la persistenza se le date del grafico cambiano
     if range_inizio != st.session_state["grafico_start_val"] or range_fine != st.session_state["grafico_end_val"]:
         st.session_state["grafico_start_val"] = range_inizio
         st.session_state["grafico_end_val"] = range_fine
         salva_data_su_file(FILE_GRAFICO_INIZIO, range_inizio)
         salva_data_su_file(FILE_GRAFICO_FINE, range_fine)
 
-    # Recupero o filtraggio delle attività basato sul range indipendente del grafico
     url_grafico = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_grafico = {
         "oldest": range_inizio.strftime("%Y-%m-%d"),
@@ -628,3 +626,55 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             st.info("Nessuna attività trovata nel range temporale selezionato per il grafico.")
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
+
+# --- 4. REINTEGRO NUTRIZIONALE E ANALISI ENERGETICA POST-USCITA ---
+st.markdown("---")
+with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Uscita", expanded=True):
+    st.write("Analisi automatica del dispendio energetico reale prelevato da Intervals.icu per calcolare il fabbisogno di recupero (calorie, carboidrati e idratazione).")
+    
+    # Tentiamo di recuperare l'ultima attività selezionata o la più recente dal grafico/storico
+    if 'dati_uscita_corrente' in locals() and id_attivita_scelta:
+        act_target = dati_uscita_corrente
+    elif 'df_g' in locals() and not df_g.empty:
+        act_target = df_g.sort_values('data_fmt', ascending=False).iloc[0]
+    else:
+        act_target = None
+
+    if act_target is not None:
+        # Estrazione dati energetici da Intervals (il campo 'energy' restituisce i kJ spesi, equivalenti alle kcal)
+        raw_energy = act_target.get('energy', 0)
+        if pd.isna(raw_energy) or raw_energy == 0:
+            # Stima di fallback basata su tempo e potenza/intensità se l'energia non è esplicita
+            ore_mov = act_target.get('Ore in sella', 1)
+            raw_energy = ore_mov * 650 # stima prudenziale di ~650 kcal/h
+        
+        kcal_consumate = float(raw_energy)
+        durata_ore = act_target.get('Ore in sella', 0)
+        dist_km = act_target.get('Km', 0)
+        titolo_att = act_target.get('titolo_uscita', 'Uscita')
+        data_att = act_target.get('data_solo', date.today())
+
+        # Calcoli nutrizionali di recupero mirato
+        # 1g - 1.2g di carboidrati per kg di peso stimato (ipotizzando un atleta di ~70kg o calcolandolo in base alle kcal)
+        peso_atleta_rif = 70.0 
+        carb_recupero_immediato = int(durata_ore * 50) if durata_ore > 0 else int(kcal_consumate * 0.15 / 4)
+        
+        # Stima dei liquidi persi con sudorazione (~0.7L - 1.0L per ora di attività)
+        litri_acqua = round(durata_ore * 0.8, 1)
+
+        st.markdown(f"### 🎯 Resoconto Nutrizionale per: *{titolo_att}* ({data_att})")
+        
+        col_n1, col_n2, col_n3, col_n4 = st.columns(4)
+        col_n1.metric("🔥 Dispendio Energetico", f"{kcal_consumate:,.0f} kcal")
+        col_n2.metric("⏱️ Tempo in Sella", f"{timedelta_to_str(durata_ore * 3600)}")
+        col_n3.metric("🍞 Carboidrati Post (Stima)", f"~{carb_recupero_immediato} g")
+        col_n4.metric("💧 Reidratazione Consigliata", f"~{litri_acqua} L")
+
+        st.info(
+            f"**Linee guida nutrizionali post-allenamento:** Per recuperare le **{kcal_consumate:,.0f} kcal** consumate in {dist_km:.1f} km, "
+            f"è consigliato assumere un pasto o uno shake di recupero ricco di carboidrati ad alto indice glicemico nelle prime 2 ore "
+            f"(circa **{carb_recupero_immediato}g di carboidrati**) insieme a una quota proteica adeguata. "
+            f"Reteidratarsi bevendo almeno **{litri_acqua} litri** di acqua con aggiunta di elettroliti (sodio/magnesio) persi durante lo sforzo."
+        )
+    else:
+        st.warning("Seleziona o carica prima un'attività dalla sezione precedente per visualizzare il report nutrizionale.")
