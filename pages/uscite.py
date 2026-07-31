@@ -323,7 +323,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                                 showlegend=False
                                             )
                                             
-                                            st.plotly_chart(fig, use_container_width=True, key=f"plotly_hist_{act_id}_{idx}", config={'scrollZoom': True, 'displaylogo': False})
+                                            st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
                                             
                                             linee = [
                                                 '<?xml version="1.0" encoding="UTF-8"?>',
@@ -354,7 +354,7 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                 except Exception as e:
                                     st.error(f"Errore durante il caricamento della mappa: {e}")
 
-# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE (Range Persistente Indipendente) ---
+# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE (Sotto menu a discesa con persistenza indipendente) ---
 st.markdown("---")
 
 FILE_GRAFICO_INIZIO = "grafico_data_inizio.txt"
@@ -387,12 +387,14 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             key="selettore_metrica_grafico"
         )
 
+    # Aggiorna la persistenza se le date del grafico cambiano
     if range_inizio != st.session_state["grafico_start_val"] or range_fine != st.session_state["grafico_end_val"]:
         st.session_state["grafico_start_val"] = range_inizio
         st.session_state["grafico_end_val"] = range_fine
         salva_data_su_file(FILE_GRAFICO_INIZIO, range_inizio)
         salva_data_su_file(FILE_GRAFICO_FINE, range_fine)
 
+    # Recupero o filtraggio delle attività basato sul range indipendente del grafico
     url_grafico = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_grafico = {
         "oldest": range_inizio.strftime("%Y-%m-%d"),
@@ -575,13 +577,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                                 "source": [
                                                     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                                                 ]
-                                            },
-                                            {
-                                                "below": 'traces',
-                                                "sourcetype": "raster",
-                                                "source": [
-                                                    "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-                                                ]
                                             }
                                         ],
                                         center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
@@ -601,7 +596,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                     showlegend=False
                                 )
                                 
-                                st.plotly_chart(fig_map, use_container_width=True, key=f"plotly_grafico_det_{id_attivita_scelta}", config={'scrollZoom': True, 'displaylogo': False})
+                                st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
 
                                 linee_gpx = [
                                     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -633,118 +628,3 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             st.info("Nessuna attività trovata nel range temporale selezionato per il grafico.")
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
-
-# --- 4. REINTEGRO NUTRIZIONALE E ANALISI ENERGETICA POST-USCITA ---
-st.markdown("---")
-with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Uscita", expanded=True):
-    st.write("Fissa un intervallo di date per filtrare e popolare le uscite all'interno del menu a tendina.")
-    
-    col_d1, col_d2 = st.columns(2)
-    with col_d1:
-        nutri_data_inizio = st.date_input("Data Inizio Ricerca", value=date(2026, 1, 1), key="nutri_start_date")
-    with col_d2:
-        nutri_data_fine = st.date_input("Data Fine Ricerca", value=date.today(), key="nutri_end_date")
-
-    url_nutri_range = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
-    params_nutri_range = {
-        "oldest": nutri_data_inizio.strftime("%Y-%m-%d"),
-        "newest": nutri_data_fine.strftime("%Y-%m-%d"),
-        "iw": True
-    }
-    
-    resp_nutri_range = requests.get(url_nutri_range, auth=("API_KEY", API_KEY.strip()), params=params_nutri_range)
-    
-    df_nutri_source = pd.DataFrame()
-    if resp_nutri_range.status_code == 200:
-        dati_nutri_estatti = resp_nutri_range.json()
-        if dati_nutri_estatti:
-            df_nutri_source = pd.DataFrame(dati_nutri_estatti)
-            df_nutri_source['data_fmt'] = pd.to_datetime(df_nutri_source['start_date_local'])
-            df_nutri_source['data_solo'] = df_nutri_source['data_fmt'].dt.date
-            df_nutri_source['Km'] = df_nutri_source.get('distance', 0).fillna(0) / 1000.0
-            df_nutri_source['D+'] = df_nutri_source.get('total_elevation_gain', 0).fillna(0)
-            df_nutri_source['Ore in sella'] = df_nutri_source.get('moving_time', 0).fillna(0) / 3600.0
-            df_nutri_source['titolo_uscita'] = df_nutri_source.get('name', 'Uscita')
-            df_nutri_source['id_str'] = df_nutri_source.get('id').astype(str)
-            df_nutri_source = df_nutri_source.sort_values('data_fmt', ascending=False)
-
-    if not df_nutri_source.empty:
-        opzioni_nutri = {
-            f"{row['data_solo']} - {row['titolo_uscita']} ({row['Km']:.1f} km)": row['id_str']
-            for _, row in df_nutri_source.iterrows()
-        }
-        
-        scelta_chiave_nutri = st.selectbox(
-            f"Seleziona Uscita dal Periodo ({len(opzioni_nutri)} disponibili)",
-            options=list(opzioni_nutri.keys()),
-            key="selettore_uscita_nutrizione"
-        )
-        
-        id_sel_nutri = opzioni_nutri[scelta_chiave_nutri]
-        act_nutri = df_nutri_source[df_nutri_source['id_str'] == id_sel_nutri].iloc[0]
-        
-        # Lettura prioritaria delle calorie reali da Intervals
-        kcal_consumate = float(act_nutri.get('calories') or act_nutri.get('energy') or 0)
-        if kcal_consumate == 0:
-            ore_mov = act_nutri.get('Ore in sella', 1)
-            kcal_consumate = ore_mov * 650
-            
-        durata_ore = act_nutri.get('Ore in sella', 0)
-        dist_km = act_nutri.get('Km', 0)
-        titolo_att = act_nutri.get('titolo_uscita', 'Uscita')
-        data_att = act_nutri.get('data_solo', date.today())
-
-        acqua_consigliata = round(durata_ore * 0.8, 1)
-        elettroliti_consigliati = round(durata_ore * 1.0, 1)
-
-        st.markdown(f"### 📊 1. Dati dall'Uscita (Intervals.icu): *{titolo_att}* ({data_att})")
-        
-        col_n1, col_n2, col_n3, col_n4 = st.columns(4)
-        col_n1.metric("🔥 Dispendio Energetico", f"{kcal_consumate:,.0f} kcal")
-        col_n2.metric("⏱️ Tempo in Sella", f"{timedelta_to_str(durata_ore * 3600)}")
-        col_n3.metric("📏 Distanza", f"{dist_km:.1f} km")
-        col_n4.metric("⛰️ Dislivello (D+)", f"{safe_int(act_nutri.get('D+')) or 0} m")
-
-        st.markdown("---")
-        st.markdown("### ✏️ 2. Inserisci Valori Assunti (Bici e Giornata)")
-        st.write("Registra i consumi in sella e l'integrazione con la giornata tipo:")
-
-        col_in1, col_in2, col_in3, col_in4 = st.columns(4)
-        with col_in1:
-            carbo_assunti_bici = st.number_input("Carbo assunti in bici (g)", min_value=0.0, value=float(act_nutri.get('carbs_intake') or 125.0), step=5.0, key="input_carbo_bici")
-        with col_in2:
-            bcaa_assunti = st.number_input("BCAA assunti (g)", min_value=0.0, value=5.5, step=0.5, key="input_bcaa_bici")
-        with col_in3:
-            carbo_giornata_tipo = st.number_input("Carbo totali Giornata Tipo (g)", min_value=0.0, value=400.0, step=10.0, key="input_carbo_giornata")
-        with col_in4:
-            carbo_consumati_post = st.number_input("Carbo post-bici assunti nei pasti (g)", min_value=0.0, value=0.0, step=10.0, key="input_carbo_post_pasti")
-
-        # Input aggiuntivi per acqua e elettroliti
-        col_ex1, col_ex2 = st.columns(2)
-        with col_ex1:
-            elettroliti_assunti = st.number_input("Elettroliti assunti (misurini/bustine)", min_value=0.0, value=0.0, step=0.5, key="input_elettroliti_bici")
-        with col_ex2:
-            acqua_assunta = st.number_input("Acqua assunta (L)", min_value=0.0, value=0.0, step=0.25, key="input_acqua_bici")
-
-        # --- CALCOLO MATEMATICO RIGOROSO INTEGRATO CORRETTO ---
-        # 1. Kcal nette da carboidrati (scorporando i BCAA)
-        kcal_nette_da_carbo = max(0.0, kcal_consumate - (bcaa_assunti * 4.0))
-        
-        # 2. Fabbisogno teorico totale di carboidrati per coprire il dispendio
-        carbo_teorici_totali = kcal_nette_da_carbo / 4.0
-        
-        # 3. Bilancio netto: Fabbisogno Totale - Carbo Giornata Tipo - Carbo in Bici - Carbo Post consumati nei pasti
-        carbo_da_reintegrare = max(0.0, carbo_teorici_totali - carbo_giornata_tipo - carbo_assunti_bici - carbo_consumati_post)
-        
-        elettroliti_da_reintegrare = max(0.0, elettroliti_consigliati - elettroliti_assunti)
-        acqua_da_reintegrare = max(0.0, acqua_consigliata - acqua_assunta)
-
-        st.markdown("---")
-        st.markdown("### 🎯 3. Valori da Reintegrare (Bilancio Giornaliero Netto)")
-        st.write("Residuo scalato sottraendo la giornata tipo, i carbo in bici e quelli via via assunti nei pasti:")
-
-        col_out1, col_out2, col_out3, col_out4 = st.columns(4)
-        col_out1.metric("🍞 Carbo Residui da Mangiare", f"{carbo_da_reintegrare:.1f} g", delta=f"Teorici totali: {carbo_teorici_totali:.1f}g", delta_color="off")
-        col_out2.metric("💊 BCAA Assunti", f"{bcaa_assunti:.1f} g", delta=f"-{(bcaa_assunti*4):.0f} kcal", delta_color="off")
-        col_out3.metric("🧂 Elettroliti Residui", f"{elettroliti_da_reintegrare:.1f}", delta=f"-{elettroliti_assunti} assunti", delta_color="off")
-        col_out4.metric("💧 Acqua Residua", f"{acqua_da_reintegrare:.1f} L", delta=f"-{acqua_assunta}L assunti", delta_color="off")
