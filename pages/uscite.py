@@ -683,7 +683,7 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
         id_sel_nutri = opzioni_nutri[scelta_chiave_nutri]
         act_nutri = df_nutri_source[df_nutri_source['id_str'] == id_sel_nutri].iloc[0]
         
-        # Lettura prioritaria di calorie / energia reali da Intervals
+        # Lettura prioritaria delle calorie reali da Intervals
         kcal_consumate = float(act_nutri.get('calories') or act_nutri.get('energy') or 0)
         if kcal_consumate == 0:
             ore_mov = act_nutri.get('Ore in sella', 1)
@@ -694,11 +694,11 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
         titolo_att = act_nutri.get('titolo_uscita', 'Uscita')
         data_att = act_nutri.get('data_solo', date.today())
 
-        # Target consigliati basati sui campi nativi o stime coerenti
-        carb_consigliati = int(act_nutri.get('carbs_used') or (durata_ore * 50))
+        # Target consigliati basati sul calcolo termico (Calorie / 4)
+        carb_consigliati = kcal_consumate / 4.0
         acqua_consigliata = round(durata_ore * 0.8, 1)
         elettroliti_consigliati = round(durata_ore * 1.0, 1)
-        bcaa_consigliati = 5.0
+        bcaa_consigliati = 5.5  # Target BCAA impostato a 5.5g come da tua richiesta
 
         st.markdown(f"### 📊 1. Dati dall'Uscita (Intervals.icu): *{titolo_att}* ({data_att})")
         
@@ -714,23 +714,27 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
 
         col_in1, col_in2, col_in3, col_in4 = st.columns(4)
         with col_in1:
-            carbo_assunti = st.number_input("Carboidrati assunti (g)", min_value=0.0, value=float(act_nutri.get('carbs_intake') or 0.0), step=5.0, key="input_carbo_bici")
+            carbo_assunti = st.number_input("Carboidrati assunti (g)", min_value=0.0, value=float(act_nutri.get('carbs_intake') or 125.0), step=5.0, key="input_carbo_bici")
         with col_in2:
-            bcaa_assunti = st.number_input("BCAA assunti (g)", min_value=0.0, value=0.0, step=1.0, key="input_bcaa_bici")
+            bcaa_assunti = st.number_input("BCAA assunti (g)", min_value=0.0, value=0.0, step=0.5, key="input_bcaa_bici")
         with col_in3:
             elettroliti_assunti = st.number_input("Elettroliti assunti (misurini/bustine)", min_value=0.0, value=0.0, step=0.5, key="input_elettroliti_bici")
         with col_in4:
             acqua_assunta = st.number_input("Acqua assunta (L)", min_value=0.0, value=0.0, step=0.25, key="input_acqua_bici")
 
-        # Calcolo dei valori da reintegrare (sottrazione)
-        carbo_da_reintegrare = max(0.0, carb_consigliati - carbo_assunti)
+        # Calcolo dei valori da reintegrare (Sottrazione rigorosa)
+        # Sottraendo i BCAA assunti dal target dei BCAA e bilanciando sui carboidrati equivalenti
         bcaa_da_reintegrare = max(0.0, bcaa_consigliati - bcaa_assunti)
+        
+        # Totale carboidrati teorici da reintegrare considerando l'equivalenza energetica meno i BCAA
+        carbo_da_reintegrare = max(0.0, carb_consigliati - carbo_assunti - bcaa_da_reintegrare)
+        
         elettroliti_da_reintegrare = max(0.0, elettroliti_consigliati - elettroliti_assunti)
         acqua_da_reintegrare = max(0.0, acqua_consigliata - acqua_assunta)
 
         st.markdown("---")
         st.markdown("### 🎯 3. Valori da Reintegrare (Bilancio Netto Post-Uscita)")
-        st.write("Quantità residue calcolate sottraendo quanto assunto in bici dai target consigliati:")
+        st.write("Quantità residue calcolate tramite la formula rigorosa (Calorie / 4 - Assunzioni in bici):")
 
         col_out1, col_out2, col_out3, col_out4 = st.columns(4)
         col_out1.metric("🍞 Carboidrati Residui", f"{carbo_da_reintegrare:.1f} g", delta=f"-{carbo_assunti}g assunti", delta_color="off")
