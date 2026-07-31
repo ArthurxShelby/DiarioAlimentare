@@ -637,22 +637,38 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
 # --- 4. REINTEGRO NUTRIZIONALE E ANALISI ENERGETICA POST-USCITA ---
 st.markdown("---")
 with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Uscita", expanded=True):
-    st.write("Seleziona un'uscita specifica per analizzare il dispendio energetico reale e calcolare i carboidrati e l'idratazione necessari per il recupero.")
+    st.write("Fissa un intervallo di date per filtrare e popolare le uscite all'interno del menu a tendina.")
     
-    if 'df_g' in locals() and not df_g.empty:
-        df_nutri_source = df_g.sort_values('data_fmt', ascending=False)
-    elif 'df_activities' in locals() and not df_activities.empty:
-        df_nutri_source = df_activities.copy()
-        df_nutri_source['data_fmt'] = pd.to_datetime(df_nutri_source['start_date_local'])
-        df_nutri_source['data_solo'] = df_nutri_source['data_fmt'].dt.date
-        df_nutri_source['Km'] = df_nutri_source.get('distance', 0).fillna(0) / 1000.0
-        df_nutri_source['D+'] = df_nutri_source.get('total_elevation_gain', 0).fillna(0)
-        df_nutri_source['Ore in sella'] = df_nutri_source.get('moving_time', 0).fillna(0) / 3600.0
-        df_nutri_source['titolo_uscita'] = df_nutri_source.get('name', 'Uscita')
-        df_nutri_source['id_str'] = df_nutri_source.get('id').astype(str)
-        df_nutri_source = df_nutri_source.sort_values('data_fmt', ascending=False)
-    else:
-        df_nutri_source = pd.DataFrame()
+    # --- Ricerca da Data a Data per popolare il menu a tendina ---
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        nutri_data_inizio = st.date_input("Data Inizio Ricerca", value=date(2026, 1, 1), key="nutri_start_date")
+    with col_d2:
+        nutri_data_fine = st.date_input("Data Fine Ricerca", value=date.today(), key="nutri_end_date")
+
+    # Chiamata API dedicata per il range nutrizionale selezionato
+    url_nutri_range = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
+    params_nutri_range = {
+        "oldest": nutri_data_inizio.strftime("%Y-%m-%d"),
+        "newest": nutri_data_fine.strftime("%Y-%m-%d"),
+        "iw": True
+    }
+    
+    resp_nutri_range = requests.get(url_nutri_range, auth=("API_KEY", API_KEY.strip()), params=params_nutri_range)
+    
+    df_nutri_source = pd.DataFrame()
+    if resp_nutri_range.status_code == 200:
+        dati_nutri_estatti = resp_nutri_range.json()
+        if dati_nutri_estatti:
+            df_nutri_source = pd.DataFrame(dati_nutri_estatti)
+            df_nutri_source['data_fmt'] = pd.to_datetime(df_nutri_source['start_date_local'])
+            df_nutri_source['data_solo'] = df_nutri_source['data_fmt'].dt.date
+            df_nutri_source['Km'] = df_nutri_source.get('distance', 0).fillna(0) / 1000.0
+            df_nutri_source['D+'] = df_nutri_source.get('total_elevation_gain', 0).fillna(0)
+            df_nutri_source['Ore in sella'] = df_nutri_source.get('moving_time', 0).fillna(0) / 3600.0
+            df_nutri_source['titolo_uscita'] = df_nutri_source.get('name', 'Uscita')
+            df_nutri_source['id_str'] = df_nutri_source.get('id').astype(str)
+            df_nutri_source = df_nutri_source.sort_values('data_fmt', ascending=False)
 
     if not df_nutri_source.empty:
         opzioni_nutri = {
@@ -661,7 +677,7 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
         }
         
         scelta_chiave_nutri = st.selectbox(
-            "Seleziona Uscita per il Calcolo Nutrizionale",
+            f"Seleziona Uscita dal Periodo ({len(opzioni_nutri)} disponibili)",
             options=list(opzioni_nutri.keys()),
             key="selettore_uscita_nutrizione"
         )
@@ -810,4 +826,4 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
             else:
                 st.error("Errore nel recupero flussi GPS da Intervals.icu.")
     else:
-        st.warning("Nessuna attività disponibile per il calcolo nutrizionale.")
+        st.warning("Nessuna attività trovata nel range di date selezionato per il calcolo nutrizionale.")
