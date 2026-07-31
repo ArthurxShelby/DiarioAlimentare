@@ -497,18 +497,34 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
 
             st.markdown("---")
             
+            # --- GESTIONE INDIPENDENTE E PERSISTENTE DELLA SELEZIONE USCITA ---
+            df_ordinato_periodo = df_filtrato_periodo.sort_values('data_fmt', ascending=False)
             opzioni_tendina = {
                 f"{row['data_solo']} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] 
-                for _, row in df_filtrato_periodo.sort_values('data_fmt', ascending=False).iterrows()
+                for _, row in df_ordinato_periodo.iterrows()
             }
             
             if opzioni_tendina:
+                # Verifica se l'uscita precedentemente salvata in sessione esiste ancora nelle opzioni correnti
+                lista_chiavi_opzioni = list(opzioni_tendina.keys())
+                indice_default = 0
+                
+                if "id_uscita_selezionata_pers" in st.session_state:
+                    # Cerca se l'id salvato corrisponde a una delle opzioni attuali
+                    for i, (k, v) in enumerate(opzioni_tendina.items()):
+                        if v == st.session_state["id_uscita_selezionata_pers"]:
+                            indice_default = i
+                            break
+                
                 scelta_utente_tendina = st.selectbox(
                     f"Seleziona Uscita dal Periodo ({len(opzioni_tendina)} disponibili)",
-                    options=list(opzioni_tendina.keys()),
+                    options=lista_chiavi_opzioni,
+                    index=indice_default,
                     key="select_uscita_dettaglio_grafico"
                 )
+                
                 id_attivita_scelta = opzioni_tendina[scelta_utente_tendina]
+                st.session_state["id_uscita_selezionata_pers"] = id_attivita_scelta
             else:
                 st.warning("Nessuna uscita trovata per la selezione corrente.")
                 id_attivita_scelta = None
@@ -660,13 +676,25 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
             for _, row in df_nutri_source.iterrows()
         }
         
+        # Gestione persistenza anche per il selettore nutrizionale
+        lista_chiavi_nutri = list(opzioni_nutri.keys())
+        indice_default_nutri = 0
+        if "id_uscita_nutri_pers" in st.session_state:
+            for i, (k, v) in enumerate(opzioni_nutri.items()):
+                if v == st.session_state["id_uscita_nutri_pers"]:
+                    indice_default_nutri = i
+                    break
+
         scelta_chiave_nutri = st.selectbox(
             "Seleziona Uscita per il Calcolo Nutrizionale",
-            options=list(opzioni_nutri.keys()),
+            options=lista_chiavi_nutri,
+            index=indice_default_nutri,
             key="selettore_uscita_nutrizione"
         )
         
         id_sel_nutri = opzioni_nutri[scelta_chiave_nutri]
+        st.session_state["id_uscita_nutri_pers"] = id_sel_nutri
+
         act_nutri = df_nutri_source[df_nutri_source['id_str'] == id_sel_nutri].iloc[0]
         
         raw_energy = act_nutri.get('energy', 0)
