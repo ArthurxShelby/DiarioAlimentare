@@ -509,16 +509,12 @@ giorno_storico = storico_atleta[data_str]
 if is_proprietario and atleta_corrente == "Atleta Principale":
     st.sidebar.markdown("### ⚙️ Gestione Calcolo Macronutrienti")
     
-    opzioni_maffettone = [
-        "Maffettone - Sedentario",
-        "Maffettone - Attivo",
-    ]
-    
-    opzioni_giornate_tipo = [
-        "Giornata Tipo - Scarico",
-        "Giornata Tipo - Carico",
-        "Giornata Tipo - Bici",
-        "Giornata Tipo - Pesi",
+    opzioni_giornate = [
+        "1) Giornata scarico/riposo",
+        "2) Giornata bici intensa",
+        "3) Giornata bici specifica",
+        "4) Giornata bici",
+        "5) Giornata pesi",
     ]
 
     # Pulsante o logica per sbloccare/modificare se già confermato
@@ -541,35 +537,31 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
     if not giorno_storico["dispendio_confermato"]:
         with st.sidebar.form(f"form_conferma_dispendio_{data_str}"):
             st.markdown(f"**Data:** {data_str} (Modifica / Non confermata)")
-            scelta_metodo = st.radio("Seleziona Metodo di Calcolo:", ["Profili Maffettone (MEF)", "Giornate Tipo"])
-            
-            if scelta_metodo == "Profili Maffettone (MEF)":
-                profilo_scelto = st.selectbox("Seleziona Profilo Maffettone:", opzioni_maffettone)
-            else:
-                profilo_scelto = st.selectbox("Seleziona Giornata Tipo:", opzioni_giornate_tipo)
+            usa_mifflin_proprietario = st.checkbox("Usa calcolo Mifflin-St Jeor (Esclude giornate tipo)", value=False)
+            giornata_tipo_scelta = st.selectbox("Seleziona Giornata Tipo:", opzioni_giornate)
             
             btn_conferma_giornata = st.form_submit_button("Conferma Dispendio per questa Giornata")
             
             if btn_conferma_giornata:
-                if "Maffettone" in scelta_metodo:
-                    tipo_scelta = profilo_scelto
-                    pal_mef = 1.2 if "Sedentario" in profilo_scelto else 1.55
-                    
-                    obj_kcal = round(bmr * pal_mef, 0)
-                    obj_carbo = round((obj_kcal * 0.45) / 4, 1)
+                if usa_mifflin_proprietario:
+                    tipo_scelta = "Profilo Mifflin"
+                    obj_kcal = round(tdee, 0)
+                    obj_carbo = round((obj_kcal * 0.50) / 4, 1)
                     obj_prot = round((obj_kcal * 0.25) / 4, 1)
-                    obj_grassi = round((obj_kcal * 0.30) / 9, 1)
+                    obj_grassi = round((obj_kcal * 0.25) / 9, 1)
                 else:
-                    tipo_scelta = profilo_scelto
+                    tipo_scelta = giornata_tipo_scelta
                     obj_prot = round(peso * 2.0, 1)    
                     obj_grassi = round(peso * 0.9, 1)  
                     
-                    if "Scarico" in profilo_scelto:
+                    if "1) Giornata scarico/riposo" in giornata_tipo_scelta:
                         obj_carbo = 180.0
-                    elif "Carico" in profilo_scelto:
+                    elif "2) Giornata bici intensa" in giornata_tipo_scelta:
                         obj_carbo = 400.0  
-                    elif "Bici" in profilo_scelto:
+                    elif "3) Giornata bici specifica" in giornata_tipo_scelta:
                         obj_carbo = 300.0  
+                    elif "4) Giornata bici" in giornata_tipo_scelta:
+                        obj_carbo = 270.0  
                     else: 
                         obj_carbo = 250.0  
                         
@@ -647,8 +639,6 @@ tot_grassi = sum([db_diario_atleta[data_str][p]["grassi"].sum() for p in PASTI i
 tot_kcal = sum([db_diario_atleta[data_str][p]["kcal"].sum() for p in PASTI if isinstance(db_diario_atleta.get(data_str, {}).get(p), pd.DataFrame) and not db_diario_atleta[data_str][p].empty])
 
 st.subheader(f"Riepilogo Giornaliero - {st.session_state.atleta_corrente} ({data_str})")
-if giorno_storico["dispendio_confermato"]:
-    st.markdown(f"**Profilo/Giornata Riferimento:** `{giorno_storico['tipo_scelta_energia']}`")
 
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 
