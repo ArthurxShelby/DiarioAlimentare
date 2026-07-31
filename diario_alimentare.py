@@ -1064,16 +1064,41 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                             dp = sum([safe_float(pd.DataFrame(db_diario_atleta[d_str][p])["proteine"].sum() if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]["proteine"].sum()) for p in PASTI if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty])
                             dg = sum([safe_float(pd.DataFrame(db_diario_atleta[d_str][p])["grassi"].sum() if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]["grassi"].sum()) for p in PASTI if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty])
 
+                        # Stampa della traccia giornaliera con evidenziazione in rosso se superato il limite
                         pdf_output.set_text_color(0, 0, 0)
                         pdf_output.write(6, f" - {d_str} -> ")
 
-                        pdf_output.write(6, f"Kcal prev/ass: {obj_kcal}/{dk:.1f}")
+                        # Calorie
+                        pdf_output.write(6, "Kcal: ")
+                        if dk > obj_kcal:
+                            pdf_output.set_text_color(220, 20, 60)
+                        pdf_output.write(6, f"{dk:.1f}")
+                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.write(6, f"/{obj_kcal}")
 
-                        pdf_output.write(6, f" | Carbo prev/ass: {obj_carbo}/{dc:.1f}g")
+                        # Carboidrati
+                        pdf_output.write(6, " | Carbo: ")
+                        if dc > obj_carbo:
+                            pdf_output.set_text_color(220, 20, 60)
+                        pdf_output.write(6, f"{dc:.1f}")
+                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.write(6, f"/{obj_carbo}g")
 
-                        pdf_output.write(6, f" | Prot prev/ass: {obj_prot}/{dp:.1f}g")
+                        # Proteine
+                        pdf_output.write(6, " | Prot: ")
+                        if dp > obj_prot:
+                            pdf_output.set_text_color(220, 20, 60)
+                        pdf_output.write(6, f"{dp:.1f}")
+                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.write(6, f"/{obj_prot}g")
 
-                        pdf_output.write(6, f" | Grassi prev/ass: {obj_grassi}/{dg:.1f}g\n")
+                        # Grassi
+                        pdf_output.write(6, " | Grassi: ")
+                        if dg > obj_grassi:
+                            pdf_output.set_text_color(220, 20, 60)
+                        pdf_output.write(6, f"{dg:.1f}")
+                        pdf_output.set_text_color(0, 0, 0)
+                        pdf_output.write(6, f"/{obj_grassi}g\n")
 
                     raw_output = pdf_output.output()
                     pdf_bytes = bytes(raw_output) if isinstance(raw_output, (bytearray, bytes)) else raw_output.encode("latin1")
