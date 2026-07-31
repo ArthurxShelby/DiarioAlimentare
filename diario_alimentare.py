@@ -505,7 +505,7 @@ if data_str not in storico_atleta:
 
 giorno_storico = storico_atleta[data_str]
 
-# --- LOGICA DI CALCOLO MACRONUTRIENTI (CONFERMA GIORNALIERA BLINDATA) ---
+# --- LOGICA DI CALCOLO MACRONUTRIENTI (CONFERMA GIORNALIERA E PULSANTE DI CORREZIONE) ---
 if is_proprietario and atleta_corrente == "Atleta Principale":
     st.sidebar.markdown("### ⚙️ Gestione Calcolo Macronutrienti")
     
@@ -517,9 +517,17 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
         "5) Giornata pesi",
     ]
 
+    # Pulsante o logica per sbloccare/modificare se già confermato
+    if giorno_storico["dispendio_confermato"]:
+        st.sidebar.success(f"Dispendio Confermato ({giorno_storico['tipo_scelta_energia']})")
+        if st.sidebar.button("Modifica Dispendio Giornaliero", key=f"btn_sblocca_{data_str}"):
+            giorno_storico["dispendio_confermato"] = False
+            salva_dati_disco()
+            st.rerun()
+
     if not giorno_storico["dispendio_confermato"]:
         with st.sidebar.form(f"form_conferma_dispendio_{data_str}"):
-            st.markdown(f"**Data:** {data_str} (Non confermata)")
+            st.markdown(f"**Data:** {data_str} (Modifica / Non confermata)")
             usa_mifflin_proprietario = st.checkbox("Usa calcolo Mifflin-St Jeor (Esclude giornate tipo)", value=False)
             giornata_tipo_scelta = st.selectbox("Seleziona Giornata Tipo:", opzioni_giornate)
             
@@ -569,7 +577,6 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
         obj_kcal, obj_carbo, obj_prot, obj_grassi = 0.0, 0.0, 0.0, 0.0
         st.sidebar.warning("⚠️ Dispendio energetico non ancora confermato per questa giornata (parte da 0).")
     else:
-        st.sidebar.success(f"Dispendio Confermato ({giorno_storico['tipo_scelta_energia']})")
         previsti = giorno_storico["dati_previsti"]
         obj_kcal = previsti.get("calorie", 0.0)
         obj_carbo = previsti.get("carboidrati", 0.0)
@@ -578,9 +585,16 @@ if is_proprietario and atleta_corrente == "Atleta Principale":
         st.sidebar.markdown(f"**Kcal:** {obj_kcal} | **C:** {obj_carbo}g | **P:** {obj_prot}g | **G:** {obj_grassi}g")
 else:
     st.sidebar.markdown("### ⚙️ Profilo Altri Utenti")
+    if giorno_storico["dispendio_confermato"]:
+        st.sidebar.success("Dispendio Standard Confermato")
+        if st.sidebar.button("Modifica Dispendio Giornaliero", key=f"btn_sblocca_std_{data_str}"):
+            giorno_storico["dispendio_confermato"] = False
+            salva_dati_disco()
+            st.rerun()
+
     if not giorno_storico["dispendio_confermato"]:
         with st.sidebar.form(f"form_conferma_standard_{data_str}"):
-            st.markdown(f"**Data:** {data_str} (Non confermata)")
+            st.markdown(f"**Data:** {data_str} (Modifica / Non confermata)")
             btn_conf_std = st.form_submit_button("Conferma Profilo Standard Mifflin")
             if btn_conf_std:
                 obj_kcal = round(tdee, 0)
@@ -602,7 +616,6 @@ else:
         obj_kcal, obj_carbo, obj_prot, obj_grassi = 0.0, 0.0, 0.0, 0.0
         st.sidebar.warning("⚠️ Dispendio energetico non confermato per oggi.")
     else:
-        st.sidebar.success("Dispendio Standard Confermato")
         previsti = giorno_storico["dati_previsti"]
         obj_kcal = previsti.get("calorie", 0.0)
         obj_carbo = previsti.get("carboidrati", 0.0)
@@ -1028,7 +1041,6 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         d_corrente = data_inizio + timedelta(days=i)
                         d_str = d_corrente.strftime("%Y-%m-%d")
                         
-                        # Recupera i dati previsti storicizzati per quella specifica giornata (se esistono)
                         giornata_storica_item = storico_atleta.get(d_str, {})
                         prev_giorno = giornata_storica_item.get("dati_previsti", {"calorie": obj_kcal, "carboidrati": obj_carbo, "proteine": obj_prot, "grassi": obj_grassi})
                         
@@ -1076,7 +1088,6 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     med_obj_prot = tot_obj_prot / delta_giorni
                     med_obj_grassi = tot_obj_grassi / delta_giorni
 
-                    # Calorie (Previste / Assunte)
                     pdf_output.set_text_color(0, 0, 0)
                     pdf_output.write(8, "Calorie (Previste / Assunte): ")
                     pdf_output.write(8, f"{tot_obj_kcal:.1f} / ")
@@ -1087,7 +1098,6 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     pdf_output.write(8, f" kcal (Media giornaliera: {media_kcal:.1f} / {med_obj_kcal:.1f} kcal)\n")
                     pdf_output.ln(2)
 
-                    # Carboidrati (Previsti / Assunti)
                     pdf_output.write(8, "Carboidrati (Previsti / Assunti): ")
                     pdf_output.write(8, f"{tot_obj_carbo:.1f} / ")
                     if tot_p_carbo > tot_obj_carbo:
@@ -1097,7 +1107,6 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     pdf_output.write(8, f" g (Media: {media_carbo:.1f} / {med_obj_carbo:.1f} g)\n")
                     pdf_output.ln(2)
 
-                    # Proteine (Previste / Assunte)
                     pdf_output.write(8, "Proteine (Previste / Assunte): ")
                     pdf_output.write(8, f"{tot_obj_prot:.1f} / ")
                     if tot_p_prot > tot_obj_prot:
@@ -1107,7 +1116,6 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     pdf_output.write(8, f" g (Media: {media_prot:.1f} / {med_obj_prot:.1f} g)\n")
                     pdf_output.ln(2)
 
-                    # Grassi (Previsti / Assunti)
                     pdf_output.write(8, "Grassi (Previsti / Assunti): ")
                     pdf_output.write(8, f"{tot_obj_grassi:.1f} / ")
                     if tot_p_grassi > tot_obj_grassi:
@@ -1144,14 +1152,12 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         pdf_output.set_text_color(0, 0, 0)
                         pdf_output.write(6, f" - {d_str} -> ")
 
-                        # Calorie giornaliere
                         pdf_output.write(6, f"Kcal: {o_k} / ")
                         if dk > o_k:
                             pdf_output.set_text_color(220, 20, 60)
                         pdf_output.write(6, f"{dk:.1f}")
                         pdf_output.set_text_color(0, 0, 0)
 
-                        # Carboidrati giornalieri
                         pdf_output.write(6, f" | Carbo: {o_c} / ")
                         if dc > o_c:
                             pdf_output.set_text_color(220, 20, 60)
@@ -1159,7 +1165,6 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         pdf_output.set_text_color(0, 0, 0)
                         pdf_output.write(6, "g")
 
-                        # Proteine giornaliere
                         pdf_output.write(6, f" | Prot: {o_p} / ")
                         if dp > o_p:
                             pdf_output.set_text_color(220, 20, 60)
@@ -1167,7 +1172,6 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         pdf_output.set_text_color(0, 0, 0)
                         pdf_output.write(6, "g")
 
-                        # Grassi giornalieri
                         pdf_output.write(6, f" | Grassi: {o_g} / ")
                         if dg > o_g:
                             pdf_output.set_text_color(220, 20, 60)
