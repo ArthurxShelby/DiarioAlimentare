@@ -572,11 +572,18 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                         style="white-bg",
                                         layers=[
                                             {
-                                                "below": 'traces',
                                                 "sourcetype": "raster",
                                                 "source": [
                                                     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                                ]
+                                                ],
+                                                "below": "traces"
+                                            },
+                                            {
+                                                "sourcetype": "raster",
+                                                "source": [
+                                                    "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                                                ],
+                                                "below": "traces"
                                             }
                                         ],
                                         center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
