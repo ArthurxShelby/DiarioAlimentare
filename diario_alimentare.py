@@ -974,11 +974,18 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                 else:
                     delta_giorni = (data_fine - data_inizio).days + 1
                     tot_p_kcal, tot_p_carbo, tot_p_prot, tot_p_grassi = 0.0, 0.0, 0.0, 0.0
+                    tot_obj_kcal, tot_obj_carbo, tot_obj_prot, tot_obj_grassi = 0.0, 0.0, 0.0, 0.0
                     dettaglio_periodo = []
 
                     for i in range(delta_giorni):
                         d_corrente = data_inizio + timedelta(days=i)
                         d_str = d_corrente.strftime("%Y-%m-%d")
+                        
+                        tot_obj_kcal += obj_kcal
+                        tot_obj_carbo += obj_carbo
+                        tot_obj_prot += obj_prot
+                        tot_obj_grassi += obj_grassi
+
                         if d_str in db_diario_atleta:
                             d_kcal = sum([safe_float(pd.DataFrame(db_diario_atleta[d_str][p])["kcal"].sum() if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]["kcal"].sum()) for p in PASTI if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty])
                             d_carbo = sum([safe_float(pd.DataFrame(db_diario_atleta[d_str][p])["carbo"].sum() if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]["carbo"].sum()) for p in PASTI if not (pd.DataFrame(db_diario_atleta[d_str][p]) if not isinstance(db_diario_atleta[d_str][p], pd.DataFrame) else db_diario_atleta[d_str][p]).empty])
@@ -1009,56 +1016,36 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     media_grassi = tot_p_grassi / delta_giorni
 
                     pdf_output.set_text_color(0, 0, 0)
-                    pdf_output.write(8, "Calorie Totali: ")
-                    if media_kcal > obj_kcal:
+                    pdf_output.write(8, "Calorie (Previste / Assunte): ")
+                    if tot_p_kcal > tot_obj_kcal:
                         pdf_output.set_text_color(220, 20, 60)
-                    pdf_output.write(8, f"{tot_p_kcal:.1f}")
+                    pdf_output.write(8, f"{tot_obj_kcal:.1f} / {tot_p_kcal:.1f}")
                     pdf_output.set_text_color(0, 0, 0)
-                    pdf_output.write(8, f" kcal (Media giornaliera: ")
-                    if media_kcal > obj_kcal:
-                        pdf_output.set_text_color(220, 20, 60)
-                    pdf_output.write(8, f"{media_kcal:.1f}")
-                    pdf_output.set_text_color(0, 0, 0)
-                    pdf_output.write(8, " kcal)\n")
+                    pdf_output.write(8, f" kcal (Media giornaliera: {media_kcal:.1f} / {obj_kcal} kcal)\n")
                     pdf_output.ln(2)
 
-                    pdf_output.write(8, "Carboidrati Totali: ")
-                    if media_carbo > obj_carbo:
+                    pdf_output.write(8, "Carboidrati (Previsti / Assunti): ")
+                    if tot_p_carbo > tot_obj_carbo:
                         pdf_output.set_text_color(220, 20, 60)
-                    pdf_output.write(8, f"{tot_p_carbo:.1f}")
+                    pdf_output.write(8, f"{tot_obj_carbo:.1f} / {tot_p_carbo:.1f}")
                     pdf_output.set_text_color(0, 0, 0)
-                    pdf_output.write(8, f" g (Media: ")
-                    if media_carbo > obj_carbo:
-                        pdf_output.set_text_color(220, 20, 60)
-                    pdf_output.write(8, f"{media_carbo:.1f}")
-                    pdf_output.set_text_color(0, 0, 0)
-                    pdf_output.write(8, " g)\n")
+                    pdf_output.write(8, f" g (Media: {media_carbo:.1f} / {obj_carbo} g)\n")
                     pdf_output.ln(2)
 
-                    pdf_output.write(8, "Proteine Totali: ")
-                    if media_prot > obj_prot:
+                    pdf_output.write(8, "Proteine (Previste / Assunte): ")
+                    if tot_p_prot > tot_obj_prot:
                         pdf_output.set_text_color(220, 20, 60)
-                    pdf_output.write(8, f"{tot_p_prot:.1f}")
+                    pdf_output.write(8, f"{tot_obj_prot:.1f} / {tot_p_prot:.1f}")
                     pdf_output.set_text_color(0, 0, 0)
-                    pdf_output.write(8, f" g (Media: ")
-                    if media_prot > obj_prot:
-                        pdf_output.set_text_color(220, 20, 60)
-                    pdf_output.write(8, f"{media_prot:.1f}")
-                    pdf_output.set_text_color(0, 0, 0)
-                    pdf_output.write(8, " g)\n")
+                    pdf_output.write(8, f" g (Media: {media_prot:.1f} / {obj_prot} g)\n")
                     pdf_output.ln(2)
 
-                    pdf_output.write(8, "Grassi Totali: ")
-                    if media_grassi > obj_grassi:
+                    pdf_output.write(8, "Grassi (Previsti / Assunti): ")
+                    if tot_p_grassi > tot_obj_grassi:
                         pdf_output.set_text_color(220, 20, 60)
-                    pdf_output.write(8, f"{tot_p_grassi:.1f}")
+                    pdf_output.write(8, f"{tot_obj_grassi:.1f} / {tot_p_grassi:.1f}")
                     pdf_output.set_text_color(0, 0, 0)
-                    pdf_output.write(8, f" g (Media: ")
-                    if media_grassi > obj_grassi:
-                        pdf_output.set_text_color(220, 20, 60)
-                    pdf_output.write(8, f"{media_grassi:.1f}")
-                    pdf_output.set_text_color(0, 0, 0)
-                    pdf_output.write(8, " g)\n")
+                    pdf_output.write(8, f" g (Media: {media_grassi:.1f} / {obj_grassi} g)\n")
                     pdf_output.ln(10)
 
                     pdf_output.set_font("Arial", "B", 12)
@@ -1080,29 +1067,13 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         pdf_output.set_text_color(0, 0, 0)
                         pdf_output.write(6, f" - {d_str} -> ")
 
-                        if dk > obj_kcal:
-                            pdf_output.set_text_color(220, 20, 60)
-                        else:
-                            pdf_output.set_text_color(0, 0, 0)
-                        pdf_output.write(6, f"Kcal: {dk:.1f}")
+                        pdf_output.write(6, f"Kcal prev/ass: {obj_kcal}/{dk:.1f}")
 
-                        pdf_output.set_text_color(0, 0, 0)
-                        pdf_output.write(6, " | Carbo: ")
-                        if dc > obj_carbo:
-                            pdf_output.set_text_color(220, 20, 60)
-                        pdf_output.write(6, f"{dc:.1f}g")
+                        pdf_output.write(6, f" | Carbo prev/ass: {obj_carbo}/{dc:.1f}g")
 
-                        pdf_output.set_text_color(0, 0, 0)
-                        pdf_output.write(6, " | Prot: ")
-                        if dp > obj_prot:
-                            pdf_output.set_text_color(220, 20, 60)
-                        pdf_output.write(6, f"{dp:.1f}g")
+                        pdf_output.write(6, f" | Prot prev/ass: {obj_prot}/{dp:.1f}g")
 
-                        pdf_output.set_text_color(0, 0, 0)
-                        pdf_output.write(6, " | Grassi: ")
-                        if dg > obj_grassi:
-                            pdf_output.set_text_color(220, 20, 60)
-                        pdf_output.write(6, f"{dg:.1f}g\n")
+                        pdf_output.write(6, f" | Grassi prev/ass: {obj_grassi}/{dg:.1f}g\n")
 
                     raw_output = pdf_output.output()
                     pdf_bytes = bytes(raw_output) if isinstance(raw_output, (bytearray, bytes)) else raw_output.encode("latin1")
