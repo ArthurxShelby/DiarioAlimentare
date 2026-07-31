@@ -1201,3 +1201,4 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     )
             except Exception as e:
                 st.error(f"Errore nella generazione del PDF personalizzato: {e}")
+```[cite: 5]
