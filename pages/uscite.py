@@ -683,22 +683,22 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
         id_sel_nutri = opzioni_nutri[scelta_chiave_nutri]
         act_nutri = df_nutri_source[df_nutri_source['id_str'] == id_sel_nutri].iloc[0]
         
-        raw_energy = act_nutri.get('energy', 0)
-        if pd.isna(raw_energy) or raw_energy == 0:
+        # Lettura prioritaria di calorie / energia reali da Intervals
+        kcal_consumate = float(act_nutri.get('calories') or act_nutri.get('energy') or 0)
+        if kcal_consumate == 0:
             ore_mov = act_nutri.get('Ore in sella', 1)
-            raw_energy = ore_mov * 650
+            kcal_consumate = ore_mov * 650
             
-        kcal_consumate = float(raw_energy)
         durata_ore = act_nutri.get('Ore in sella', 0)
         dist_km = act_nutri.get('Km', 0)
         titolo_att = act_nutri.get('titolo_uscita', 'Uscita')
         data_att = act_nutri.get('data_solo', date.today())
 
-        # Fabbisogni consigliati totali stimati per l'intera uscita
-        carb_consigliati = int(durata_ore * 50) if durata_ore > 0 else int(kcal_consumate * 0.15 / 4)
+        # Target consigliati basati sui campi nativi o stime coerenti
+        carb_consigliati = int(act_nutri.get('carbs_used') or (durata_ore * 50))
         acqua_consigliata = round(durata_ore * 0.8, 1)
-        elettroliti_consigliati = round(durata_ore * 1.0, 1) # Unità di misura indicativa o misurini
-        bcaa_consigliati = 5.0 # Stima di riferimento in grammi per uscite lunghe
+        elettroliti_consigliati = round(durata_ore * 1.0, 1)
+        bcaa_consigliati = 5.0
 
         st.markdown(f"### 📊 1. Dati dall'Uscita (Intervals.icu): *{titolo_att}* ({data_att})")
         
@@ -714,7 +714,7 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
 
         col_in1, col_in2, col_in3, col_in4 = st.columns(4)
         with col_in1:
-            carbo_assunti = st.number_input("Carboidrati assunti (g)", min_value=0.0, value=0.0, step=5.0, key="input_carbo_bici")
+            carbo_assunti = st.number_input("Carboidrati assunti (g)", min_value=0.0, value=float(act_nutri.get('carbs_intake') or 0.0), step=5.0, key="input_carbo_bici")
         with col_in2:
             bcaa_assunti = st.number_input("BCAA assunti (g)", min_value=0.0, value=0.0, step=1.0, key="input_bcaa_bici")
         with col_in3:
@@ -737,122 +737,3 @@ with st.expander("🍽️ Reintegro Nutrizionale e Bilancio Energetico Post-Usci
         col_out2.metric("💊 BCAA Residui", f"{bcaa_da_reintegrare:.1f} g", delta=f"-{bcaa_assunti}g assunti", delta_color="off")
         col_out3.metric("🧂 Elettroliti Residui", f"{elettroliti_da_reintegrare:.1f}", delta=f"-{elettroliti_assunti} assunti", delta_color="off")
         col_out4.metric("💧 Acqua Residua", f"{acqua_da_reintegrare:.1f} L", delta=f"-{acqua_assunta}L assunti", delta_color="off")
-
-        st.info(
-            f"**Nota di reintegro:** Sulla base di un dispendio di **{kcal_consumate:,.0f} kcal** in {durata_ore:.1f} ore di sella, "
-            f"pianifica il recupero immediato coprendo i valori residui sopra indicati con una nutrizione post-allenamento mirata e una corretta reidratazione."
-        )
-
-        clean_id_n = ''.join(c for c in id_sel_nutri if c.isdigit())
-        target_url_n = f"https://intervals.icu/api/v1/activity/{clean_id_n}/streams"
-        
-        with st.spinner("Caricamento mappa e tracciato GPS in corso..."):
-            resp_str_n = requests.get(target_url_n, auth=("API_KEY", API_KEY.strip()))
-            if resp_str_n.status_code == 404 and id_sel_nutri != clean_id_n:
-                target_url_n = f"https://intervals.icu/api/v1/activity/{id_sel_nutri}/streams"
-                resp_str_n = requests.get(target_url_n, auth=("API_KEY", API_KEY.strip()))
-
-            if resp_str_n.status_code == 200:
-                stream_data_n = resp_str_n.json()
-                lats_n, lons_n = [], []
-                
-                if isinstance(stream_data_n, list):
-                    for stream in stream_data_n:
-                        if isinstance(stream, dict):
-                            stype = stream.get("type")
-                            if stype in ["latlng", "lating"]:
-                                lat_data = stream.get("data", [])
-                                lon_data = stream.get("data2", [])
-                                
-                                if isinstance(lat_data, list) and isinstance(lon_data, list) and len(lat_data) == len(lon_data) and len(lat_data) > 0:
-                                    for lat, lon in zip(lat_data, lon_data):
-                                        if lat is not None and lon is not None:
-                                            lats_n.append(float(lat))
-                                            lons_n.append(float(lon))
-                                break
-
-                if lats_n and lons_n and len(lats_n) > 0:
-                    st.markdown("#### 🗺️ Tracciato GPS dell'Uscita")
-                    tipo_mappa_n = st.radio(
-                        "Stile Mappa",
-                        ["Satellite", "Standard"],
-                        horizontal=True,
-                        key=f"stile_mappa_nutri_{id_sel_nutri}"
-                    )
-
-                    fig_map_n = go.Figure()
-                    fig_map_n.add_trace(go.Scattermapbox(
-                        lat=lats_n, lon=lons_n, mode='lines',
-                        line=dict(width=4, color='dodgerblue'), name='Tracciato'
-                    ))
-                    fig_map_n.add_trace(go.Scattermapbox(
-                        lat=[lats_n[0], lats_n[-1]], lon=[lons_n[0], lons_n[-1]], mode='markers',
-                        marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
-                    ))
-                    
-                    if tipo_mappa_n == "Satellite":
-                        mapbox_config_n = dict(
-                            style="white-bg",
-                            layers=[
-                                {
-                                    "below": 'traces',
-                                    "sourcetype": "raster",
-                                    "source": [
-                                        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                    ]
-                                },
-                                {
-                                    "below": 'traces',
-                                    "sourcetype": "raster",
-                                    "source": [
-                                        "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-                                    ]
-                                }
-                            ],
-                            center=dict(lat=sum(lats_n)/len(lats_n), lon=sum(lons_n)/len(lons_n)),
-                            zoom=11
-                        )
-                    else:
-                        mapbox_config_n = dict(
-                            style="open-street-map",
-                            center=dict(lat=sum(lats_n)/len(lats_n), lon=sum(lons_n)/len(lons_n)),
-                            zoom=11
-                        )
-
-                    fig_map_n.update_layout(
-                        mapbox=mapbox_config_n,
-                        margin=dict(l=0, r=0, t=0, b=0),
-                        height=450,
-                        showlegend=False
-                    )
-                    
-                    st.plotly_chart(fig_map_n, use_container_width=True, key=f"plotly_nutri_{id_sel_nutri}", config={'scrollZoom': True, 'displaylogo': False})
-
-                    linee_gpx_n = [
-                        '<?xml version="1.0" encoding="UTF-8"?>',
-                        '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
-                        '  <trk>',
-                        f'    <name>{titolo_att}</name>',
-                        '    <trkseg>'
-                    ]
-                    for lat, lon in zip(lats_n, lons_n):
-                        linee_gpx_n.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
-                    linee_gpx_n.extend([
-                        '    </trkseg>',
-                        '  </trk>',
-                        '</gpx>'
-                    ])
-                    contenuto_gpx_nutri = "\n".join(linee_gpx_n)
-                    nome_file_nutri = "".join(c for c in titolo_att if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
-                    if not nome_file_nutri:
-                        nome_file_nutri = "tracciato_nutrizione"
-
-                    b64_nutri = base64.b64encode(contenuto_gpx_nutri.encode()).decode()
-                    href_nutri = f'<a href="data:application/gpx+xml;base64,{b64_nutri}" download="{nome_file_nutri}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
-                    st.markdown(href_nutri, unsafe_allow_html=True)
-                else:
-                    st.warning("⚠️ Nessuna coordinata GPS valida disponibile per questa specifica uscita su Intervals.icu.")
-            else:
-                st.error("Errore nel recupero flussi GPS da Intervals.icu.")
-    else:
-        st.warning("Nessuna attività trovata nel range di date selezionato per il calcolo nutrizionale.")
