@@ -651,7 +651,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
         with col_f_val2:
             end_sec4 = st.date_input("Data Fine Parametri", value=oggi, key="sec4_end_range")
 
-    # 1. Chiamata API Lista Attività per trovare l'ID
     url_sec4 = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_sec4 = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -660,7 +659,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     }
     resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
 
-    # 2. Chiamata API Wellness (per CTL, ATL)
     url_well = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/wellness"
     params_well = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -668,7 +666,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     }
     resp_well = requests.get(url_well, auth=("API_KEY", API_KEY.strip()), params=params_well)
 
-    # Inizializzazione
     val_load = 0.0
     val_if = 0.0
     val_vi = 1.0
@@ -679,7 +676,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     val_atl = 0.0
     m = {}
 
-    # Parsing Wellness
     if resp_well.status_code == 200:
         dati_well = resp_well.json()
         if dati_well:
@@ -692,7 +688,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     val_ctl = float(ultimo_w.get('ctl', 0.0) or 0.0)
                     val_atl = float(ultimo_w.get('atl', 0.0) or 0.0)
 
-    # Parsing Attività e chiamata puntuale al singolo ID
     if resp_sec4.status_code == 200:
         dati_sec4 = resp_sec4.json()
         if dati_sec4:
@@ -718,38 +713,32 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if not m:
                         m = ultima_act.to_dict()
 
-                    # --- BLOCCO DEBUG ATTIVO ---
                     st.write("### 🐛 DEBUG: Dati grezzi ricevuti da Intervals.icu")
                     st.json(m)
 
-                    # Estrazione sicura dei valori
                     val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
                     
                     np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
                     gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
                     val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or 279.0)
                     
-                    # IF
                     if np_val > 0 and val_eftp > 0:
                         val_if = np_val / val_eftp
                     else:
                         raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
                     
-                    # VI
                     val_vi = float(m.get('variability_index') or m.get('vi') or 0.0)
                     if val_vi == 0.0 and np_val > 0 and gp_val > 0:
                         val_vi = np_val / gp_val
                     if val_vi == 0.0: 
                         val_vi = 1.0
 
-                    # EF
                     val_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
                     avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
                     if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
 
-                    # W' Bal
                     w_bal_raw = float(m.get('min_w_prime_balance') or m.get('w_prime_balance') or m.get('wBal') or m.get('icu_w_prime_balance') or 0.0)
                     if abs(w_bal_raw) > 50:
                         val_wbal = w_bal_raw / 1000.0
@@ -775,9 +764,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
         )
         return fig
 
-    # ==========================================
-    # SEZIONE 1: Gestione del Carico e della Forma
-    # ==========================================
     with st.container(border=True):
         st.markdown("### 1. Gestione del Carico e della Forma (Grafico 'Fitness')")
         col_s1_1, col_s1_2, col_s1_3 = st.columns(3)
@@ -803,9 +789,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             ))
             st.plotly_chart(apply_dark_theme(fig_tsb), use_container_width=True, config={'displaylogo': False})
 
-    # ==========================================
-    # SEZIONE 2: Intensità e Stress della Singola Sessione
-    # ==========================================
     with st.container(border=True):
         st.markdown("### 2. Intensità e Stress della Singola Sessione")
         col_s2_1, col_s2_2, col_s2_3 = st.columns(3)
@@ -833,9 +816,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             ))
             st.plotly_chart(apply_dark_theme(fig_vi), use_container_width=True, config={'displaylogo': False})
 
-    # ==========================================
-    # SEZIONE 3: Analisi della Performance e Capacità
-    # ==========================================
     with st.container(border=True):
         st.markdown("### 3. Analisi della Performance e Capacità")
         col_s3_1, col_s3_2, col_s3_3 = st.columns(3)
@@ -861,4 +841,4 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 number={'valueformat': ".2f"},
                 gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False}))
+            st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
