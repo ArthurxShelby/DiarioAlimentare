@@ -629,11 +629,11 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (MAPPATURA DIRETTA DAL FLUSSO) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (MAPPATURA CORRETTA FLUSSO NATIVO) ---
 st.markdown("---")
 
-with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Mappatura Diretta Flusso)", expanded=True):
-    st.write("Estrazione e visualizzazione diretta dei parametri calcolati da Intervals.icu.")
+with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
+    st.write("Estrazione diretta dei parametri reali calcolati da Intervals.icu per l'attività odierna.")
     
     col_f_modo, col_f_val1, col_f_val2 = st.columns([2, 2, 2])
     with col_f_modo:
@@ -717,27 +717,47 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Mappatura Dir
                         if resp_detail.status_code == 200:
                             dati_act = resp_detail.json()
                     
-                    # Mappa diretta ereditata interamente dal flusso JSON dell'attività
-                    val_if = float(dati_act.get('icu_intensity') or ultima_act_summary.get('icu_intensity') or dati_act.get('intensity_factor') or 0.0)
-                    if val_if > 2.0: 
-                        val_if = val_if / 100.0
+                    # Unione completa dei dizionari per catturare le chiavi esatte di Intervals
+                    m = {**ultima_act_summary.to_dict(), **dati_act}
+                    
+                    # Mappatura corretta Intensity Factor (gestisce sia formato 0-1 che percentuale 0-100)
+                    raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
+                    val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
+                    
+                    # Mappatura corretta Variability Index (VI)
+                    val_vi = float(m.get('variability_index') or m.get('vi') or m.get('variabilityIndex') or 1.0)
+                    if val_vi == 0.0: 
+                        val_vi = 1.0
                         
-                    val_vi = float(dati_act.get('variability_index') or ultima_act_summary.get('variability_index') or 1.0)
-                    val_eftp = float(dati_act.get('eftp') or dati_act.get('e_ftp') or ultima_act_summary.get('eftp') or 240.0)
+                    # Mappatura corretta eFTP
+                    val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or 240.0)
                     
-                    w_bal_raw = dati_act.get('w_prime_balance') or dati_act.get('min_w_prime_balance') or 0.0
-                    val_wbal = float(w_bal_raw) / 1000.0 if float(w_bal_raw) > 50 else float(w_bal_raw)
+                    # Mappatura corretta W' Balance residuo/minimo (convertito in kJ se in Joule)
+                    w_bal_raw = float(m.get('w_prime_balance') or m.get('min_w_prime_balance') or m.get('wBal') or 0.0)
+                    val_wbal = w_bal_raw / 1000.0 if w_bal_raw > 50 else w_bal_raw
                     
-                    val_ef = float(dati_act.get('efficiency_factor') or ultima_act_summary.get('efficiency_factor') or 0.0)
+                    # Mappatura corretta Efficiency Factor (EF)
+                    val_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('efficiencyFactor') or 0.0)
                     
                     if val_ctl == 0.0:
-                        val_ctl = float(dati_act.get('icu_ctl') or ultima_act_summary.get('icu_ctl') or 0.0)
+                        val_ctl = float(m.get('icu_ctl', 0.0) or 0.0)
                     if val_atl == 0.0:
-                        val_atl = float(dati_act.get('icu_atl') or ultima_act_summary.get('icu_atl') or 0.0)
+                        val_atl = float(m.get('icu_atl', 0.0) or 0.0)
 
     val_tsb = val_ctl - val_atl
 
     st.markdown("---")
+
+    # Funzione di supporto per applicare lo stile scuro ai grafici Plotly
+    def apply_dark_theme(fig, height=220):
+        fig.update_layout(
+            height=height,
+            margin=dict(l=20, r=20, t=50, b=10),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white')
+        )
+        return fig
 
     # ==========================================
     # SEZIONE 1: Gestione del Carico e della Forma (Fitness)
@@ -749,26 +769,23 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Mappatura Dir
         with col_s1_1:
             fig_ctl = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_ctl, title={"text": "<b>Fitness (CTL)</b>"},
-                gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "royalblue"}}
+                gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "royalblue"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            fig_ctl.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
-            st.plotly_chart(fig_ctl, use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_ctl), use_container_width=True, config={'displaylogo': False})
             
         with col_s1_2:
             fig_atl = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_atl, title={"text": "<b>Fatigue (ATL)</b>"},
-                gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "darkorange"}}
+                gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "darkorange"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            fig_atl.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
-            st.plotly_chart(fig_atl, use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_atl), use_container_width=True, config={'displaylogo': False})
             
         with col_s1_3:
             fig_tsb = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_tsb, title={"text": "<b>Form (TSB)</b>"},
-                gauge={'axis': {'range': [-50, 50]}, 'bar': {'color': "forestgreen" if -30 <= val_tsb <= -10 else "crimson"}}
+                gauge={'axis': {'range': [-50, 50]}, 'bar': {'color': "forestgreen" if -30 <= val_tsb <= -10 else "crimson"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            fig_tsb.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
-            st.plotly_chart(fig_tsb, use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_tsb), use_container_width=True, config={'displaylogo': False})
 
     # ==========================================
     # SEZIONE 2: Intensità e Stress della Singola Sessione
@@ -780,28 +797,25 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Mappatura Dir
         with col_s2_1:
             fig_load = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_load, title={"text": "<b>Load / TSS Sessione</b>"},
-                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "dodgerblue"}}
+                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "dodgerblue"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            fig_load.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
-            st.plotly_chart(fig_load, use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_load), use_container_width=True, config={'displaylogo': False})
 
         with col_s2_2:
             fig_if = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_if, title={"text": "<b>Intensity Factor (IF)</b>"},
                 number={'valueformat': ".2f"},
-                gauge={'axis': {'range': [0, 1.3]}, 'bar': {'color': "purple"}}
+                gauge={'axis': {'range': [0, 1.3]}, 'bar': {'color': "purple"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            fig_if.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
-            st.plotly_chart(fig_if, use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_if), use_container_width=True, config={'displaylogo': False})
 
         with col_s2_3:
             fig_vi = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_vi if val_vi > 0 else 1.0, title={"text": "<b>Variability Index (VI)</b>"},
+                mode="gauge+number", value=val_vi, title={"text": "<b>Variability Index (VI)</b>"},
                 number={'valueformat': ".2f"},
-                gauge={'axis': {'range': [1.0, 1.5]}, 'bar': {'color': "teal"}}
+                gauge={'axis': {'range': [1.0, 1.5]}, 'bar': {'color': "teal"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            fig_vi.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
-            st.plotly_chart(fig_vi, use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_vi), use_container_width=True, config={'displaylogo': False})
 
     # ==========================================
     # SEZIONE 3: Analisi della Performance e Capacità
@@ -813,25 +827,22 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Mappatura Dir
         with col_s3_1:
             fig_eftp = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_eftp, title={"text": "<b>eFTP (W)</b>"},
-                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "crimson"}}
+                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "crimson"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            fig_eftp.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
-            st.plotly_chart(fig_eftp, use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_eftp), use_container_width=True, config={'displaylogo': False})
 
         with col_s3_2:
             fig_wbal = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_wbal, title={"text": "<b>W' Bal (kJ)</b>"},
                 number={'suffix': " kJ", 'valueformat': ".1f"},
-                gauge={'axis': {'range': [0, 30]}, 'bar': {'color': "darkviolet"}}
+                gauge={'axis': {'range': [0, 30]}, 'bar': {'color': "darkviolet"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            fig_wbal.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
-            st.plotly_chart(fig_wbal, use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_wbal), use_container_width=True, config={'displaylogo': False})
 
         with col_s3_3:
             fig_ef = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_ef, title={"text": "<b>Efficiency Factor (EF)</b>"},
                 number={'valueformat': ".2f"},
-                gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"}}
+                gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            fig_ef.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
-            st.plotly_chart(fig_ef, use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False}))
