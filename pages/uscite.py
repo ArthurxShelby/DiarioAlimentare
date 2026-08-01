@@ -629,11 +629,11 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (DEFINITIVA E CORRETTA CON MAPPATURA API) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (CALCOLO MATEMATICO DERIVATO DAI FLUSSI) ---
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
-    st.write("Estrazione diretta dal endpoint di dettaglio dell'attività Intervals.icu.")
+    st.write("Estrazione e calcolo derivato dai flussi dell'attività Intervals.icu.")
     
     col_f_modo, col_f_val1, col_f_val2 = st.columns([2, 2, 2])
     with col_f_modo:
@@ -651,7 +651,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
         with col_f_val2:
             end_sec4 = st.date_input("Data Fine Parametri", value=oggi, key="sec4_end_range")
 
-    # 1. Chiamata API Lista Attività per trovare l'ID
     url_sec4 = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_sec4 = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -660,7 +659,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     }
     resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
 
-    # 2. Chiamata API Wellness (per CTL, ATL)
     url_well = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/wellness"
     params_well = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -668,7 +666,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     }
     resp_well = requests.get(url_well, auth=("API_KEY", API_KEY.strip()), params=params_well)
 
-    # Inizializzazione
     val_load = 0.0
     val_if = 0.0
     val_vi = 1.0
@@ -679,7 +676,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     val_atl = 0.0
     m = {}
 
-    # Parsing Wellness
     if resp_well.status_code == 200:
         dati_well = resp_well.json()
         if dati_well:
@@ -692,7 +688,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     val_ctl = float(ultimo_w.get('ctl', 0.0) or 0.0)
                     val_atl = float(ultimo_w.get('atl', 0.0) or 0.0)
 
-    # Parsing Attività e chiamata puntuale al singolo ID
     if resp_sec4.status_code == 200:
         dati_sec4 = resp_sec4.json()
         if dati_sec4:
@@ -718,37 +713,37 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if not m:
                         m = ultima_act.to_dict()
 
-                    # Estrazione sicura dei valori
+                    # Estrazione flussi base
                     val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
-                    
                     np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
                     gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
-                    
-                    # eFTP dell'attività (o fallback su FTP atleta)
+                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
                     val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or m.get('ftp') or 279.0)
                     
-                    # IF
+                    # 1. Calcolo IF (NP / eFTP)
+                    raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
                     if np_val > 0 and val_eftp > 0:
                         val_if = np_val / val_eftp
-                    else:
-                        raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
+                    elif raw_if > 0:
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
-                    
-                    # VI (Variabilità)
+
+                    # 2. Calcolo VI (NP / Potenza Media)
+                    raw_vi = float(m.get('variability_index') or m.get('vi') or m.get('icu_vi') or 0.0)
                     if np_val > 0 and gp_val > 0:
                         val_vi = np_val / gp_val
+                    elif raw_vi > 0:
+                        val_vi = raw_vi
                     else:
-                        val_vi = float(m.get('variability_index') or m.get('vi') or m.get('icu_vi') or 1.0)
-                    if val_vi == 0.0: val_vi = 1.0
+                        val_vi = 1.0
 
-                    # EF (Efficiency Factor -> NP / FC Media)
-                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
+                    # 3. Calcolo EF (NP / FC Media)
+                    raw_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
                     if np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
                     else:
-                        val_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
+                        val_ef = raw_ef
 
-                    # W' Bal (kJ) - gestisce sia il valore assoluto minimo sia il formato in joule/kJ
+                    # 4. W' Bal (kJ)
                     w_bal_raw = float(m.get('min_w_prime_balance') or m.get('w_prime_balance') or m.get('wBal') or m.get('icu_w_prime_balance') or 0.0)
                     if abs(w_bal_raw) > 50:
                         val_wbal = w_bal_raw / 1000.0
@@ -804,9 +799,9 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
 
         st.info(
             "📖 **Legenda Sezione 1:**\n"
-            "* **Fitness (CTL - Chronic Training Load):** Carico di allenamento cronico a lungo termine (media ponderata a 42 giorni).\n"
-            "* **Fatigue (ATL - Acute Training Load):** Carico di allenamento acuto a breve termine (media ponderata a 7 giorni).\n"
-            "* **Form (TSB - Training Stress Balance):** Bilancio dello stress (CTL meno ATL)."
+            "* **Fitness (CTL):** Carico cronico (42 giorni).\n"
+            "* **Fatigue (ATL):** Carico acuto (7 giorni).\n"
+            "* **Form (TSB):** Bilancio dello stress (CTL - ATL)."
         )
 
     # ==========================================
@@ -841,9 +836,9 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
 
         st.info(
             "📖 **Legenda Sezione 2:**\n"
-            "* **Load / TSS:** Quantifica lo stress complessivo della sessione.\n"
-            "* **Intensity Factor (IF):** Rapporto NP / eFTP.\n"
-            "* **Variability Index (VI):** Rapporto Potenza Normalizzata / Potenza Media."
+            "* **Load / TSS:** Quantifica lo stress complessivo.\n"
+            "* **Intensity Factor (IF):** Rapporto calcolato NP / eFTP.\n"
+            "* **Variability Index (VI):** Rapporto calcolato NP / Potenza Media."
         )
 
     # ==========================================
@@ -878,7 +873,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
 
         st.info(
             "📖 **Legenda Sezione 3:**\n"
-            "* **eFTP (W):** Soglia funzionale stimata dell'attività.\n"
-            "* **W' Bal (kJ):** Minimo valore raggiunto dal W' Balance (riserva anaerobica).\n"
-            "* **Efficiency Factor (EF):** Efficienza aerobica cardiovascolare (NP / FC Media)."
+            "* **eFTP (W):** Soglia funzionale stimata.\n"
+            "* **W' Bal (kJ):** Riserva anaerobica minima registrata.\n"
+            "* **Efficiency Factor (EF):** Rapporto calcolato NP / FC Media."
         )
