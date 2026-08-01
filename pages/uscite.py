@@ -727,13 +727,13 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
 
-                    val_vi = float(m.get('variability_index') or m.get('vi') or 0.0)
+                    # Estrazione VI con tutte le chiavi possibili (inclusa la variante con underscore o nomi alternativi)
+                    val_vi = float(m.get('variability_index') or m.get('vi') or m.get('icu_variability_index') or 0.0)
                     if val_vi == 0.0 and np_val > 0 and gp_val > 0:
                         val_vi = np_val / gp_val
                     if val_vi == 0.0: 
                         val_vi = 1.0
 
-                    # Estrazione EF con tutte le chiavi possibili (inclusa la variante con underscore o chiavi di efficienza diretta)
                     val_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('icu_efficiency_factor') or 0.0)
                     avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
                     if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
