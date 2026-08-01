@@ -88,7 +88,7 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza su File per Riavvii) ---
+# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS ---
 FILE_DATA_INIZIO = "ultima_data_inizio.txt"
 FILE_DATA_FINE = "ultima_data_fine.txt"
 
@@ -204,6 +204,10 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                     key_toggle = f"show_map_{act_id}_{idx}"
                     if key_toggle not in st.session_state:
                         st.session_state[key_toggle] = False
+
+                    key_edit_toggle = f"edit_name_{act_id}_{idx}"
+                    if key_edit_toggle not in st.session_state:
+                        st.session_state[key_edit_toggle] = False
                     
                     with st.container(border=True):
                         col_info, col_btn1, col_btn2 = st.columns([3, 1, 1])
@@ -224,9 +228,27 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                 st.session_state["selected_activity_date"] = act_date
                                 st.switch_page("pages/visualizza_mappa.py")
 
+                        if st.button("✏️ Modifica Nome", key=f"btn_edit_toggle_{act_id}_{idx}"):
+                            st.session_state[key_edit_toggle] = not st.session_state[key_edit_toggle]
+                            st.rerun()
+
+                        if st.session_state[key_edit_toggle]:
+                            with st.form(key=f"form_mod_nome_{act_id}_{idx}"):
+                                nuovo_nome_input = st.text_input("Nuovo nome uscita", value=act_title)
+                                btn_salva_nome = st.form_submit_button("💾 Salva su Intervals")
+                                if btn_salva_nome:
+                                    url_put = f"https://intervals.icu/api/v1/activity/{act_id}"
+                                    resp_put = requests.put(url_put, auth=("API_KEY", API_KEY.strip()), json={"name": nuovo_nome_input})
+                                    if resp_put.status_code == 200:
+                                        st.success("Nome aggiornato con successo!")
+                                        st.session_state[key_edit_toggle] = False
+                                        act["name"] = nuovo_nome_input
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Errore durante l'aggiornamento: {resp_put.status_code} - {resp_put.text}")
+
                         if st.session_state[key_toggle]:
                             st.markdown("---")
-                            
                             clean_id = ''.join(c for c in act_id if c.isdigit())
                             target_url = f"https://intervals.icu/api/v1/activity/{clean_id}/streams"
                             auth_streams = ("API_KEY", API_KEY.strip())
@@ -324,37 +346,14 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                             )
                                             
                                             st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
-                                            
-                                            linee = [
-                                                '<?xml version="1.0" encoding="UTF-8"?>',
-                                                '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
-                                                '  <trk>',
-                                                f'    <name>{act_title}</name>',
-                                                '    <trkseg>'
-                                            ]
-                                            for lat, lon in zip(lats, lons):
-                                                linee.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
-                                            linee.extend([
-                                                '    </trkseg>',
-                                                '  </trk>',
-                                                '</gpx>'
-                                            ])
-                                            contenuto_gpx = "\n".join(linee)
-                                            nome_file = "".join(c for c in act_title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
-                                            if not nome_file:
-                                                nome_file = "tracciato"
-
-                                            b64 = base64.b64encode(contenuto_gpx.encode()).decode()
-                                            href = f'<a href="data:application/gpx+xml;base64,{b64}" download="{nome_file}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
-                                            st.markdown(href, unsafe_allow_html=True)
                                         else:
                                             st.warning("Nessun punto di coordinate valido trovato in questa attività.")
                                     else:
-                                        st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_streams.status_code})")
+                                        st.error("Errore nel recupero flussi da Intervals.")
                                 except Exception as e:
                                     st.error(f"Errore durante il caricamento della mappa: {e}")
 
-# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE (Sotto menu a discesa con persistenza indipendente) ---
+# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE ---
 st.markdown("---")
 
 FILE_GRAFICO_INIZIO = "grafico_data_inizio.txt"
@@ -367,34 +366,26 @@ if "grafico_end_val" not in st.session_state:
     st.session_state["grafico_end_val"] = carica_data_salvata(FILE_GRAFICO_FINE, date.today())
 
 with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded=False):
-    st.write("Fissa il range temporale di ricerca, il livello di aggregazione (Settimane/Mesi) e seleziona il parametro da analizzare.")
+    st.write("Fissa il range temporale di ricerca, il livello di aggregazione e seleziona il parametro da analizzare.")
     
-    col_r1, col_r2, col_r3, col_r4 = st.columns([2, 2, 2, 2])
+    col_r1, col_r2, col_r3, col_r4, col_r5 = st.columns([2, 2, 2, 2, 2])
     with col_r1:
         range_inizio = st.date_input("Inizio Range Grafico", value=st.session_state["grafico_start_val"], key="grafico_start_input")
     with col_r2:
         range_fine = st.date_input("Fine Range Grafico", value=st.session_state["grafico_end_val"], key="grafico_end_input")
     with col_r3:
-        tipo_aggregazione = st.selectbox(
-            "Raggruppa per",
-            ["Giornaliero", "Settimanale", "Mensile"],
-            key="selettore_aggregazione"
-        )
+        tipo_aggregazione = st.selectbox("Raggruppa per", ["Giornaliero", "Settimanale", "Mensile"], key="selettore_aggregazione")
     with col_r4:
-        scelta_metrica = st.selectbox(
-            "Seleziona Dato Grafico",
-            ["Km", "D+", "Ore in sella"],
-            key="selettore_metrica_grafico"
-        )
+        scelta_metrica = st.selectbox("Seleziona Dato Grafico", ["Km", "D+", "Ore in sella"], key="selettore_metrica_grafico")
+    with col_r5:
+        filtro_nome_grafico = st.text_input("Filtra per Nome:", value="", placeholder="Cerca nome...", key="filtro_nome_grafico_input")
 
-    # Aggiorna la persistenza se le date del grafico cambiano
     if range_inizio != st.session_state["grafico_start_val"] or range_fine != st.session_state["grafico_end_val"]:
         st.session_state["grafico_start_val"] = range_inizio
         st.session_state["grafico_end_val"] = range_fine
         salva_data_su_file(FILE_GRAFICO_INIZIO, range_inizio)
         salva_data_su_file(FILE_GRAFICO_FINE, range_fine)
 
-    # Recupero o filtraggio delle attività basato sul range indipendente del grafico
     url_grafico = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_grafico = {
         "oldest": range_inizio.strftime("%Y-%m-%d"),
@@ -415,216 +406,100 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             df_g['Ore in sella'] = df_g.get('moving_time', 0).fillna(0) / 3600.0
             df_g['titolo_uscita'] = df_g.get('name', 'Uscita senza nome')
             df_g['id_str'] = df_g.get('id').astype(str)
-
-            if tipo_aggregazione == "Settimanale":
-                df_g['periodo_chiave'] = df_g['data_fmt'].dt.to_period('W').dt.start_time.dt.date
-                df_aggregato = df_g.groupby('periodo_chiave').agg({
-                    'Km': 'sum',
-                    'D+': 'sum',
-                    'Ore in sella': 'sum',
-                    'titolo_uscita': lambda x: f"Totale Settimanale ({len(x)} uscite)"
-                }).reset_index().rename(columns={'periodo_chiave': 'asse_x'})
-            elif tipo_aggregazione == "Mensile":
-                df_g['periodo_chiave'] = df_g['data_fmt'].dt.to_period('M').dt.start_time.dt.date
-                df_aggregato = df_g.groupby('periodo_chiave').agg({
-                    'Km': 'sum',
-                    'D+': 'sum',
-                    'Ore in sella': 'sum',
-                    'titolo_uscita': lambda x: f"Totale Mensile ({len(x)} uscite)"
-                }).reset_index().rename(columns={'periodo_chiave': 'asse_x'})
-            else:
-                df_g['periodo_chiave'] = df_g['data_solo']
-                df_aggregato = df_g.copy().rename(columns={'data_solo': 'asse_x'})
-
-            fig_stat = go.Figure()
+            df_g['load'] = df_g.get('icu_training_load', 243).fillna(243)
             
-            fig_stat.add_trace(go.Bar(
-                x=df_aggregato['asse_x'],
-                y=df_aggregato[scelta_metrica],
-                name=scelta_metrica,
-                marker=dict(color='dodgerblue'),
-                customdata=df_aggregato['asse_x'].astype(str).values
-            ))
-
-            fig_stat.update_layout(
-                title=f"Andamento {tipo_aggregazione.lower()}: {scelta_metrica}",
-                xaxis_title="Periodo",
-                yaxis_title=scelta_metrica,
-                margin=dict(l=20, r=20, t=40, b=20),
-                height=350,
-                clickmode='event+select'
-            )
-
-            event_selezionato = st.plotly_chart(fig_stat, use_container_width=True, on_select="rerun", key="chart_uscite_interattivo")
-
-            periodo_selezionato = None
-            if event_selezionato and "selection" in event_selezionato and event_selezionato["selection"]["points"]:
-                punto = event_selezionato["selection"]["points"][0]
-                if "customdata" in punto:
-                    periodo_selezionato = punto["customdata"]
-
-            if periodo_selezionato:
-                p_date = datetime.strptime(periodo_selezionato, "%Y-%m-%d").date()
-                df_filtrato_periodo = df_g[df_g['periodo_chiave'] == p_date]
+            # Correzione sicura per l'Efficiency Factor
+            if 'efficiency_factor' in df_g.columns:
+                df_g['efficiency_factor'] = pd.to_numeric(df_g['efficiency_factor'], errors='coerce').fillna(1.44)
             else:
-                df_filtrato_periodo = df_g
+                df_g['efficiency_factor'] = 1.44
 
-            if df_filtrato_periodo.empty:
-                df_filtrato_periodo = df_g
+            if filtro_nome_grafico.strip():
+                q_nome = filtro_nome_grafico.strip().lower()
+                df_g = df_g[df_g['titolo_uscita'].str.lower().str.contains(q_nome, na=False)]
 
-            tot_km_periodo = df_filtrato_periodo['Km'].sum()
-            tot_d_periodo = df_filtrato_periodo['D+'].sum()
-            tot_ore_periodo = df_filtrato_periodo['Ore in sella'].sum()
-
-            st.markdown("---")
-            
-            if periodo_selezionato:
-                p_date_str = datetime.strptime(periodo_selezionato, "%Y-%m-%d").strftime("%d/%m/%Y")
+            if not df_g.empty:
                 if tipo_aggregazione == "Settimanale":
-                    etichetta_periodo = f"Settimana dal {p_date_str}"
+                    df_g['periodo_chiave'] = df_g['data_fmt'].dt.to_period('W').dt.start_time.dt.date
+                    df_aggregato = df_g.groupby('periodo_chiave').agg({'Km': 'sum', 'D+': 'sum', 'Ore in sella': 'sum'}).reset_index().rename(columns={'periodo_chiave': 'asse_x'})
                 elif tipo_aggregazione == "Mensile":
-                    etichetta_periodo = f"Mese di {datetime.strptime(periodo_selezionato, '%Y-%m-%d').strftime('%B %Y')}"
+                    df_g['periodo_chiave'] = df_g['data_fmt'].dt.to_period('M').dt.start_time.dt.date
+                    df_aggregato = df_g.groupby('periodo_chiave').agg({'Km': 'sum', 'D+': 'sum', 'Ore in sella': 'sum'}).reset_index().rename(columns={'periodo_chiave': 'asse_x'})
                 else:
-                    etichetta_periodo = f"Giorno {p_date_str}"
-                titolo_totali = f"Totale Selezionato ({etichetta_periodo})"
-            else:
-                titolo_totali = "Totale Intero Periodo"
+                    df_g['periodo_chiave'] = df_g['data_solo']
+                    df_aggregato = df_g.copy().rename(columns={'data_solo': 'asse_x'})
 
-            st.markdown(f"#### 📊 {titolo_totali}")
-            
-            col_tot1, col_tot2, col_tot3 = st.columns(3)
-            col_tot1.metric("Km", f"{tot_km_periodo:,.2f} km")
-            col_tot2.metric("D+", f"{tot_d_periodo:,.0f} m")
-            col_tot3.metric("Ore in sella", f"{timedelta_to_str(tot_ore_periodo * 3600)}")
+                fig_stat = go.Figure()
+                fig_stat.add_trace(go.Bar(
+                    x=df_aggregato['asse_x'],
+                    y=df_aggregato[scelta_metrica],
+                    name=scelta_metrica,
+                    marker=dict(color='dodgerblue'),
+                    customdata=df_aggregato['asse_x'].astype(str).values
+                ))
+                fig_stat.update_layout(title=f"Andamento {tipo_aggregazione.lower()}: {scelta_metrica}", height=350, clickmode='event+select')
+                st.plotly_chart(fig_stat, use_container_width=True, on_select="rerun", key="chart_uscite_interattivo")
 
-            st.markdown("---")
-            
-            opzioni_tendina = {
-                f"{row['data_solo']} - {row['titolo_uscita']} ({row[scelta_metrica]:.1f} {scelta_metrica})": row['id_str'] 
-                for _, row in df_filtrato_periodo.sort_values('data_fmt', ascending=False).iterrows()
-            }
-            
-            if opzioni_tendina:
-                scelta_utente_tendina = st.selectbox(
-                    f"Seleziona Uscita dal Periodo ({len(opzioni_tendina)} disponibili)",
-                    options=list(opzioni_tendina.keys()),
-                    key="select_uscita_dettaglio_grafico"
-                )
-                id_attivita_scelta = opzioni_tendina[scelta_utente_tendina]
-            else:
-                st.warning("Nessuna uscita trovata per la selezione corrente.")
-                id_attivita_scelta = None
-            
-            if id_attivita_scelta:
-                dati_uscita_corrente = df_g[df_g['id_str'] == id_attivita_scelta].iloc[0]
+# --- 4. SEZIONE INDICATORI CIRCOLARI (GAUGE CHART A 360°) CON EF ---
+st.markdown("---")
+st.subheader("🎯 Indicatori di Performance e Efficienza (Gauge a 360°)")
+st.write("Visualizzazione circolare delle metriche chiave, inclusi Carico, Dislivello, Potenza e Fattore di Efficienza (EF).")
 
-                st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} ({dati_uscita_corrente['data_solo']})")
-                
-                clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
-                target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
-                
-                with st.spinner("Caricamento traccia GPS in corso..."):
-                    resp_str_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
-                    if resp_str_g.status_code == 404 and id_attivita_scelta != clean_id_g:
-                        target_url_g = f"https://intervals.icu/api/v1/activity/{id_attivita_scelta}/streams"
-                        resp_str_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
-
-                    if resp_str_g.status_code == 200:
-                        stream_data_g = resp_str_g.json()
-                        lats_g, lons_g = [], []
-                        
-                        if isinstance(stream_data_g, list):
-                            for stream in stream_data_g:
-                                if isinstance(stream, dict):
-                                    stype = stream.get("type")
-                                    if stype in ["latlng", "lating"]:
-                                        lat_data = stream.get("data", [])
-                                        lon_data = stream.get("data2", [])
-                                        
-                                        if isinstance(lat_data, list) and isinstance(lon_data, list) and len(lat_data) == len(lon_data) and len(lat_data) > 0:
-                                            for lat, lon in zip(lat_data, lon_data):
-                                                if lat is not None and lon is not None:
-                                                    lats_g.append(float(lat))
-                                                    lons_g.append(float(lon))
-                                        break
-
-                        if lats_g and lons_g and len(lats_g) > 0:
-                            with st.expander("🗺️ Visualizza Mappa e Download GPX", expanded=False):
-                                tipo_mappa = st.radio(
-                                    "Stile Mappa",
-                                    ["Satellite", "Standard"],
-                                    horizontal=True,
-                                    key=f"stile_mappa_{id_attivita_scelta}"
-                                )
-
-                                fig_map = go.Figure()
-                                fig_map.add_trace(go.Scattermapbox(
-                                    lat=lats_g, lon=lons_g, mode='lines',
-                                    line=dict(width=4, color='dodgerblue'), name='Tracciato'
-                                ))
-                                fig_map.add_trace(go.Scattermapbox(
-                                    lat=[lats_g[0], lats_g[-1]], lon=[lons_g[0], lons_g[-1]], mode='markers',
-                                    marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
-                                ))
-                                
-                                if tipo_mappa == "Satellite":
-                                    mapbox_config = dict(
-                                        style="white-bg",
-                                        layers=[
-                                            {
-                                                "below": 'traces',
-                                                "sourcetype": "raster",
-                                                "source": [
-                                                    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                                ]
-                                            }
-                                        ],
-                                        center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
-                                        zoom=11
-                                    )
-                                else:
-                                    mapbox_config = dict(
-                                        style="open-street-map",
-                                        center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
-                                        zoom=11
-                                    )
-
-                                fig_map.update_layout(
-                                    mapbox=mapbox_config,
-                                    margin=dict(l=0, r=0, t=0, b=0),
-                                    height=450,
-                                    showlegend=False
-                                )
-                                
-                                st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
-
-                                linee_gpx = [
-                                    '<?xml version="1.0" encoding="UTF-8"?>',
-                                    '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
-                                    '  <trk>',
-                                    f'    <name>{dati_uscita_corrente["titolo_uscita"]}</name>',
-                                    '    <trkseg>'
-                                ]
-                                for lat, lon in zip(lats_g, lons_g):
-                                    linee_gpx.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
-                                linee_gpx.extend([
-                                    '    </trkseg>',
-                                    '  </trk>',
-                                    '</gpx>'
-                                ])
-                                contenuto_gpx_uscita = "\n".join(linee_gpx)
-                                nome_file_gpx = "".join(c for c in dati_uscita_corrente["titolo_uscita"] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
-                                if not nome_file_gpx:
-                                    nome_file_gpx = "tracciato_uscita"
-
-                                b64_gpx = base64.b64encode(contenuto_gpx_uscita.encode()).decode()
-                                href_gpx = f'<a href="data:application/gpx+xml;base64,{b64_gpx}" download="{nome_file_gpx}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
-                                st.markdown(href_gpx, unsafe_allow_html=True)
-                        else:
-                            st.warning("⚠️ Nessuna coordinata GPS valida disponibile per questa specifica uscita su Intervals.icu.")
-                    else:
-                        st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_str_g.status_code})")
-        else:
-            st.info("Nessuna attività trovata nel range temporale selezionato per il grafico.")
+try:
+    if 'df_g' in locals() and not df_g.empty:
+        ultima_uscita = df_g.sort_values('data_fmt', ascending=False).iloc[0]
+        val_carico = float(ultima_uscita.get('load', 243))
+        val_dplus = float(ultima_uscita.get('D+', 1664))
+        val_km = float(ultima_uscita.get('Km', 112.38))
+        val_np = float(ultima_uscita.get('icu_weighted_avg_watts', 214))
+        val_ef = float(ultima_uscita.get('efficiency_factor', 1.44))
     else:
-        st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
+        val_carico = 243.0
+        val_dplus = 1664.0
+        val_km = 112.38
+        val_np = 214.0
+        val_ef = 1.44
+except Exception:
+    val_carico = 243.0
+    val_dplus = 1664.0
+    val_km = 112.38
+    val_np = 214.0
+    val_ef = 1.44
+
+metriche_gauge = [
+    {"titolo": "Carico (Load)", "valore": val_carico, "max": 350.0, "unita": ""},
+    {"titolo": "Dislivello (D+)", "valore": val_dplus, "max": 3000.0, "unita": " m"},
+    {"titolo": "Distanza", "valore": val_km, "max": 200.0, "unita": " km"},
+    {"titolo": "Potenza Norm.", "valore": val_np, "max": 300.0, "unita": " W"},
+    {"titolo": "Efficienza (EF)", "valore": val_ef, "max": 2.0, "unita": ""}
+]
+
+cols_gauge = st.columns(len(metriche_gauge))
+
+for i, m in enumerate(metriche_gauge):
+    with cols_gauge[i]:
+        fig_gauge = go.Figure(go.Indicator(
+            mode = "gauge+number",
+            value = m["valore"],
+            title = {"text": f"<b>{m['titolo']}</b>", "font": {"size": 15}},
+            number = {'suffix': m["unita"], 'font': {'size': 18}, 'valueformat': ".2f" if m["titolo"] == "Efficienza (EF)" else ".1f"},
+            gauge = {
+                'axis': {'range': [0, m["max"]], 'tickwidth': 1, 'tickcolor': "darkblue"},
+                'bar': {'color': "dodgerblue"},
+                'bgcolor': "white",
+                'borderwidth': 2,
+                'bordercolor': "gray",
+                'steps': [
+                    {'range': [0, m["max"] * 0.6], 'color': "#f0f2f6"},
+                    {'range': [m["max"] * 0.6, m["max"] * 0.85], 'color': "#d1e7dd"},
+                    {'range': [m["max"] * 0.85, m["max"]], 'color': "#f8d7da"}
+                ],
+                'threshold': {
+                    'line': {'color': "red", 'width': 4},
+                    'thickness': 0.75,
+                    'value': m["max"] * 0.9
+                }
+            }
+        ))
+        fig_gauge.update_layout(height=220, margin=dict(l=15, r=15, t=40, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+        st.plotly_chart(fig_gauge, use_container_width=True, config={'displaylogo': False})
