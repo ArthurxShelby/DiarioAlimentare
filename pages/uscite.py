@@ -748,13 +748,34 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     elif raw_if > 0:
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
 
-                    # 2. Variability Index (VI) - DEBUG DIRETTO
-                    st.write(f"DEBUG - np_val: {np_val}, gp_val: {gp_val}")
+                    # Estrazione e pulizia forzata dei watt medi e NP
+                    raw_np = (
+                        m.get('normalized_watts') or 
+                        m.get('icu_normalized_watts') or 
+                        m.get('np') or 
+                        ultima_act.get('normalized_watts') or 
+                        ultima_act.get('icu_normalized_watts') or 0.0
+                    )
+                    raw_gp = (
+                        m.get('average_watts') or 
+                        m.get('icu_average_watts') or 
+                        m.get('device_watts') or 
+                        ultima_act.get('average_watts') or 
+                        ultima_act.get('icu_average_watts') or 0.0
+                    )
+                    
+                    np_val = float(raw_np)
+                    gp_val = float(raw_gp)
 
-                    if np_val > 0 and gp_val > 0:
+                    # Se la NP è 0 ma abbiamo i watt medi, usiamo i watt medi come NP minima
+                    if np_val == 0.0 and gp_val > 0:
+                        np_val = gp_val 
+
+                    # Calcolo forzato e sicuro del Variability Index (VI)
+                    if gp_val > 0:
                         val_vi = np_val / gp_val
-                        st.write(f"DEBUG - Divisione eseguita con successo: {val_vi}")
                     else:
+                        # Fallback estremo se la potenza media è 0
                         raw_vi = float(
                             m.get('variability_index') or 
                             m.get('vi') or 
@@ -763,7 +784,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                             ultima_act.get('vi') or 0.0
                         )
                         val_vi = raw_vi if raw_vi > 0 else 1.0
-                        st.write(f"DEBUG - Entrato nell'ELSE. Usato raw_vi o fallback: {val_vi}")
 
                     # 3. Efficiency Factor (EF) = NP / FC Media
                     raw_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
