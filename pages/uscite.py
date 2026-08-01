@@ -629,11 +629,11 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (FORZATURA E DEBUG) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (CHIAMATA DIRETTA AL LIST & DETTAGLIO) ---
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
-    st.write("Estrazione e calcolo forzato dai flussi dell'attività Intervals.icu.")
+    st.write("Estrazione diretta dal flusso attività di Intervals.icu.")
     
     col_f_modo, col_f_val1, col_f_val2 = st.columns([2, 2, 2])
     with col_f_modo:
@@ -702,104 +702,47 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 
                 if not df_s4_filtrato.empty:
                     ultima_act = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
-                    act_id = ultima_act.get('id')
+                    m = ultima_act.to_dict()
                     
+                    act_id = m.get('id')
                     if act_id:
                         url_detail = f"https://intervals.icu/api/v1/activity/{act_id}"
                         resp_detail = requests.get(url_detail, auth=("API_KEY", API_KEY.strip()))
                         if resp_detail.status_code == 200:
-                            m = resp_detail.json()
-                    
-                    if not m:
-                        m = ultima_act.to_dict()
+                            detail_json = resp_detail.json()
+                            m.update(detail_json)
 
                     val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
+                    val_eftp = float(m.get('icu_ftp') or m.get('eftp') or 279.0)
                     
-                    np_val = float(
-                        m.get('normalized_watts') or 
-                        m.get('icu_normalized_watts') or 
-                        m.get('np') or 
-                        ultima_act.get('normalized_watts') or 
-                        ultima_act.get('icu_normalized_watts') or 0.0
-                    )
-                    gp_val = float(
-                        m.get('average_watts') or 
-                        m.get('icu_average_watts') or 
-                        m.get('device_watts') or 
-                        ultima_act.get('average_watts') or 
-                        ultima_act.get('icu_average_watts') or 0.0
-                    )
-                    avg_hr = float(
-                        m.get('average_heartrate') or 
-                        m.get('icu_average_heartrate') or 
-                        m.get('average_hr') or 
-                        ultima_act.get('average_heartrate') or 
-                        ultima_act.get('icu_average_heartrate') or 0.0
-                    )
-                    val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or m.get('ftp') or 279.0)
+                    val_ctl = float(m.get('icu_ctl') or val_ctl or 0.0)
+                    val_atl = float(m.get('icu_atl') or val_atl or 0.0)
 
-                    if np_val == 0.0 and gp_val > 0:
-                        np_val = gp_val 
-
-                    # Estrazione robusta dei dati di potenza
-                    np_val = float(
-                        m.get('normalized_watts') or 
-                        m.get('icu_normalized_watts') or 
-                        m.get('np') or 
-                        ultima_act.get('normalized_watts') or 
-                        ultima_act.get('icu_normalized_watts') or 0.0
-                    )
-                    gp_val = float(
-                        m.get('average_watts') or 
-                        m.get('icu_average_watts') or 
-                        m.get('device_watts') or 
-                        ultima_act.get('average_watts') or 
-                        ultima_act.get('icu_average_watts') or 0.0
-                    )
+                    np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
+                    gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
                     
-                    if np_val == 0.0 and gp_val > 0:
-                        np_val = gp_val 
-
-                    # eFTP di riferimento fisso a 279 W
-                    val_eftp = 279.0
-
-                    # 1. Intensity Factor (IF) = NP / 279
-                    if np_val > 0:
+                    if np_val > 0 and val_eftp > 0:
                         val_if = np_val / val_eftp
                     else:
-                        val_if = 0.0
+                        raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
+                        val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
 
-                    # 2. Variability Index (VI) = NP / Potenza Media
-                    if np_val > 0 and gp_val > 0:
+                    val_vi = float(m.get('variability_index') or m.get('vi') or 0.0)
+                    if val_vi == 0.0 and np_val > 0 and gp_val > 0:
                         val_vi = np_val / gp_val
-                    else:
+                    if val_vi == 0.0: 
                         val_vi = 1.0
 
-                    # 3. Efficiency Factor (EF) = NP / FC Media
-                    raw_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
-                    if np_val > 0 and avg_hr > 0:
+                    val_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
+                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
+                    if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
-                    elif raw_ef > 0:
-                        val_ef = raw_ef
 
-                    # 4. W' Bal (kJ)
-                    w_bal_raw = float(
-                        m.get('min_w_prime_balance') or 
-                        m.get('w_prime_balance') or 
-                        m.get('wBal') or 
-                        m.get('icu_w_prime_balance') or 
-                        m.get('w_bal_drop') or 0.0
-                    )
-                    
-                    if abs(w_bal_raw) > 50:
-                        val_wbal = abs(w_bal_raw) / 1000.0
+                    wbal_raw = float(m.get('wbal_dep') or m.get('min_w_prime_balance') or 0.0)
+                    if wbal_raw > 50:
+                        val_wbal = wbal_raw / 1000.0
                     else:
-                        val_wbal = abs(w_bal_raw)
-
-                    if val_ctl == 0.0:
-                        val_ctl = float(m.get('icu_ctl', 0.0) or 0.0)
-                    if val_atl == 0.0:
-                        val_atl = float(m.get('icu_atl', 0.0) or 0.0)
+                        val_wbal = wbal_raw
 
     val_tsb = val_ctl - val_atl
 
@@ -815,11 +758,9 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
         )
         return fig
 
-    # ==========================================
-    # SEZIONE 1: Gestione del Carico e della Forma
-    # ==========================================
     with st.container(border=True):
         st.markdown("### 1. Gestione del Carico e della Forma (Grafico 'Fitness')")
+        st.caption("ℹ️ **Legenda:** Monitoraggio a lungo termine del carico di allenamento (CTL = Fitness, ATL = Fatica, TSB = Stato di Forma/Balance).")
         col_s1_1, col_s1_2, col_s1_3 = st.columns(3)
         
         with col_s1_1:
@@ -843,18 +784,9 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             ))
             st.plotly_chart(apply_dark_theme(fig_tsb), use_container_width=True, config={'displaylogo': False})
 
-        st.info(
-            "📖 **Legenda Sezione 1:**\n"
-            "* **Fitness (CTL):** Carico cronico (42 giorni).\n"
-            "* **Fatigue (ATL):** Carico acuto (7 giorni).\n"
-            "* **Form (TSB):** Bilancio dello stress (CTL - ATL)."
-        )
-
-    # ==========================================
-    # SEZIONE 2: Intensità e Stress della Singola Sessione
-    # ==========================================
     with st.container(border=True):
         st.markdown("### 2. Intensità e Stress della Singola Sessione")
+        st.caption("ℹ️ **Legenda:** Valutazione dello stress immediato dell'allenamento (TSS/Load), dell'Intensity Factor (IF) e della regolarità dello sforzo tramite il Variability Index (VI).")
         col_s2_1, col_s2_2, col_s2_3 = st.columns(3)
         
         with col_s2_1:
@@ -876,22 +808,13 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             fig_vi = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_vi, title={"text": "<b>Variability Index (VI)</b>"},
                 number={'valueformat': ".2f"},
-                gauge={'axis': {'range': [1.0, max(1.5, val_vi + 0.1)]}, 'bar': {'color': "teal"}, 'bgcolor': "rgba(0,0,0,0)"}
+                gauge={'axis': {'range': [1.0, 1.5]}, 'bar': {'color': "teal"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_vi), use_container_width=True, config={'displaylogo': False})
 
-        st.info(
-            "📖 **Legenda Sezione 2:**\n"
-            "* **Load / TSS:** Quantifica lo stress complessivo.\n"
-            "* **Intensity Factor (IF):** Rapporto calcolato NP / eFTP.\n"
-            "* **Variability Index (VI):** Rapporto calcolato NP / Potenza Media."
-        )
-
-    # ==========================================
-    # SEZIONE 3: Analisi della Performance e Capacità
-    # ==========================================
     with st.container(border=True):
         st.markdown("### 3. Analisi della Performance e Capacità")
+        st.caption("ℹ️ **Legenda:** Analisi della potenza funzionale stimata (eFTP), del consumo massimo della riserva anaerobica (W'bal Drop) e dell'Efficiency Factor (EF) inteso come rapporto potenza/frequenza cardiaca.")
         col_s3_1, col_s3_2, col_s3_3 = st.columns(3)
         
         with col_s3_1:
@@ -916,10 +839,3 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
-
-        st.info(
-            "📖 **Legenda Sezione 3:**\n"
-            "* **eFTP (W):** Soglia funzionale stimata.\n"
-            "* **W' Bal (kJ):** Riserva anaerobica minima / calo registrato.\n"
-            "* **Efficiency Factor (EF):** Rapporto calcolato NP / FC Media."
-        )
