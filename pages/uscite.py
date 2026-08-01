@@ -629,11 +629,11 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (CHIAMATA DIRETTA AL LIST & DETTAGLIO) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (DEFINITIVA CON LEGENDA) ---
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
-    st.write("Estrazione diretta dal flusso attività di Intervals.icu.")
+    st.write("Estrazione diretta dal endpoint di dettaglio dell'attività Intervals.icu.")
     
     col_f_modo, col_f_val1, col_f_val2 = st.columns([2, 2, 2])
     with col_f_modo:
@@ -651,6 +651,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
         with col_f_val2:
             end_sec4 = st.date_input("Data Fine Parametri", value=oggi, key="sec4_end_range")
 
+    # 1. Chiamata API Lista Attività per trovare l'ID
     url_sec4 = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_sec4 = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -659,6 +660,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     }
     resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
 
+    # 2. Chiamata API Wellness (per CTL, ATL)
     url_well = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/wellness"
     params_well = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -666,6 +668,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     }
     resp_well = requests.get(url_well, auth=("API_KEY", API_KEY.strip()), params=params_well)
 
+    # Inizializzazione
     val_load = 0.0
     val_if = 0.0
     val_vi = 1.0
@@ -676,6 +679,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     val_atl = 0.0
     m = {}
 
+    # Parsing Wellness
     if resp_well.status_code == 200:
         dati_well = resp_well.json()
         if dati_well:
@@ -688,6 +692,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     val_ctl = float(ultimo_w.get('ctl', 0.0) or 0.0)
                     val_atl = float(ultimo_w.get('atl', 0.0) or 0.0)
 
+    # Parsing Attività e chiamata puntuale al singolo ID
     if resp_sec4.status_code == 200:
         dati_sec4 = resp_sec4.json()
         if dati_sec4:
@@ -702,47 +707,55 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 
                 if not df_s4_filtrato.empty:
                     ultima_act = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
-                    m = ultima_act.to_dict()
+                    act_id = ultima_act.get('id')
                     
-                    act_id = m.get('id')
                     if act_id:
                         url_detail = f"https://intervals.icu/api/v1/activity/{act_id}"
                         resp_detail = requests.get(url_detail, auth=("API_KEY", API_KEY.strip()))
                         if resp_detail.status_code == 200:
-                            detail_json = resp_detail.json()
-                            m.update(detail_json)
-
-                    val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
-                    val_eftp = float(m.get('icu_ftp') or m.get('eftp') or 279.0)
+                            m = resp_detail.json()
                     
-                    val_ctl = float(m.get('icu_ctl') or val_ctl or 0.0)
-                    val_atl = float(m.get('icu_atl') or val_atl or 0.0)
+                    if not m:
+                        m = ultima_act.to_dict()
 
+                    # Estrazione sicura dei valori
+                    val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
+                    
                     np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
                     gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
+                    val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or 279.0)
                     
+                    # IF
                     if np_val > 0 and val_eftp > 0:
                         val_if = np_val / val_eftp
                     else:
-                        raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
+                        raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
-
-                    val_vi = float(m.get('variability_index') or m.get('vi') or 0.0)
-                    if val_vi == 0.0 and np_val > 0 and gp_val > 0:
+                    
+                    # VI
+                    if np_val > 0 and gp_val > 0:
                         val_vi = np_val / gp_val
-                    if val_vi == 0.0: 
-                        val_vi = 1.0
-
-                    val_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
-                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
-                    if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
-                        val_ef = np_val / avg_hr
-
-                    wbal_raw = float(m.get('wbal_dep') or m.get('min_w_prime_balance') or 0.0)
-                    if wbal_raw > 50:
-                        val_wbal = wbal_raw / 1000.0
                     else:
-                        val_wbal = wbal_raw
+                        val_vi = float(m.get('variability_index') or m.get('vi') or 1.0)
+                    if val_vi == 0.0: val_vi = 1.0
+
+                    # EF
+                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
+                    if np_val > 0 and avg_hr > 0:
+                        val_ef = np_val / avg_hr
+                    else:
+                        val_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
+
+                    # W' Bal (kJ) - Gestione chiavi multiple
+                    w_bal_raw = float(m.get('w_prime_balance') or m.get('min_w_prime_balance') or m.get('wBal') or 0.0)
+                    if w_bal_raw == 0.0 and 'icu_w_prime_balance' in m:
+                        w_bal_raw = float(m.get('icu_w_prime_balance', 0.0))
+                    val_wbal = w_bal_raw / 1000.0 if abs(w_bal_raw) > 50 else w_bal_raw
+
+                    if val_ctl == 0.0:
+                        val_ctl = float(m.get('icu_ctl', 0.0) or 0.0)
+                    if val_atl == 0.0:
+                        val_atl = float(m.get('icu_atl', 0.0) or 0.0)
 
     val_tsb = val_ctl - val_atl
 
@@ -758,9 +771,11 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
         )
         return fig
 
+    # ==========================================
+    # SEZIONE 1: Gestione del Carico e della Forma
+    # ==========================================
     with st.container(border=True):
         st.markdown("### 1. Gestione del Carico e della Forma (Grafico 'Fitness')")
-        st.caption("ℹ️ **Legenda:** Monitoraggio a lungo termine del carico di allenamento (CTL = Fitness, ATL = Fatica, TSB = Stato di Forma/Balance).")
         col_s1_1, col_s1_2, col_s1_3 = st.columns(3)
         
         with col_s1_1:
@@ -784,9 +799,11 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             ))
             st.plotly_chart(apply_dark_theme(fig_tsb), use_container_width=True, config={'displaylogo': False})
 
+    # ==========================================
+    # SEZIONE 2: Intensità e Stress della Singola Sessione
+    # ==========================================
     with st.container(border=True):
         st.markdown("### 2. Intensità e Stress della Singola Sessione")
-        st.caption("ℹ️ **Legenda:** Valutazione dello stress immediato dell'allenamento (TSS/Load), dell'Intensity Factor (IF) e della regolarità dello sforzo tramite il Variability Index (VI).")
         col_s2_1, col_s2_2, col_s2_3 = st.columns(3)
         
         with col_s2_1:
@@ -812,9 +829,19 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             ))
             st.plotly_chart(apply_dark_theme(fig_vi), use_container_width=True, config={'displaylogo': False})
 
+        # Legenda Sezione 2
+        st.info(
+            "📖 **Legenda Sezione 2:**\n"
+            "* **Load / TSS:** Quantifica lo stress complessivo della sessione basato su durata e intensità.\n"
+            "* **Intensity Factor (IF):** Rapporto tra la potenza normalizzata (NP) e la eFTP (es. IF 0.75-0.85 = fondo medio).\n"
+            "* **Variability Index (VI):** Rapporto NP / Potenza Media. Indica quanto è irregolare lo sforzo (1.0 = passista, >1.15 = collinare/intervallato)."
+        )
+
+    # ==========================================
+    # SEZIONE 3: Analisi della Performance e Capacità
+    # ==========================================
     with st.container(border=True):
         st.markdown("### 3. Analisi della Performance e Capacità")
-        st.caption("ℹ️ **Legenda:** Analisi della potenza funzionale stimata (eFTP), del consumo massimo della riserva anaerobica (W'bal Drop) e dell'Efficiency Factor (EF) inteso come rapporto potenza/frequenza cardiaca.")
         col_s3_1, col_s3_2, col_s3_3 = st.columns(3)
         
         with col_s3_1:
@@ -839,3 +866,11 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
+
+        # Legenda Sezione 3
+        st.info(
+            "📖 **Legenda Sezione 3:**\n"
+            "* **eFTP (W):** Stima dinamica della Functional Threshold Power basata sui dati di potenza recenti.\n"
+            "* **W' Bal (kJ):** Riserva di energia anaerobica residua (W' Balance). Mostra il punto di massimo svuotamento anaerobico durante gli scatti o le salite ripide.\n"
+            "* **Efficiency Factor (EF):** Rapporto tra Potenza Normalizzata e Frequenza Cardiaca Media. Misura l'efficienza aerobica cardiovascolare."
+        )
