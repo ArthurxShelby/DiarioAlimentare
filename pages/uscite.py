@@ -709,7 +709,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     ultima_act = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
                     act_id = ultima_act.get('id')
                     
-                    # CHIAVE: Chiamata diretta al dettaglio completo dell'attività
                     if act_id:
                         url_detail = f"https://intervals.icu/api/v1/activity/{act_id}"
                         resp_detail = requests.get(url_detail, auth=("API_KEY", API_KEY.strip()))
@@ -719,49 +718,50 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if not m:
                         m = ultima_act.to_dict()
 
-    # --- BLOCCO DEBUG TEMPORANEO: scommenta la riga sotto per vedere le chiavi reali nel browser ---
-    # st.json(m)
+                    # --- BLOCCO DEBUG TEMPORANEO ---
+                    # Rimuovi il cancelletto dalla riga sotto per vedere i dati grezzi su Streamlit
+                    # st.json(m)
 
-    # Estrazione sicura basata sui nomi reali delle chiavi dell'API v1 di Intervals.icu
-    val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
-    
-    np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
-    gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
-    val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or 279.0)
-    
-    # IF
-    if np_val > 0 and val_eftp > 0:
-        val_if = np_val / val_eftp
-    else:
-        raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
-        val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
-    
-    # VI (intervals.icu restituisce spesso 'variability_index' o 'vi')
-    val_vi = float(m.get('variability_index') or m.get('vi') or 0.0)
-    if val_vi == 0.0 and np_val > 0 and gp_val > 0:
-        val_vi = np_val / gp_val
-    if val_vi == 0.0: 
-        val_vi = 1.0
+                    # Estrazione sicura dei valori
+                    val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
+                    
+                    np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
+                    gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
+                    val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or 279.0)
+                    
+                    # IF
+                    if np_val > 0 and val_eftp > 0:
+                        val_if = np_val / val_eftp
+                    else:
+                        raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
+                        val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
+                    
+                    # VI
+                    val_vi = float(m.get('variability_index') or m.get('vi') or 0.0)
+                    if val_vi == 0.0 and np_val > 0 and gp_val > 0:
+                        val_vi = np_val / gp_val
+                    if val_vi == 0.0: 
+                        val_vi = 1.0
 
-    # EF (intervals.icu restituisce 'efficiency_factor' o 'ef')
-    val_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
-    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
-    if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
-        val_ef = np_val / avg_hr
+                    # EF
+                    val_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
+                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
+                    if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
+                        val_ef = np_val / avg_hr
 
-    # W' Bal (intervals.icu restituisce il minimo residuo o kJ nei campi dedicati)
-    w_bal_raw = float(m.get('min_w_prime_balance') or m.get('w_prime_balance') or m.get('wBal') or m.get('icu_w_prime_balance') or 0.0)
-    if abs(w_bal_raw) > 50:
-        val_wbal = w_bal_raw / 1000.0
-    else:
-        val_wbal = w_bal_raw
+                    # W' Bal
+                    w_bal_raw = float(m.get('min_w_prime_balance') or m.get('w_prime_balance') or m.get('wBal') or m.get('icu_w_prime_balance') or 0.0)
+                    if abs(w_bal_raw) > 50:
+                        val_wbal = w_bal_raw / 1000.0
+                    else:
+                        val_wbal = w_bal_raw
 
-    if val_ctl == 0.0:
-        val_ctl = float(m.get('icu_ctl', 0.0) or 0.0)
-    if val_atl == 0.0:
-        val_atl = float(m.get('icu_atl', 0.0) or 0.0)
+                    if val_ctl == 0.0:
+                        val_ctl = float(m.get('icu_ctl', 0.0) or 0.0)
+                    if val_atl == 0.0:
+                        val_atl = float(m.get('icu_atl', 0.0) or 0.0)
 
-val_tsb = val_ctl - val_atl
+    val_tsb = val_ctl - val_atl
 
     st.markdown("---")
 
