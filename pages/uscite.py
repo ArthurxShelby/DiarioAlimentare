@@ -629,7 +629,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (CALCOLO FORZATO VI, EF, W'BAL) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (CALCOLO DEFINITIVO VI, EF, IF, W'BAL) ---
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
@@ -759,14 +759,14 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
 
-                    # 2. Calcolo Variability Index (VI) = NP / Potenza Media (forzato matematicamente)
+                    # 2. Calcolo Variability Index (VI) = NP / Potenza Media
                     if np_val > 0 and gp_val > 0:
                         val_vi = np_val / gp_val
                     else:
                         raw_vi = float(m.get('variability_index') or m.get('vi') or m.get('icu_vi') or 0.0)
                         val_vi = raw_vi if raw_vi > 0 else 1.0
 
-                    # 3. Calcolo Efficiency Factor (EF) = NP / FC Media (forzato matematicamente)
+                    # 3. Calcolo Efficiency Factor (EF) = NP / FC Media (ripristinato e forzato)
                     if np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
                     else:
