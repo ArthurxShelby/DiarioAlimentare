@@ -629,10 +629,10 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (MAPPATURA CORRETTA FLUSSO NATIVO) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (CON DEBUG DEL JSON GREZZO) ---
 st.markdown("---")
 
-with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
+with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Debug)", expanded=True):
     st.write("Estrazione diretta dei parametri reali calcolati da Intervals.icu per l'attività odierna.")
     
     col_f_modo, col_f_val1, col_f_val2 = st.columns([2, 2, 2])
@@ -677,6 +677,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     val_ef = 0.0
     val_ctl = 0.0
     val_atl = 0.0
+    dati_act = {}
 
     # Parsing Wellness
     if resp_well.status_code == 200:
@@ -689,7 +690,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 if not df_w_filtrato.empty:
                     ultimo_w = df_w_filtrato.sort_values('id', ascending=False).iloc[0]
                     val_ctl = float(ultimo_w.get('ctl', 0.0) or 0.0)
-                    val_atl = float(ultimo_w.get('atl', 0.0) or 0.0)
+                    val_atl = float(ultimo_w.get('atl', 0.0)or 0.0)
 
     # Parsing Attività con estrazione del dettaglio ID univoco
     if resp_sec4.status_code == 200:
@@ -710,34 +711,33 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     ultima_act_summary = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
                     act_id = ultima_act_summary.get('id')
                     
-                    dati_act = {}
                     if act_id:
                         url_detail = f"https://intervals.icu/api/v1/activity/{act_id}"
                         resp_detail = requests.get(url_detail, auth=("API_KEY", API_KEY.strip()))
                         if resp_detail.status_code == 200:
                             dati_act = resp_detail.json()
                     
-                    # Unione completa dei dizionari per catturare le chiavi esatte di Intervals
+                    # Unione dizionari
                     m = {**ultima_act_summary.to_dict(), **dati_act}
                     
-                    # Mappatura corretta Intensity Factor
+                    # Stampa di debug a schermo del JSON per vedere le chiavi reali
+                    with st.expander("🔍 [DEBUG] Visualizza JSON Grezzo Attività di Intervals", expanded=False):
+                        st.json(m)
+                    
+                    # Mappatura estesa con fallback multipli basati sui nomi standard di Intervals
                     raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
                     val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
                     
-                    # Mappatura corretta Variability Index (VI)
-                    val_vi = float(m.get('variability_index') or m.get('vi') or m.get('variabilityIndex') or 1.0)
+                    val_vi = float(m.get('variability_index') or m.get('vi') or m.get('variabilityIndex') or m.get('consistency') or 1.0)
                     if val_vi == 0.0: 
                         val_vi = 1.0
                         
-                    # Mappatura corretta eFTP
                     val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or 240.0)
                     
-                    # Mappatura corretta W' Balance residuo/minimo
-                    w_bal_raw = float(m.get('w_prime_balance') or m.get('min_w_prime_balance') or m.get('wBal') or 0.0)
+                    w_bal_raw = float(m.get('w_prime_balance') or m.get('min_w_prime_balance') or m.get('wBal') or m.get('w_bal_min') or 0.0)
                     val_wbal = w_bal_raw / 1000.0 if w_bal_raw > 50 else w_bal_raw
                     
-                    # Mappatura corretta Efficiency Factor (EF)
-                    val_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('efficiencyFactor') or 0.0)
+                    val_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('efficiencyFactor') or m.get('aerobic_efficiency') or 0.0)
                     
                     if val_ctl == 0.0:
                         val_ctl = float(m.get('icu_ctl', 0.0) or 0.0)
@@ -748,7 +748,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
 
     st.markdown("---")
 
-    # Funzione di supporto per applicare lo stile scuro ai grafici Plotly
     def apply_dark_theme(fig, height=220):
         fig.update_layout(
             height=height,
@@ -760,7 +759,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
         return fig
 
     # ==========================================
-    # SEZIONE 1: Gestione del Carico e della Forma (Fitness)
+    # SEZIONE 1: Gestione del Carico e della Forma
     # ==========================================
     with st.container(border=True):
         st.markdown("### 1. Gestione del Carico e della Forma (Grafico 'Fitness')")
