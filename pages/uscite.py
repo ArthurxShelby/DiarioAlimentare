@@ -407,7 +407,8 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             df_g['titolo_uscita'] = df_g.get('name', 'Uscita senza nome')
             df_g['id_str'] = df_g.get('id').astype(str)
             df_g['load'] = df_g.get('icu_training_load', 243).fillna(243)
-            df_g['efficiency_factor'] = df_g.get('efficiency_factor', 1.44).fillna(1.44)
+            df_g['efficiency_factor'] = df_g['efficiency_factor'] if 'efficiency_factor' in df_g.columns else 1.44
+            df_g['efficiency_factor'] = pd.to_numeric(df_g['efficiency_factor'], errors='coerce').fillna(1.44)
 
             if filtro_nome_grafico.strip():
                 q_nome = filtro_nome_grafico.strip().lower()
