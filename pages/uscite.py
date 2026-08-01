@@ -720,49 +720,45 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if not m:
                         m = ultima_act.to_dict()
 
-                    # Estrazione sicura dei valori con fallback multipli sui campi di Intervals.icu
-    val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
-    
-    np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
-    gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
-    val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or 279.0)
-    
-    # IF (Intensity Factor)
-    if np_val > 0 and val_eftp > 0:
-        val_if = np_val / val_eftp
-    else:
-        raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
-        val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
-    
-    # VI (Variability Index) - Gestione corretta se manca NP o AP
-    if np_val > 0 and gp_val > 0:
-        val_vi = np_val / gp_val
-    else:
-        val_vi = float(m.get('variability_index') or m.get('vi') or 0.0)
-    if val_vi == 0.0 or val_vi < 1.0: 
-        val_vi = 1.0  # Valore di default neutro per il ciclismo
+                    # Estrazione sicura dei valori
+                    val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
+                    
+                    np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
+                    gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
+                    val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or 279.0)
+                    
+                    # IF
+                    if np_val > 0 and val_eftp > 0:
+                        val_if = np_val / val_eftp
+                    else:
+                        raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
+                        val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
+                    
+                    # VI
+                    if np_val > 0 and gp_val > 0:
+                        val_vi = np_val / gp_val
+                    else:
+                        val_vi = float(m.get('variability_index') or m.get('vi') or 1.0)
+                    if val_vi == 0.0: 
+                        val_vi = 1.0
 
-    # EF (Efficiency Factor) - Calcolo diretto NP / HR media o fallback sul campo API
-    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
-    if np_val > 0 and avg_hr > 0:
-        val_ef = np_val / avg_hr
-    else:
-        val_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
+                    # EF
+                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
+                    if np_val > 0 and avg_hr > 0:
+                        val_ef = np_val / avg_hr
+                    else:
+                        val_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
 
-    # W' Bal - Intervals restituisce spesso i joule (es. 15000J -> 15kJ) o valori negativi minimi raggiunti
-    w_bal_raw = float(m.get('w_prime_balance') or m.get('min_w_prime_balance') or m.get('wBal') or m.get('icu_w_prime_balance') or 0.0)
-    # Se il valore è in Joule (> 50), convertilo in kJ, altrimenti gestisci il valore residuo/minimo
-    if abs(w_bal_raw) > 50:
-        val_wbal = w_bal_raw / 1000.0
-    else:
-        val_wbal = w_bal_raw
+                    # W' Bal
+                    w_bal_raw = float(m.get('w_prime_balance') or m.get('min_w_prime_balance') or m.get('wBal') or m.get('icu_w_prime_balance') or 0.0)
+                    val_wbal = w_bal_raw / 1000.0 if abs(w_bal_raw) > 50 else w_bal_raw
 
-    if val_ctl == 0.0:
-        val_ctl = float(m.get('icu_ctl', 0.0) or 0.0)
-    if val_atl == 0.0:
-        val_atl = float(m.get('icu_atl', 0.0) or 0.0)
+                    if val_ctl == 0.0:
+                        val_ctl = float(m.get('icu_ctl', 0.0) or 0.0)
+                    if val_atl == 0.0:
+                        val_atl = float(m.get('icu_atl', 0.0) or 0.0)
 
-val_tsb = val_ctl - val_atl
+    val_tsb = val_ctl - val_atl
 
     st.markdown("---")
 
