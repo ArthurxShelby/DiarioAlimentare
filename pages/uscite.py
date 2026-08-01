@@ -629,165 +629,188 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (ORGANIZZATA PER SEZIONI E LEGENDA) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (IN MENU A TENDINA CON FILTRI DI RICERCA) ---
 st.markdown("---")
-st.subheader("🎯 Dashboard Avanzata Parametri Intervals.icu")
-st.write("Analisi strutturata divisa per categorie di carico, intensità e performance basata sui parametri chiave della piattaforma.")
 
-# Recupero dati ultima uscita o fallback
-try:
-    if 'df_g' in locals() and not df_g.empty:
-        ultima_uscita = df_g.sort_values('data_fmt', ascending=False).iloc[0]
-        val_load = float(ultima_uscita.get('load', 243))
-        val_if = float(ultima_uscita.get('intensity_factor', 0.82))
-        val_vi = float(ultima_uscita.get('variability_index', 1.05))
-        val_eftp = float(ultima_uscita.get('eftp', 240))
-        val_wbal = float(ultima_uscita.get('w_prime_balance', 15.0))
-        val_ef = float(ultima_uscita.get('efficiency_factor', 1.44))
+with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ricerca Giornaliera o Range)", expanded=True):
+    st.write("Filtra i parametri per data specifica (singolo giorno) oppure analizza un intervallo temporale personalizzato.")
+    
+    col_f_modo, col_f_val1, col_f_val2 = st.columns([2, 2, 2])
+    with col_f_modo:
+        modo_ricerca_sec4 = st.selectbox("Modalità di Ricerca Parametri", ["Intervallo Date (Range)", "Giorno Specifico"], key="mod_ricerca_sec4")
+    
+    oggi = date.today()
+    if modo_ricerca_sec4 == "Giorno Specifico":
+        with col_f_val1:
+            giorno_scelto = st.date_input("Seleziona Giorno", value=oggi, key="sec4_giorno_singolo")
+        start_sec4 = giorno_scelto
+        end_sec4 = giorno_scelto
     else:
-        val_load = 243.0
-        val_if = 0.82
-        val_vi = 1.05
-        val_eftp = 240.0
-        val_wbal = 15.0
-        val_ef = 1.44
-except Exception:
+        with col_f_val1:
+            start_sec4 = st.date_input("Data Inizio Parametri", value=date(2026, 1, 1), key="sec4_start_range")
+        with col_f_val2:
+            end_sec4 = st.date_input("Data Fine Parametri", value=oggi, key="sec4_end_range")
+
+    # Recupero dati basato sul filtro selezionato
+    url_sec4 = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
+    params_sec4 = {
+        "oldest": start_sec4.strftime("%Y-%m-%d"),
+        "newest": end_sec4.strftime("%Y-%m-%d"),
+        "iw": True
+    }
+    resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
+
+    # Valori di default/fallback
     val_load = 243.0
     val_if = 0.82
     val_vi = 1.05
     val_eftp = 240.0
     val_wbal = 15.0
     val_ef = 1.44
+    val_ctl = 68.0
+    val_atl = 75.0
 
-# Valori di Fitness (CTL), Fatigue (ATL) e Form (TSB) stimati/mock per la sezione 1
-val_ctl = 68.0
-val_atl = 75.0
-val_tsb = val_ctl - val_atl  # Form
+    if resp_sec4.status_code == 200:
+        dati_sec4 = resp_sec4.json()
+        if dati_sec4:
+            df_s4 = pd.DataFrame(dati_sec4)
+            # Se ci sono più attività nel range, prendiamo i valori medi o dell'ultima del periodo filtrato
+            if not df_s4.empty:
+                ultima_filtrata = df_s4.sort_values('start_date_local', ascending=False).iloc[0]
+                val_load = float(ultima_filtrata.get('load', val_load)) if pd.notna(ultima_filtrata.get('load')) else val_load
+                val_if = float(ultima_filtrata.get('intensity_factor', val_if)) if pd.notna(ultima_filtrata.get('intensity_factor')) else val_if
+                val_vi = float(ultima_filtrata.get('variability_index', val_vi)) if pd.notna(ultima_filtrata.get('variability_index')) else val_vi
+                val_eftp = float(ultima_filtrata.get('eftp', val_eftp)) if pd.notna(ultima_filtrata.get('eftp')) else val_eftp
+                val_wbal = float(ultima_filtrata.get('w_prime_balance', val_wbal)) if pd.notna(ultima_filtrata.get('w_prime_balance')) else val_wbal
+                val_ef = float(ultima_filtrata.get('efficiency_factor', val_ef)) if pd.notna(ultima_filtrata.get('efficiency_factor')) else val_ef
 
+    val_tsb = val_ctl - val_atl
 
-# ==========================================
-# SEZIONE 1: Gestione del Carico e della Forma (Fitness)
-# ==========================================
-with st.container(border=True):
-    st.markdown("### 1. Gestione del Carico e della Forma (Grafico 'Fitness')")
-    st.info("""
-    **📖 Legenda e Significato:**
-    * **Fitness (CTL):** Volume di allenamento cronico (media ultimi 42 giorni). Indica quanto sei allenato.
-    * **Fatigue (ATL):** Carico acuto degli ultimi 7 giorni. Indica la stanchezza attuale.
-    * **Form (TSB):** Differenza tra Fitness e Fatigue (Form = Fitness - Fatigue). Indica la freschezza. L'intervallo ideale (*Optimal Zone*) si trova tra -10 e -30 per migliorare senza sovrallenamento.
-    """)
-    
-    col_s1_1, col_s1_2, col_s1_3 = st.columns(3)
-    
-    with col_s1_1:
-        fig_ctl = go.Figure(go.Indicator(
-            mode="gauge+number", value=val_ctl, title={"text": "<b>Fitness (CTL)</b>"},
-            gauge={'axis': {'range': [0, 120]}, 'bar': {'color': "royalblue"},
-                   'steps': [{'range': [0, 60], 'color': "#f0f2f6"}, {'range': [60, 100], 'color': "#d1e7dd"}]}
-        ))
-        fig_ctl.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
-        st.plotly_chart(fig_ctl, use_container_width=True, config={'displaylogo': False})
+    st.markdown("---")
+
+    # ==========================================
+    # SEZIONE 1: Gestione del Carico e della Forma (Fitness)
+    # ==========================================
+    with st.container(border=True):
+        st.markdown("### 1. Gestione del Carico e della Forma (Grafico 'Fitness')")
+        st.info("""
+        **📖 Legenda e Significato:**
+        * **Fitness (CTL):** Volume di allenamento cronico (media ultimi 42 giorni). Indica quanto sei allenato.
+        * **Fatigue (ATL):** Carico acuto degli ultimi 7 giorni. Indica la stanchezza attuale.
+        * **Form (TSB):** Differenza tra Fitness e Fatigue (Form = Fitness - Fatigue). Indica la freschezza. L'intervallo ideale (*Optimal Zone*) si trova tra -10 e -30 per migliorare senza sovrallenamento.
+        """)
         
-    with col_s1_2:
-        fig_atl = go.Figure(go.Indicator(
-            mode="gauge+number", value=val_atl, title={"text": "<b>Fatigue (ATL)</b>"},
-            gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "darkorange"},
-                   'steps': [{'range': [0, 80], 'color': "#f0f2f6"}, {'range': [80, 130], 'color': "#f8d7da"}]}
-        ))
-        fig_atl.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
-        st.plotly_chart(fig_atl, use_container_width=True, config={'displaylogo': False})
+        col_s1_1, col_s1_2, col_s1_3 = st.columns(3)
         
-    with col_s1_3:
-        fig_tsb = go.Figure(go.Indicator(
-            mode="gauge+number", value=val_tsb, title={"text": "<b>Form (TSB) [Optimal: -10/-30]</b>"},
-            gauge={'axis': {'range': [-50, 50]}, 'bar': {'color': "forestgreen" if -30 <= val_tsb <= -10 else "crimson"},
-                   'steps': [{'range': [-30, -10], 'color': "#d1e7dd"}, {'range': [-50, -30], 'color': "#f8d7da"}, {'range': [-10, 50], 'color': "#f0f2f6"}]}
-        ))
-        fig_tsb.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
-        st.plotly_chart(fig_tsb, use_container_width=True, config={'displaylogo': False})
+        with col_s1_1:
+            fig_ctl = go.Figure(go.Indicator(
+                mode="gauge+number", value=val_ctl, title={"text": "<b>Fitness (CTL)</b>"},
+                gauge={'axis': {'range': [0, 120]}, 'bar': {'color': "royalblue"},
+                       'steps': [{'range': [0, 60], 'color': "#f0f2f6"}, {'range': [60, 100], 'color': "#d1e7dd"}]}
+            ))
+            fig_ctl.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            st.plotly_chart(fig_ctl, use_container_width=True, config={'displaylogo': False})
+            
+        with col_s1_2:
+            fig_atl = go.Figure(go.Indicator(
+                mode="gauge+number", value=val_atl, title={"text": "<b>Fatigue (ATL)</b>"},
+                gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "darkorange"},
+                       'steps': [{'range': [0, 80], 'color': "#f0f2f6"}, {'range': [80, 130], 'color': "#f8d7da"}]}
+            ))
+            fig_atl.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            st.plotly_chart(fig_atl, use_container_width=True, config={'displaylogo': False})
+            
+        with col_s1_3:
+            fig_tsb = go.Figure(go.Indicator(
+                mode="gauge+number", value=val_tsb, title={"text": "<b>Form (TSB) [Optimal: -10/-30]</b>"},
+                gauge={'axis': {'range': [-50, 50]}, 'bar': {'color': "forestgreen" if -30 <= val_tsb <= -10 else "crimson"},
+                       'steps': [{'range': [-30, -10], 'color': "#d1e7dd"}, {'range': [-50, -30], 'color': "#f8d7da"}, {'range': [-10, 50], 'color': "#f0f2f6"}]}
+            ))
+            fig_tsb.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            st.plotly_chart(fig_tsb, use_container_width=True, config={'displaylogo': False})
 
-# ==========================================
-# SEZIONE 2: Intensità e Stress della Singola Sessione
-# ==========================================
-with st.container(border=True):
-    st.markdown("### 2. Intensità e Stress della Singola Sessione")
-    st.info("""
-    **📖 Legenda e Significato:**
-    * **Load / TSS:** Carico totale della sessione che unisce durata e intensità dello sforzo.
-    * **Intensity Factor (IF):** Rapporto tra potenza normalizzata e FTP (1.0 = un'ora alla soglia).
-    * **Variability Index (VI):** Rapporto tra Potenza Normalizzata e Potenza Media ($VI = NP / Avg Power$). Più è vicino a 1.0, più la pedalata è costante (es. pianura o cronometro).
-    """)
-    
-    col_s2_1, col_s2_2, col_s2_3 = st.columns(3)
-    
-    with col_s2_1:
-        fig_load = go.Figure(go.Indicator(
-            mode="gauge+number", value=val_load, title={"text": "<b>Load / TSS Sessione</b>"},
-            gauge={'axis': {'range': [0, 350]}, 'bar': {'color': "dodgerblue"},
-                   'steps': [{'range': [0, 150], 'color': "#f0f2f6"}, {'range': [150, 250], 'color': "#d1e7dd"}, {'range': [250, 350], 'color': "#f8d7da"}]}
-        ))
-        fig_load.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
-        st.plotly_chart(fig_load, use_container_width=True, config={'displaylogo': False})
+    # ==========================================
+    # SEZIONE 2: Intensità e Stress della Singola Sessione
+    # ==========================================
+    with st.container(border=True):
+        st.markdown("### 2. Intensità e Stress della Singola Sessione")
+        st.info("""
+        **📖 Legenda e Significato:**
+        * **Load / TSS:** Carico totale della sessione che unisce durata e intensità dello sforzo.
+        * **Intensity Factor (IF):** Rapporto tra potenza normalizzata e FTP (1.0 = un'ora alla soglia).
+        * **Variability Index (VI):** Rapporto tra Potenza Normalizzata e Potenza Media ($VI = NP / Avg Power$). Più è vicino a 1.0, più la pedalata è costante (es. pianura o cronometro).
+        """)
+        
+        col_s2_1, col_s2_2, col_s2_3 = st.columns(3)
+        
+        with col_s2_1:
+            fig_load = go.Figure(go.Indicator(
+                mode="gauge+number", value=val_load, title={"text": "<b>Load / TSS Sessione</b>"},
+                gauge={'axis': {'range': [0, 350]}, 'bar': {'color': "dodgerblue"},
+                       'steps': [{'range': [0, 150], 'color': "#f0f2f6"}, {'range': [150, 250], 'color': "#d1e7dd"}, {'range': [250, 350], 'color': "#f8d7da"}]}
+            ))
+            fig_load.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            st.plotly_chart(fig_load, use_container_width=True, config={'displaylogo': False})
 
-    with col_s2_2:
-        fig_if = go.Figure(go.Indicator(
-            mode="gauge+number", value=val_if, title={"text": "<b>Intensity Factor (IF)</b>"},
-            number={'valueformat': ".2f"},
-            gauge={'axis': {'range': [0, 1.3]}, 'bar': {'color': "purple"},
-                   'steps': [{'range': [0, 0.75], 'color': "#f0f2f6"}, {'range': [0.75, 0.95], 'color': "#d1e7dd"}, {'range': [0.95, 1.3], 'color': "#f8d7da"}]}
-        ))
-        fig_if.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
-        st.plotly_chart(fig_if, use_container_width=True, config={'displaylogo': False})
+        with col_s2_2:
+            fig_if = go.Figure(go.Indicator(
+                mode="gauge+number", value=val_if, title={"text": "<b>Intensity Factor (IF)</b>"},
+                number={'valueformat': ".2f"},
+                gauge={'axis': {'range': [0, 1.3]}, 'bar': {'color': "purple"},
+                       'steps': [{'range': [0, 0.75], 'color': "#f0f2f6"}, {'range': [0.75, 0.95], 'color': "#d1e7dd"}, {'range': [0.95, 1.3], 'color': "#f8d7da"}]}
+            ))
+            fig_if.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            st.plotly_chart(fig_if, use_container_width=True, config={'displaylogo': False})
 
-    with col_s2_3:
-        fig_vi = go.Figure(go.Indicator(
-            mode="gauge+number", value=val_vi, title={"text": "<b>Variability Index (VI)</b>"},
-            number={'valueformat': ".2f"},
-            gauge={'axis': {'range': [1.0, 1.5]}, 'bar': {'color': "teal"},
-                   'steps': [{'range': [1.0, 1.05], 'color': "#d1e7dd"}, {'range': [1.05, 1.5], 'color': "#f0f2f6"}]}
-        ))
-        fig_vi.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
-        st.plotly_chart(fig_vi, use_container_width=True, config={'displaylogo': False})
+        with col_s2_3:
+            fig_vi = go.Figure(go.Indicator(
+                mode="gauge+number", value=val_vi, title={"text": "<b>Variability Index (VI)</b>"},
+                number={'valueformat': ".2f"},
+                gauge={'axis': {'range': [1.0, 1.5]}, 'bar': {'color': "teal"},
+                       'steps': [{'range': [1.0, 1.05], 'color': "#d1e7dd"}, {'range': [1.05, 1.5], 'color': "#f0f2f6"}]}
+            ))
+            fig_vi.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            st.plotly_chart(fig_vi, use_container_width=True, config={'displaylogo': False})
 
-# ==========================================
-# SEZIONE 3: Analisi della Performance e Capacità
-# ==========================================
-with st.container(border=True):
-    st.markdown("### 3. Analisi della Performance e Capacità")
-    st.info("""
-    **📖 Legenda e Significato:**
-    * **eFTP (Estimated FTP):** Potenza di soglia stimata automaticamente dai migliori sforzi massimali (da 3 a 12 minuti).
-    * **W' Bal (W-Prime Balance):** Energia anaerobica residua durante scatti o salite sopra soglia. Se arriva a zero, l'autonomia si esaurisce.
-    * **Efficiency Factor (EF):** Rapporto tra potenza ed efficienza cardiaca (indicatore di rendimento aerobico).
-    """)
-    
-    col_s3_1, col_s3_2, col_s3_3 = st.columns(3)
-    
-    with col_s3_1:
-        fig_eftp = go.Figure(go.Indicator(
-            mode="gauge+number", value=val_eftp, title={"text": "<b>eFTP (W)</b>"},
-            gauge={'axis': {'range': [150, 350]}, 'bar': {'color': "crimson"},
-                   'steps': [{'range': [150, 220], 'color': "#f0f2f6"}, {'range': [220, 300], 'color': "#d1e7dd"}]}
-        ))
-        fig_eftp.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
-        st.plotly_chart(fig_eftp, use_container_width=True, config={'displaylogo': False})
+    # ==========================================
+    # SEZIONE 3: Analisi della Performance e Capacità
+    # ==========================================
+    with st.container(border=True):
+        st.markdown("### 3. Analisi della Performance e Capacità")
+        st.info("""
+        **📖 Legenda e Significato:**
+        * **eFTP (Estimated FTP):** Potenza di soglia stimata automaticamente dai migliori sforzi massimali (da 3 a 12 minuti).
+        * **W' Bal (W-Prime Balance):** Energia anaerobica residua durante scatti o salite sopra soglia. Se arriva a zero, l'autonomia si esaurisce.
+        * **Efficiency Factor (EF):** Rapporto tra potenza ed efficienza cardiaca (indicatore di rendimento aerobico).
+        """)
+        
+        col_s3_1, col_s3_2, col_s3_3 = st.columns(3)
+        
+        with col_s3_1:
+            fig_eftp = go.Figure(go.Indicator(
+                mode="gauge+number", value=val_eftp, title={"text": "<b>eFTP (W)</b>"},
+                gauge={'axis': {'range': [150, 350]}, 'bar': {'color': "crimson"},
+                       'steps': [{'range': [150, 220], 'color': "#f0f2f6"}, {'range': [220, 300], 'color': "#d1e7dd"}]}
+            ))
+            fig_eftp.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            st.plotly_chart(fig_eftp, use_container_width=True, config={'displaylogo': False})
 
-    with col_s3_2:
-        fig_wbal = go.Figure(go.Indicator(
-            mode="gauge+number", value=val_wbal, title={"text": "<b>W' Bal (kJ rimanenti)</b>"},
-            number={'suffix': " kJ", 'valueformat': ".1f"},
-            gauge={'axis': {'range': [0, 25]}, 'bar': {'color': "darkviolet"},
-                   'steps': [{'range': [0, 5], 'color': "#f8d7da"}, {'range': [5, 15], 'color': "#fff3cd"}, {'range': [15, 25], 'color': "#d1e7dd"}]}
-        ))
-        fig_wbal.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
-        st.plotly_chart(fig_wbal, use_container_width=True, config={'displaylogo': False})
+        with col_s3_2:
+            fig_wbal = go.Figure(go.Indicator(
+                mode="gauge+number", value=val_wbal, title={"text": "<b>W' Bal (kJ rimanenti)</b>"},
+                number={'suffix': " kJ", 'valueformat': ".1f"},
+                gauge={'axis': {'range': [0, 25]}, 'bar': {'color': "darkviolet"},
+                       'steps': [{'range': [0, 5], 'color': "#f8d7da"}, {'range': [5, 15], 'color': "#fff3cd"}, {'range': [15, 25], 'color': "#d1e7dd"}]}
+            ))
+            fig_wbal.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            st.plotly_chart(fig_wbal, use_container_width=True, config={'displaylogo': False})
 
-    with col_s3_3:
-        fig_ef = go.Figure(go.Indicator(
-            mode="gauge+number", value=val_ef, title={"text": "<b>Efficiency Factor (EF)</b>"},
-            number={'valueformat': ".2f"},
-            gauge={'axis': {'range': [1.0, 2.0]}, 'bar': {'color': "goldenrod"},
-                   'steps': [{'range': [1.0, 1.3], 'color': "#f0f2f6"}, {'range': [1.3, 2.0], 'color': "#d1e7dd"}]}
-        ))
-        fig_ef.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
-        st.plotly_chart(fig_ef, use_container_width=True, config={'displaylogo': False})
+        with col_s3_3:
+            fig_ef = go.Figure(go.Indicator(
+                mode="gauge+number", value=val_ef, title={"text": "<b>Efficiency Factor (EF)</b>"},
+                number={'valueformat': ".2f"},
+                gauge={'axis': {'range': [1.0, 2.0]}, 'bar': {'color': "goldenrod"},
+                       'steps': [{'range': [1.0, 1.3], 'color': "#f0f2f6"}, {'range': [1.3, 2.0], 'color': "#d1e7dd"}]}
+            ))
+            fig_ef.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            st.plotly_chart(fig_ef, use_container_width=True, config={'displaylogo': False})
