@@ -664,6 +664,7 @@ val_ctl = 68.0
 val_atl = 75.0
 val_tsb = val_ctl - val_atl  # Form
 
+
 # ==========================================
 # SEZIONE 1: Gestione del Carico e della Forma (Fitness)
 # ==========================================
@@ -703,7 +704,7 @@ with st.container(border=True):
                    'steps': [{'range': [-30, -10], 'color': "#d1e7dd"}, {'range': [-50, -30], 'color': "#f8d7da"}, {'range': [-10, 50], 'color': "#f0f2f6"}]}
         ))
         fig_tsb.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
-        st.plotly_chart(fig_tsb, use_content_width=True, config={'displaylogo': False})
+        st.plotly_chart(fig_tsb, use_container_width=True, config={'displaylogo': False})
 
 # ==========================================
 # SEZIONE 2: Intensità e Stress della Singola Sessione
