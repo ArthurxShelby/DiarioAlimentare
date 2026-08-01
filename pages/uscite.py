@@ -633,37 +633,16 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
-    st.write("Estrazione diretta dal flusso attività di Intervals.icu.")
-    
-    col_f_modo, col_f_val1, col_f_val2 = st.columns([2, 2, 2])
-    with col_f_modo:
-        modo_ricerca_sec4 = st.selectbox("Modalità di Ricerca Parametri", ["Intervallo Date (Range)", "Giorno Specifico"], key="mod_ricerca_sec4")
-    
-    oggi = date.today()
-    if modo_ricerca_sec4 == "Giorno Specifico":
-        with col_f_val1:
-            giorno_scelto = st.date_input("Seleziona Giorno", value=oggi, key="sec4_giorno_singolo")
-        start_sec4 = giorno_scelto
-        end_sec4 = giorno_scelto
-    else:
-        with col_f_val1:
-            start_sec4 = st.date_input("Data Inizio Parametri", value=date(2026, 1, 1), key="sec4_start_range")
-        with col_f_val2:
-            end_sec4 = st.date_input("Data Fine Parametri", value=oggi, key="sec4_end_range")
+    st.write("Estrazione automatica dell'ultima attività e dei parametri recenti da Intervals.icu.")
 
     url_sec4 = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
+    # Nessun filtro di data richiesto: preleviamo la lista generale ordinata
     params_sec4 = {
-        "oldest": start_sec4.strftime("%Y-%m-%d"),
-        "newest": end_sec4.strftime("%Y-%m-%d"),
         "iw": True
     }
     resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
 
     url_well = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/wellness"
-    params_well = {
-        "oldest": start_sec4.strftime("%Y-%m-%d"),
-        "newest": end_sec4.strftime("%Y-%m-%d")
-    }
     resp_well = requests.get(url_well, auth=("API_KEY", API_KEY.strip()), params=params_well)
 
     val_load = 0.0
@@ -680,63 +659,53 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
         if dati_well:
             df_w = pd.DataFrame(dati_well)
             if not df_w.empty and 'id' in df_w.columns:
-                df_w['data_well'] = pd.to_datetime(df_w['id']).dt.date
-                df_w_filtrato = df_w[(df_w['data_well'] >= start_sec4) & (df_w['data_well'] <= end_sec4)]
-                if not df_w_filtrato.empty:
-                    ultimo_w = df_w_filtrato.sort_values('id', ascending=False).iloc[0]
-                    val_ctl = float(ultimo_w.get('ctl', 0.0) or 0.0)
-                    val_atl = float(ultimo_w.get('atl', 0.0) or 0.0)
+                # Prende l'ultimo record wellness disponibile in ordine cronologico
+                ultimo_w = df_w.sort_values('id', ascending=False).iloc[0]
+                val_ctl = float(ultimo_w.get('ctl', 0.0) or 0.0)
+                val_atl = float(ultimo_w.get('atl', 0.0) or 0.0)
 
     if resp_sec4.status_code == 200:
         dati_sec4 = resp_sec4.json()
         if dati_sec4:
             df_s4 = pd.DataFrame(dati_sec4)
             if not df_s4.empty and 'start_date_local' in df_s4.columns:
-                df_s4['data_attivita'] = pd.to_datetime(df_s4['start_date_local']).dt.date
+                # Seleziona direttamente l'ultima attività svolta in ordine temporale
+                ultima_act = df_s4.sort_values('start_date_local', ascending=False).iloc[0]
+                m = ultima_act.to_dict()
                 
-                if modo_ricerca_sec4 == "Giorno Specifico":
-                    df_s4_filtrato = df_s4[df_s4['data_attivita'] == giorno_scelto]
+                act_id = m.get('id')
+                if act_id:
+                    url_detail = f"https://intervals.icu/api/v1/activity/{act_id}"
+                    resp_detail = requests.get(url_detail, auth=("API_KEY", API_KEY.strip()))
+                    if resp_detail.status_code == 200:
+                        detail_json = resp_detail.json()
+                        m.update(detail_json)
+
+                val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
+                val_eftp = float(m.get('icu_ftp') or m.get('eftp') or 279.0)
+                
+                val_ctl = float(m.get('icu_ctl') or val_ctl or 0.0)
+                val_atl = float(m.get('icu_atl') or val_atl or 0.0)
+
+                np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
+                gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
+                
+                if np_val > 0 and val_eftp > 0:
+                    val_if = np_val / val_eftp
                 else:
-                    df_s4_filtrato = df_s4[(df_s4['data_attivita'] >= start_sec4) & (df_s4['data_attivita'] <= end_sec4)]
-                
-                if not df_s4_filtrato.empty:
-                    ultima_act = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
-                    m = ultima_act.to_dict()
-                    
-                    act_id = m.get('id')
-                    if act_id:
-                        url_detail = f"https://intervals.icu/api/v1/activity/{act_id}"
-                        resp_detail = requests.get(url_detail, auth=("API_KEY", API_KEY.strip()))
-                        if resp_detail.status_code == 200:
-                            detail_json = resp_detail.json()
-                            m.update(detail_json)
+                    raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
+                    val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
 
-                    val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
-                    val_eftp = float(m.get('icu_ftp') or m.get('eftp') or 279.0)
-                    
-                    val_ctl = float(m.get('icu_ctl') or val_ctl or 0.0)
-                    val_atl = float(m.get('icu_atl') or val_atl or 0.0)
+                val_vi = float(m.get('variability_index') or m.get('vi') or m.get('icu_variability_index') or 0.0)
+                if val_vi == 0.0 and np_val > 0 and gp_val > 0:
+                    val_vi = np_val / gp_val
+                if val_vi == 0.0: 
+                    val_vi = 1.0
 
-                    np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
-                    gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
-                    
-                    if np_val > 0 and val_eftp > 0:
-                        val_if = np_val / val_eftp
-                    else:
-                        raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
-                        val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
-
-                    # Ripristino calcolo e recupero VI
-                    val_vi = float(m.get('variability_index') or m.get('vi') or m.get('icu_variability_index') or 0.0)
-                    if val_vi == 0.0 and np_val > 0 and gp_val > 0:
-                        val_vi = np_val / gp_val
-                    if val_vi == 0.0: 
-                        val_vi = 1.0
-
-                    val_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('icu_efficiency_factor') or 0.0)
-                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
-                    if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
-                        val_ef = np_val / avg_hr
+                val_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('icu_efficiency_factor') or 0.0)
+                avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
+                if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
+                    val_ef = np_val / avg_hr
 
     val_tsb = val_ctl - val_atl
 
