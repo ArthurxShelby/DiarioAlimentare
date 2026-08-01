@@ -668,7 +668,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
 
     val_load = 0.0
     val_if = 0.0
-    val_vi = 1.0
     val_eftp = 279.0
     val_wbal = 0.0
     val_ef = 0.0
@@ -719,7 +718,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     val_atl = float(m.get('icu_atl') or val_atl or 0.0)
 
                     np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
-                    gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
                     
                     if np_val > 0 and val_eftp > 0:
                         val_if = np_val / val_eftp
@@ -727,34 +725,12 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
 
-                    val_vi = float(
-                        m.get('variability_index') or 
-                        m.get('vi') or 
-                        m.get('icu_variability_index') or 
-                        m.get('activity_vi') or 0.0
-                    )
-                    if val_vi == 0.0 and np_val > 0 and gp_val > 0:
-                        val_vi = np_val / gp_val
-                    if val_vi == 0.0: 
-                        val_vi = 1.0
-
-                    val_ef = float(
-                        m.get('efficiency_factor') or 
-                        m.get('ef') or 
-                        m.get('icu_efficiency_factor') or 
-                        m.get('aerobic_efficiency') or 0.0
-                    )
-                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or m.get('avg_hr') or 0.0)
+                    val_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('icu_efficiency_factor') or 0.0)
+                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
                     if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
 
-                    wbal_raw = float(
-                        m.get('wbal_dep') or 
-                        m.get('min_w_prime_balance') or 
-                        m.get('w_prime_balance') or 
-                        m.get('wbal') or 
-                        m.get('w_prime_dep') or 0.0
-                    )
+                    wbal_raw = float(m.get('wbal_dep') or m.get('min_w_prime_balance') or 0.0)
                     if wbal_raw > 50:
                         val_wbal = wbal_raw / 1000.0
                     else:
@@ -785,6 +761,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "royalblue"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_ctl), use_container_width=True, config={'displaylogo': False})
+            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>CTL (Chronic Training Load):</b> Rappresenta il carico di allenamento cronico, ovvero la tua fitness aerobica di fondo sviluppata negli ultimi 42 giorni.</p>", unsafe_allow_html=True)
             
         with col_s1_2:
             fig_atl = go.Figure(go.Indicator(
@@ -792,6 +769,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "darkorange"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_atl), use_container_width=True, config={'displaylogo': False})
+            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>ATL (Acute Training Load):</b> Misura il carico di fatica acuto e lo stress muscolare accumulato negli ultimi 7 giorni.</p>", unsafe_allow_html=True)
             
         with col_s1_3:
             fig_tsb = go.Figure(go.Indicator(
@@ -799,11 +777,12 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 gauge={'axis': {'range': [-50, 50]}, 'bar': {'color': "forestgreen" if -30 <= val_tsb <= -10 else "crimson"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_tsb), use_container_width=True, config={'displaylogo': False})
+            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>TSB (Training Stress Balance):</b> Indicatore dello stato di freschezza o affaticamento (CTL meno ATL). Valori positivi indicano riposo, negativi indicano carico.</p>", unsafe_allow_html=True)
 
     with st.container(border=True):
         st.markdown("### 2. Intensità e Stress della Singola Sessione")
-        st.caption("ℹ️ **Legenda:** Valutazione dello stress immediato dell'allenamento (TSS/Load), dell'Intensity Factor (IF) e della regolarità dello sforzo tramite il Variability Index (VI).")
-        col_s2_1, col_s2_2, col_s2_3 = st.columns(3)
+        st.caption("ℹ️ **Legenda:** Valutazione dello stress immediato dell'allenamento (TSS/Load) e dell'Intensity Factor (IF).")
+        col_s2_1, col_s2_2 = st.columns(2)
         
         with col_s2_1:
             fig_load = go.Figure(go.Indicator(
@@ -811,6 +790,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "dodgerblue"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_load), use_container_width=True, config={'displaylogo': False})
+            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Training Stress Score (TSS):</b> Quantifica lo stress complessivo della singola sessione in base a durata e intensità rapportate alla tua FTP.</p>", unsafe_allow_html=True)
 
         with col_s2_2:
             fig_if = go.Figure(go.Indicator(
@@ -819,18 +799,11 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 gauge={'axis': {'range': [0, 1.3]}, 'bar': {'color': "purple"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_if), use_container_width=True, config={'displaylogo': False})
-
-        with col_s2_3:
-            fig_vi = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_vi, title={"text": "<b>Variability Index (VI)</b>"},
-                number={'valueformat': ".2f"},
-                gauge={'axis': {'range': [1.0, 1.5]}, 'bar': {'color': "teal"}, 'bgcolor': "rgba(0,0,0,0)"}
-            ))
-            st.plotly_chart(apply_dark_theme(fig_vi), use_container_width=True, config={'displaylogo': False})
+            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Intensity Factor (IF):</b> Esprime quanto è stata dura l'uscita rapportando la Potenza Normalizzata (NP) alla tua soglia (FTP).</p>", unsafe_allow_html=True)
 
     with st.container(border=True):
         st.markdown("### 3. Analisi della Performance e Capacità")
-        st.caption("ℹ️ **Legenda:** Analisi della potenza funzionale stimata (eFTP), del consumo massimo della riserva anaerobica (W'bal Drop) e dell'Efficiency Factor (EF) inteso come rapporto potenza/frequenza cardiaca.")
+        st.caption("ℹ️ **Legenda:** Analisi della potenza funzionale stimata (eFTP), del consumo massimo della riserva anaerobica (W'bal Drop) e dell'Efficiency Factor (EF).")
         col_s3_1, col_s3_2, col_s3_3 = st.columns(3)
         
         with col_s3_1:
@@ -839,6 +812,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "crimson"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_eftp), use_container_width=True, config={'displaylogo': False})
+            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>eFTP (Estimated Functional Threshold Power):</b> La stima dinamica della tua soglia di potenza funzionale calcolata sulle migliori prestazioni recenti.</p>", unsafe_allow_html=True)
 
         with col_s3_2:
             fig_wbal = go.Figure(go.Indicator(
@@ -847,6 +821,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 gauge={'axis': {'range': [0, 30]}, 'bar': {'color': "darkviolet"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_wbal), use_container_width=True, config={'displaylogo': False})
+            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>W' Balance (W'bal):</b> Monitora l'esaurimento e il recupero della tua riserva di energia anaerobica (W') durante gli sforzi sopra soglia.</p>", unsafe_allow_html=True)
 
         with col_s3_3:
             fig_ef = go.Figure(go.Indicator(
@@ -855,3 +830,4 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
+            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Efficiency Factor (EF):</b> Rapporto tra Potenza Normalizzata e frequenza cardiaca media; indica l'efficienza cardiocircolatoria e aerobica.</p>", unsafe_allow_html=True)
