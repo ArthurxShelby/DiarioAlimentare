@@ -629,7 +629,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (DEFINITIVA CON LEGENDA) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (DEFINITIVA CON TUTTE LE LEGende) ---
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
@@ -746,7 +746,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     else:
                         val_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
 
-                    # W' Bal (kJ) - Gestione chiavi multiple
+                    # W' Bal (kJ)
                     w_bal_raw = float(m.get('w_prime_balance') or m.get('min_w_prime_balance') or m.get('wBal') or 0.0)
                     if w_bal_raw == 0.0 and 'icu_w_prime_balance' in m:
                         w_bal_raw = float(m.get('icu_w_prime_balance', 0.0))
@@ -790,7 +790,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 mode="gauge+number", value=val_atl, title={"text": "<b>Fatigue (ATL)</b>"},
                 gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "darkorange"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_atl), use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_atl), use_container_width=Card:=True, config={'displaylogo': False})
             
         with col_s1_3:
             fig_tsb = go.Figure(go.Indicator(
@@ -798,6 +798,14 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 gauge={'axis': {'range': [-50, 50]}, 'bar': {'color': "forestgreen" if -30 <= val_tsb <= -10 else "crimson"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_tsb), use_container_width=True, config={'displaylogo': False})
+
+        # Legenda Sezione 1
+        st.info(
+            "📖 **Legenda Sezione 1:**\n"
+            "* **Fitness (CTL - Chronic Training Load):** Carico di allenamento cronico a lungo termine (media ponderata a 42 giorni). Misura la tua condizione atletica di base.\n"
+            "* **Fatigue (ATL - Acute Training Load):** Carico di allenamento acuto a breve termine (media ponderata a 7 giorni). Misura la stanchezza recente.\n"
+            "* **Form (TSB - Training Stress Balance):** Bilancio dello stress (CTL meno ATL). Valori positivi indicano freschezza, valori negativi tra -10 e -30 indicano una fase di carico ottimale."
+        )
 
     # ==========================================
     # SEZIONE 2: Intensità e Stress della Singola Sessione
@@ -873,4 +881,5 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             "* **eFTP (W):** Stima dinamica della Functional Threshold Power basata sui dati di potenza recenti.\n"
             "* **W' Bal (kJ):** Riserva di energia anaerobica residua (W' Balance). Mostra il punto di massimo svuotamento anaerobico durante gli scatti o le salite ripide.\n"
             "* **Efficiency Factor (EF):** Rapporto tra Potenza Normalizzata e Frequenza Cardiaca Media. Misura l'efficienza aerobica cardiovascolare."
+        )
         )
