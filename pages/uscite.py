@@ -651,7 +651,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
         with col_f_val2:
             end_sec4 = st.date_input("Data Fine Parametri", value=oggi, key="sec4_end_range")
 
-    # Recupero dati basato sul filtro selezionato
+    # Interrogazione API per le attività del range selezionato
     url_sec4 = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_sec4 = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -660,41 +660,54 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
     }
     resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
 
-    # Valori di default/fallback iniziali
+    # Inizializzazione valori di default/fallback
     val_load = 0.0
     val_if = 0.0
     val_vi = 0.0
-    val_eftp = 240.0
-    val_wbal = 15.0
-    val_ef = 1.44
-    val_ctl = 68.0
-    val_atl = 75.0
+    val_eftp = 0.0
+    val_wbal = 0.0
+    val_ef = 0.0
+    val_ctl = 0.0
+    val_atl = 0.0
 
     if resp_sec4.status_code == 200:
         dati_sec4 = resp_sec4.json()
         if dati_sec4:
             df_s4 = pd.DataFrame(dati_sec4)
             if not df_s4.empty and 'start_date_local' in df_s4.columns:
-                # Convertiamo la data locale dell'attività nel formato data
                 df_s4['data_attivita'] = pd.to_datetime(df_s4['start_date_local']).dt.date
                 
-                # Filtriamo esattamente per il giorno singolo o per il range selezionato
+                # Filtro stretto in base alla scelta dell'utente
                 if modo_ricerca_sec4 == "Giorno Specifico":
                     df_s4_filtrato = df_s4[df_s4['data_attivita'] == giorno_scelto]
                 else:
                     df_s4_filtrato = df_s4[(df_s4['data_attivita'] >= start_sec4) & (df_s4['data_attivita'] <= end_sec4)]
                 
                 if not df_s4_filtrato.empty:
-                    # Se ci sono più attività nel periodo/giorno, prendiamo l'ultima o facciamo una media/somma a seconda del parametro
-                    ultima_filtrata = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
+                    # Estrazione corretta dei nomi di campo ufficiali di Intervals.icu
+                    col_load = 'icu_training_load' if 'icu_training_load' in df_s4_filtrato.columns else 'load'
+                    col_if = 'icu_intensity' if 'icu_intensity' in df_s4_filtrato.columns else 'intensity_factor'
+                    col_vi = 'variability_index'
+                    col_eftp = 'e_ftp' if 'e_ftp' in df_s4_filtrato.columns else 'eftp'
+                    col_wbal = 'w_prime_balance'
+                    col_ef = 'efficiency_factor'
                     
-                    val_load = float(df_s4_filtrato.get('load', pd.Series([0])).fillna(0).sum()) # Somma dei TSS nel periodo
-                    val_if = float(ultima_filtrata.get('intensity_factor', 0)) if pd.notna(ultima_filtrata.get('intensity_factor')) else 0.0
-                    val_vi = float(ultima_filtrata.get('variability_index', 0)) if pd.notna(ultima_filtrata.get('variability_index')) else 0.0
-                    val_eftp = float(ultima_filtrata.get('eftp', 240.0)) if pd.notna(ultima_filtrata.get('eftp')) else 240.0
-                    val_wbal = float(ultima_filtrata.get('w_prime_balance', 15.0)) if pd.notna(ultima_filtrata.get('w_prime_balance')) else 15.0
-                    val_ef = float(ultima_filtrata.get('efficiency_factor', 1.44)) if pd.notna(ultima_filtrata.get('efficiency_factor')) else 1.44
+                    # Calcolo Metriche
+                    val_load = float(df_s4_filtrato.get(col_load, pd.Series([0])).fillna(0).sum())
+                    
+                    ultima_act = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
+                    
+                    val_if = float(ultima_act.get(col_if, 0.0) or 0.0)
+                    val_vi = float(ultima_act.get(col_vi, 0.0) or 0.0)
+                    val_eftp = float(ultima_act.get(col_eftp, 0.0) or ultima_act.get('icu_ftp', 0.0) or 0.0)
+                    val_wbal = float(ultima_act.get(col_wbal, 0.0) or 0.0)
+                    val_ef = float(ultima_act.get(col_ef, 0.0) or 0.0)
+                    
+                    # Lettura di CTL / ATL se presenti nell'oggetto attività
+                    val_ctl = float(ultima_act.get('icu_ctl', 0.0) or 0.0)
+                    val_atl = float(ultima_act.get('icu_atl', 0.0) or 0.0)
 
+    # TSB (Form) calcolato come differenza diretta CTL - ATL
     val_tsb = val_ctl - val_atl
 
     st.markdown("---")
@@ -716,7 +729,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
         with col_s1_1:
             fig_ctl = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_ctl, title={"text": "<b>Fitness (CTL)</b>"},
-                gauge={'axis': {'range': [0, 120]}, 'bar': {'color': "royalblue"},
+                gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "royalblue"},
                        'steps': [{'range': [0, 60], 'color': "#f0f2f6"}, {'range': [60, 100], 'color': "#d1e7dd"}]}
             ))
             fig_ctl.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
@@ -757,8 +770,8 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
         with col_s2_1:
             fig_load = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_load, title={"text": "<b>Load / TSS Sessione</b>"},
-                gauge={'axis': {'range': [0, 350]}, 'bar': {'color': "dodgerblue"},
-                       'steps': [{'range': [0, 150], 'color': "#f0f2f6"}, {'range': [150, 250], 'color': "#d1e7dd"}, {'range': [250, 350], 'color': "#f8d7da"}]}
+                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "dodgerblue"},
+                       'steps': [{'range': [0, 150], 'color': "#f0f2f6"}, {'range': [150, 250], 'color': "#d1e7dd"}, {'range': [250, 400], 'color': "#f8d7da"}]}
             ))
             fig_load.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
             st.plotly_chart(fig_load, use_container_width=True, config={'displaylogo': False})
@@ -800,8 +813,8 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
         with col_s3_1:
             fig_eftp = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_eftp, title={"text": "<b>eFTP (W)</b>"},
-                gauge={'axis': {'range': [150, 350]}, 'bar': {'color': "crimson"},
-                       'steps': [{'range': [150, 220], 'color': "#f0f2f6"}, {'range': [220, 300], 'color': "#d1e7dd"}]}
+                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "crimson"},
+                       'steps': [{'range': [0, 200], 'color': "#f0f2f6"}, {'range': [200, 350], 'color': "#d1e7dd"}]}
             ))
             fig_eftp.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
             st.plotly_chart(fig_eftp, use_container_width=True, config={'displaylogo': False})
@@ -810,8 +823,8 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
             fig_wbal = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_wbal, title={"text": "<b>W' Bal (kJ rimanenti)</b>"},
                 number={'suffix': " kJ", 'valueformat': ".1f"},
-                gauge={'axis': {'range': [0, 25]}, 'bar': {'color': "darkviolet"},
-                       'steps': [{'range': [0, 5], 'color': "#f8d7da"}, {'range': [5, 15], 'color': "#fff3cd"}, {'range': [15, 25], 'color': "#d1e7dd"}]}
+                gauge={'axis': {'range': [0, 30]}, 'bar': {'color': "darkviolet"},
+                       'steps': [{'range': [0, 5], 'color': "#f8d7da"}, {'range': [5, 15], 'color': "#fff3cd"}, {'range': [15, 30], 'color': "#d1e7dd"}]}
             ))
             fig_wbal.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
             st.plotly_chart(fig_wbal, use_container_width=True, config={'displaylogo': False})
@@ -820,8 +833,8 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
             fig_ef = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_ef, title={"text": "<b>Efficiency Factor (EF)</b>"},
                 number={'valueformat': ".2f"},
-                gauge={'axis': {'range': [1.0, 2.0]}, 'bar': {'color': "goldenrod"},
-                       'steps': [{'range': [1.0, 1.3], 'color': "#f0f2f6"}, {'range': [1.3, 2.0], 'color': "#d1e7dd"}]}
+                gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"},
+                       'steps': [{'range': [0.0, 1.3], 'color': "#f0f2f6"}, {'range': [1.3, 2.5], 'color': "#d1e7dd"}]}
             ))
             fig_ef.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
             st.plotly_chart(fig_ef, use_container_width=True, config={'displaylogo': False})
