@@ -741,35 +741,15 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if np_val == 0.0 and gp_val > 0:
                         np_val = gp_val 
 
-                    # 1. Intensity Factor (IF) - Forzatura assoluta su eFTP = 279 W
-                    raw_np_if = (
+                    # Estrazione robusta dei dati di potenza
+                    np_val = float(
                         m.get('normalized_watts') or 
                         m.get('icu_normalized_watts') or 
                         m.get('np') or 
                         ultima_act.get('normalized_watts') or 
                         ultima_act.get('icu_normalized_watts') or 0.0
                     )
-                    np_for_if = float(raw_np_if)
-                    if np_for_if == 0.0 and gp_val > 0:
-                        np_for_if = gp_val
-
-                    # Forziamo l'eFTP esattamente a 279 W (o usiamo quello dell'API solo se maggiore di 0)
-                    val_eftp_rif = 279.0 
-
-                    if np_for_if > 0:
-                        val_if = np_for_if / val_eftp_rif
-                    else:
-                        val_if = 0.0
-
-                    # 2. Variability Index (VI) - Calcolo sicuro con gestione fallback
-                    raw_np = (
-                        m.get('normalized_watts') or 
-                        m.get('icu_normalized_watts') or 
-                        m.get('np') or 
-                        ultima_act.get('normalized_watts') or 
-                        ultima_act.get('icu_normalized_watts') or 0.0
-                    )
-                    raw_gp = (
+                    gp_val = float(
                         m.get('average_watts') or 
                         m.get('icu_average_watts') or 
                         m.get('device_watts') or 
@@ -777,25 +757,23 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         ultima_act.get('icu_average_watts') or 0.0
                     )
                     
-                    np_val = float(raw_np)
-                    gp_val = float(raw_gp)
-
                     if np_val == 0.0 and gp_val > 0:
                         np_val = gp_val 
 
-                    # Controllo rigoroso: esegue la divisione solo se la potenza media è reale (> 0)
-                    if gp_val > 0:
+                    # eFTP di riferimento fisso a 279 W
+                    val_eftp = 279.0
+
+                    # 1. Intensity Factor (IF) = NP / 279
+                    if np_val > 0:
+                        val_if = np_val / val_eftp
+                    else:
+                        val_if = 0.0
+
+                    # 2. Variability Index (VI) = NP / Potenza Media
+                    if np_val > 0 and gp_val > 0:
                         val_vi = np_val / gp_val
                     else:
-                        # Se non ci sono dati di potenza media nell'attività selezionata
-                        raw_vi = float(
-                            m.get('variability_index') or 
-                            m.get('vi') or 
-                            m.get('icu_vi') or 
-                            ultima_act.get('variability_index') or 
-                            ultima_act.get('vi') or 0.0
-                        )
-                        val_vi = raw_vi if raw_vi > 0 else 0.0  # Mettiamo 0.0 o un valore neutro se manca del tutto la potenza
+                        val_vi = 1.0
 
                     # 3. Efficiency Factor (EF) = NP / FC Media
                     raw_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
