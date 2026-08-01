@@ -629,11 +629,11 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (CALCOLO DEFINITIVO VI, EF, IF, W'BAL) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (RIPRISTINO DEFINITIVO EF, VI, IF, W'BAL) ---
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
-    st.write("Estrazione e calcolo forzato dai flussi dell'attività Intervals.icu.")
+    st.write("Estrazione e calcolo completo dei flussi e degli indici di Intervals.icu.")
     
     col_f_modo, col_f_val1, col_f_val2 = st.columns([2, 2, 2])
     with col_f_modo:
@@ -766,12 +766,14 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         raw_vi = float(m.get('variability_index') or m.get('vi') or m.get('icu_vi') or 0.0)
                         val_vi = raw_vi if raw_vi > 0 else 1.0
 
-                    # 3. Calcolo Efficiency Factor (EF) = NP / FC Media (ripristinato e forzato)
+                    # 3. Calcolo Efficiency Factor (EF) = NP / FC Media (Ripristinato)
+                    raw_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('icu_ef') or 0.0)
                     if np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
+                    elif raw_ef > 0:
+                        val_ef = raw_ef
                     else:
-                        raw_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
-                        val_ef = raw_ef if raw_ef > 0 else 0.0
+                        val_ef = 0.0
 
                     # 4. W' Bal (kJ)
                     w_bal_raw = float(
