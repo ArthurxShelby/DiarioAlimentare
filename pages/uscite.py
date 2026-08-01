@@ -741,7 +741,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if np_val == 0.0 and gp_val > 0:
                         np_val = gp_val 
 
-                    # Calcolo rigoroso e forzato dell'Intensity Factor (IF) = NP / eFTP
+                    # 1. Intensity Factor (IF) - Calcolo rigoroso o derivato dal TSS
                     raw_np_if = (
                         m.get('normalized_watts') or 
                         m.get('icu_normalized_watts') or 
@@ -753,16 +753,16 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if np_for_if == 0.0 and gp_val > 0:
                         np_for_if = gp_val
 
-                    # Valore di eFTP di riferimento (forzato sul tuo reale o letto dall'attività)
                     val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or m.get('ftp') or 279.0)
 
-                    # Esecuzione matematica diretta: IF = NP / eFTP
+                    # Se abbiamo NP e FTP validi, calcoliamo l'IF standard (NP / FTP)
                     if np_for_if > 0 and val_eftp > 0:
                         val_if = np_for_if / val_eftp
                     else:
-                        # Fallback estremo solo se mancano i watt
-                        raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
-                        val_if = (raw_if / 100.0) if raw_if > 2.0 else raw_if
+                        # Fallback intelligente: se manca la NP ma abbiamo il Load (TSS) e la durata, 
+                        # stimiamo l'IF teorico dal TSS (TSS = (sec * NP * IF) / (FTP * 3600) * 100)
+                        # Approssimazione di sicurezza basata sul Load della sessione
+                        val_if = min(1.2, max(0.5, (val_load / 100.0) ** 0.5))
 
                     # 2. Variability Index (VI) - Calcolo sicuro con gestione fallback
                     raw_np = (
