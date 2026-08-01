@@ -651,7 +651,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
         with col_f_val2:
             end_sec4 = st.date_input("Data Fine Parametri", value=oggi, key="sec4_end_range")
 
-    # Interrogazione API per le attività del range selezionato
+    # 1. Interrogazione endpoint attività
     url_sec4 = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_sec4 = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -660,16 +660,39 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
     }
     resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
 
-    # Inizializzazione valori di default/fallback
+    # 2. Interrogazione endpoint wellness (per CTL, ATL, TSB giornalieri precisi)
+    url_well = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/wellness"
+    params_well = {
+        "oldest": start_sec4.strftime("%Y-%m-%d"),
+        "newest": end_sec4.strftime("%Y-%m-%d")
+    }
+    resp_well = requests.get(url_well, auth=("API_KEY", API_KEY.strip()), params=params_well)
+
+    # Inizializzazione valori di default
     val_load = 0.0
     val_if = 0.0
     val_vi = 0.0
-    val_eftp = 0.0
+    val_eftp = 240.0
     val_wbal = 0.0
     val_ef = 0.0
     val_ctl = 0.0
     val_atl = 0.0
 
+    # Parsing Wellness (CTL, ATL)
+    if resp_well.status_code == 200:
+        dati_well = resp_well.json()
+        if dati_well:
+            df_w = pd.DataFrame(dati_well)
+            if not df_w.empty and 'id' in df_w.columns:
+                # L'id del wellness è la data YYYY-MM-DD
+                df_w['data_well'] = pd.to_datetime(df_w['id']).dt.date
+                df_w_filtrato = df_w[(df_w['data_well'] >= start_sec4) & (df_w['data_well'] <= end_sec4)]
+                if not df_w_filtrato.empty:
+                    ultimo_w = df_w_filtrato.sort_values('id', ascending=False).iloc[0]
+                    val_ctl = float(ultimo_w.get('ctl', 0.0) or 0.0)
+                    val_atl = float(ultimo_w.get('atl', 0.0) or 0.0)
+
+    # Parsing Attività
     if resp_sec4.status_code == 200:
         dati_sec4 = resp_sec4.json()
         if dati_sec4:
@@ -677,37 +700,34 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
             if not df_s4.empty and 'start_date_local' in df_s4.columns:
                 df_s4['data_attivita'] = pd.to_datetime(df_s4['start_date_local']).dt.date
                 
-                # Filtro stretto in base alla scelta dell'utente
                 if modo_ricerca_sec4 == "Giorno Specifico":
                     df_s4_filtrato = df_s4[df_s4['data_attivita'] == giorno_scelto]
                 else:
                     df_s4_filtrato = df_s4[(df_s4['data_attivita'] >= start_sec4) & (df_s4['data_attivita'] <= end_sec4)]
                 
                 if not df_s4_filtrato.empty:
-                    # Estrazione corretta dei nomi di campo ufficiali di Intervals.icu
                     col_load = 'icu_training_load' if 'icu_training_load' in df_s4_filtrato.columns else 'load'
-                    col_if = 'icu_intensity' if 'icu_intensity' in df_s4_filtrato.columns else 'intensity_factor'
-                    col_vi = 'variability_index'
-                    col_eftp = 'e_ftp' if 'e_ftp' in df_s4_filtrato.columns else 'eftp'
-                    col_wbal = 'w_prime_balance'
-                    col_ef = 'efficiency_factor'
+                    # Gestione corretta Intensity Factor (normalizzato se espresso in percentuale o decimale)
+                    raw_if = df_s4_filtrato.get('icu_intensity', df_s4_filtrato.get('intensity_factor', pd.Series([0])))
                     
-                    # Calcolo Metriche
                     val_load = float(df_s4_filtrato.get(col_load, pd.Series([0])).fillna(0).sum())
                     
                     ultima_act = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
                     
-                    val_if = float(ultima_act.get(col_if, 0.0) or 0.0)
-                    val_vi = float(ultima_act.get(col_vi, 0.0) or 0.0)
-                    val_eftp = float(ultima_act.get(col_eftp, 0.0) or ultima_act.get('icu_ftp', 0.0) or 0.0)
-                    val_wbal = float(ultima_act.get(col_wbal, 0.0) or 0.0)
-                    val_ef = float(ultima_act.get(col_ef, 0.0) or 0.0)
+                    val_if_raw = float(ultima_act.get('icu_intensity', ultima_act.get('intensity_factor', 0.0)) or 0.0)
+                    val_if = val_if_raw / 100.0 if val_if_raw > 2.0 else val_if_raw  # Corregge eventuali formati in percentuale
                     
-                    # Lettura di CTL / ATL se presenti nell'oggetto attività
-                    val_ctl = float(ultima_act.get('icu_ctl', 0.0) or 0.0)
-                    val_atl = float(ultima_act.get('icu_atl', 0.0) or 0.0)
+                    val_vi = float(ultima_act.get('variability_index', 0.0) or 0.0)
+                    val_eftp = float(ultima_act.get('e_ftp', ultima_act.get('eftp', ultima_act.get('icu_ftp', 240.0))) or 240.0)
+                    val_wbal = float(ultima_act.get('w_prime_balance', 0.0) or 0.0)
+                    val_ef = float(ultima_act.get('efficiency_factor', 0.0) or 0.0)
+                    
+                    # Fallback CTL/ATL da attività se wellness vuoto
+                    if val_ctl == 0.0:
+                        val_ctl = float(ultima_act.get('icu_ctl', 0.0) or 0.0)
+                    if val_atl == 0.0:
+                        val_atl = float(ultima_act.get('icu_atl', 0.0) or 0.0)
 
-    # TSB (Form) calcolato come differenza diretta CTL - ATL
     val_tsb = val_ctl - val_atl
 
     st.markdown("---")
@@ -719,9 +739,9 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
         st.markdown("### 1. Gestione del Carico e della Forma (Grafico 'Fitness')")
         st.info("""
         **📖 Legenda e Significato:**
-        * **Fitness (CTL):** Volume di allenamento cronico (media ultimi 42 giorni). Indica quanto sei allenato.
-        * **Fatigue (ATL):** Carico acuto degli ultimi 7 giorni. Indica la stanchezza attuale.
-        * **Form (TSB):** Differenza tra Fitness e Fatigue (Form = Fitness - Fatigue). Indica la freschezza. L'intervallo ideale (*Optimal Zone*) si trova tra -10 e -30 per migliorare senza sovrallenamento.
+        * **Fitness (CTL):** Volume di allenamento cronico (media ultimi 42 giorni).
+        * **Fatigue (ATL):** Carico acuto degli ultimi 7 giorni.
+        * **Form (TSB):** Differenza tra Fitness e Fatigue (Optimal Zone: -10 / -30).
         """)
         
         col_s1_1, col_s1_2, col_s1_3 = st.columns(3)
@@ -732,7 +752,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
                 gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "royalblue"},
                        'steps': [{'range': [0, 60], 'color': "#f0f2f6"}, {'range': [60, 100], 'color': "#d1e7dd"}]}
             ))
-            fig_ctl.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            fig_ctl.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_ctl, use_container_width=True, config={'displaylogo': False})
             
         with col_s1_2:
@@ -741,16 +761,16 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
                 gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "darkorange"},
                        'steps': [{'range': [0, 80], 'color': "#f0f2f6"}, {'range': [80, 130], 'color': "#f8d7da"}]}
             ))
-            fig_atl.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            fig_atl.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_atl, use_container_width=True, config={'displaylogo': False})
             
         with col_s1_3:
             fig_tsb = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_tsb, title={"text": "<b>Form (TSB) [Optimal: -10/-30]</b>"},
+                mode="gauge+number", value=val_tsb, title={"text": "<b>Form (TSB)</b>"},
                 gauge={'axis': {'range': [-50, 50]}, 'bar': {'color': "forestgreen" if -30 <= val_tsb <= -10 else "crimson"},
                        'steps': [{'range': [-30, -10], 'color': "#d1e7dd"}, {'range': [-50, -30], 'color': "#f8d7da"}, {'range': [-10, 50], 'color': "#f0f2f6"}]}
             ))
-            fig_tsb.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            fig_tsb.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_tsb, use_container_width=True, config={'displaylogo': False})
 
     # ==========================================
@@ -760,9 +780,9 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
         st.markdown("### 2. Intensità e Stress della Singola Sessione")
         st.info("""
         **📖 Legenda e Significato:**
-        * **Load / TSS:** Carico totale della sessione che unisce durata e intensità dello sforzo.
-        * **Intensity Factor (IF):** Rapporto tra potenza normalizzata e FTP (1.0 = un'ora alla soglia).
-        * **Variability Index (VI):** Rapporto tra Potenza Normalizzata e Potenza Media ($VI = NP / Avg Power$). Più è vicino a 1.0, più la pedalata è costante (es. pianura o cronometro).
+        * **Load / TSS:** Carico totale della sessione.
+        * **Intensity Factor (IF):** Rapporto tra potenza normalizzata e FTP.
+        * **Variability Index (VI):** Rapporto NP / Potenza Media.
         """)
         
         col_s2_1, col_s2_2, col_s2_3 = st.columns(3)
@@ -773,7 +793,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
                 gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "dodgerblue"},
                        'steps': [{'range': [0, 150], 'color': "#f0f2f6"}, {'range': [150, 250], 'color': "#d1e7dd"}, {'range': [250, 400], 'color': "#f8d7da"}]}
             ))
-            fig_load.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            fig_load.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_load, use_container_width=True, config={'displaylogo': False})
 
         with col_s2_2:
@@ -783,7 +803,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
                 gauge={'axis': {'range': [0, 1.3]}, 'bar': {'color': "purple"},
                        'steps': [{'range': [0, 0.75], 'color': "#f0f2f6"}, {'range': [0.75, 0.95], 'color': "#d1e7dd"}, {'range': [0.95, 1.3], 'color': "#f8d7da"}]}
             ))
-            fig_if.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            fig_if.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_if, use_container_width=True, config={'displaylogo': False})
 
         with col_s2_3:
@@ -793,7 +813,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
                 gauge={'axis': {'range': [1.0, 1.5]}, 'bar': {'color': "teal"},
                        'steps': [{'range': [1.0, 1.05], 'color': "#d1e7dd"}, {'range': [1.05, 1.5], 'color': "#f0f2f6"}]}
             ))
-            fig_vi.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            fig_vi.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_vi, use_container_width=True, config={'displaylogo': False})
 
     # ==========================================
@@ -803,9 +823,9 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
         st.markdown("### 3. Analisi della Performance e Capacità")
         st.info("""
         **📖 Legenda e Significato:**
-        * **eFTP (Estimated FTP):** Potenza di soglia stimata automaticamente dai migliori sforzi massimali (da 3 a 12 minuti).
-        * **W' Bal (W-Prime Balance):** Energia anaerobica residua durante scatti o salite sopra soglia. Se arriva a zero, l'autonomia si esaurisce.
-        * **Efficiency Factor (EF):** Rapporto tra potenza ed efficienza cardiaca (indicatore di rendimento aerobico).
+        * **eFTP:** Potenza di soglia stimata.
+        * **W' Bal:** Energia anaerobica residua.
+        * **Efficiency Factor (EF):** Rapporto potenza / frequenza cardiaca.
         """)
         
         col_s3_1, col_s3_2, col_s3_3 = st.columns(3)
@@ -816,17 +836,17 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
                 gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "crimson"},
                        'steps': [{'range': [0, 200], 'color': "#f0f2f6"}, {'range': [200, 350], 'color': "#d1e7dd"}]}
             ))
-            fig_eftp.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            fig_eftp.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_eftp, use_container_width=True, config={'displaylogo': False})
 
         with col_s3_2:
             fig_wbal = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_wbal, title={"text": "<b>W' Bal (kJ rimanenti)</b>"},
+                mode="gauge+number", value=val_wbal, title={"text": "<b>W' Bal (kJ)</b>"},
                 number={'suffix': " kJ", 'valueformat': ".1f"},
                 gauge={'axis': {'range': [0, 30]}, 'bar': {'color': "darkviolet"},
                        'steps': [{'range': [0, 5], 'color': "#f8d7da"}, {'range': [5, 15], 'color': "#fff3cd"}, {'range': [15, 30], 'color': "#d1e7dd"}]}
             ))
-            fig_wbal.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            fig_wbal.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_wbal, use_container_width=True, config={'displaylogo': False})
 
         with col_s3_3:
@@ -836,5 +856,5 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
                 gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"},
                        'steps': [{'range': [0.0, 1.3], 'color': "#f0f2f6"}, {'range': [1.3, 2.5], 'color': "#d1e7dd"}]}
             ))
-            fig_ef.update_layout(height=200, margin=dict(l=10, r=10, t=30, b=10))
+            fig_ef.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_ef, use_container_width=True, config={'displaylogo': False})
