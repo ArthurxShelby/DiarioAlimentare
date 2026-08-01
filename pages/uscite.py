@@ -712,36 +712,39 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
                     ultima_act_summary = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
                     act_id = ultima_act_summary.get('id')
                     
-                    # Chiamata di dettaglio obbligatoria per VI, W'bal, EF e campi avanzati
+                    dati_act = {}
                     if act_id:
                         url_detail = f"https://intervals.icu/api/v1/activity/{act_id}"
                         resp_detail = requests.get(url_detail, auth=("API_KEY", API_KEY.strip()))
                         if resp_detail.status_code == 200:
                             dati_act = resp_detail.json()
-                        else:
-                            dati_act = ultima_act_summary.to_dict() # Fallback sul sommario se fallisce
-                    else:
-                        dati_act = ultima_act_summary.to_dict()
+                    
+                    # Uniamo i dati del sommario e del dettaglio per coprire tutte le nomenclature possibili dell'API
+                    merged_act = {**ultima_act_summary.to_dict(), **dati_act}
 
-                    # Estrazione sicura dai dati di dettaglio dell'attività
-                    val_if_raw = float(dati_act.get('icu_intensity', dati_act.get('intensity_factor', 0.0)) or 0.0)
+                    # Estrazione sicura Intensity Factor
+                    val_if_raw = float(merged_act.get('icu_intensity') or merged_act.get('intensity_factor') or 0.0)
                     val_if = val_if_raw / 100.0 if val_if_raw > 2.0 else val_if_raw
                     
-                    val_vi = float(dati_act.get('variability_index', dati_act.get('vi', 0.0)) or 0.0)
-                    val_eftp = float(dati_act.get('e_ftp', dati_act.get('eftp', dati_act.get('icu_ftp', 240.0))) or 240.0)
+                    # Estrazione sicura Variability Index (VI)
+                    val_vi = float(merged_act.get('variability_index') or merged_act.get('vi') or merged_act.get('variabilityIndex') or 0.0)
                     
-                    # W' balance minimo registrato o residuo (espressi solitamente in kJ o Joule convertiti)
-                    w_bal_val = dati_act.get('w_prime_balance', dati_act.get('min_w_prime_balance', 0.0))
+                    # Estrazione sicura eFTP
+                    val_eftp = float(merged_act.get('e_ftp') or merged_act.get('eftp') or merged_act.get('icu_ftp') or 240.0)
+                    
+                    # Estrazione sicura W' Balance residuo/minimo
+                    w_bal_val = merged_act.get('w_prime_balance') or merged_act.get('min_w_prime_balance') or merged_act.get('wBal') or 0.0
                     val_wbal = float(w_bal_val or 0.0)
-                    if val_wbal > 100: # Se in Joule, convertiamo in kJ
+                    if val_wbal > 100:  # Se in Joule, converte in kJ
                         val_wbal = val_wbal / 1000.0
 
-                    val_ef = float(dati_act.get('efficiency_factor', dati_act.get('ef', 0.0)) or 0.0)
+                    # Estrazione sicura Efficiency Factor (EF)
+                    val_ef = float(merged_act.get('efficiency_factor') or merged_act.get('ef') or merged_act.get('efficiencyFactor') or 0.0)
                     
                     if val_ctl == 0.0:
-                        val_ctl = float(dati_act.get('icu_ctl', 0.0) or 0.0)
+                        val_ctl = float(merged_act.get('icu_ctl', 0.0) or 0.0)
                     if val_atl == 0.0:
-                        val_atl = float(dati_act.get('icu_atl', 0.0) or 0.0)
+                        val_atl = float(merged_act.get('icu_atl', 0.0) or 0.0)
 
     val_tsb = val_ctl - val_atl
 
@@ -823,7 +826,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
 
         with col_s2_3:
             fig_vi = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_vi, title={"text": "<b>Variability Index (VI)</b>"},
+                mode="gauge+number", value=val_vi if val_vi > 0 else 1.0, title={"text": "<b>Variability Index (VI)</b>"},
                 number={'valueformat': ".2f"},
                 gauge={'axis': {'range': [1.0, 1.5]}, 'bar': {'color': "teal"},
                        'steps': [{'range': [1.0, 1.05], 'color': "#d1e7dd"}, {'range': [1.05, 1.5], 'color': "#f0f2f6"}]}
