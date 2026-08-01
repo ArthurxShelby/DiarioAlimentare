@@ -629,11 +629,11 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (CHIAMATA DIRETTA AL DETTAGLIO) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (CHIAMATA DIRETTA AL LIST & DETTAGLIO) ---
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
-    st.write("Estrazione diretta dal endpoint di dettaglio dell'attività Intervals.icu.")
+    st.write("Estrazione diretta dal flusso attività di Intervals.icu.")
     
     col_f_modo, col_f_val1, col_f_val2 = st.columns([2, 2, 2])
     with col_f_modo:
@@ -702,18 +702,20 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 
                 if not df_s4_filtrato.empty:
                     ultima_act = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
-                    act_id = ultima_act.get('id')
                     
+                    # Usiamo direttamente l'oggetto della lista attività che contiene già tutti i campi riassuntivi calcolati da Intervals
+                    m = ultima_act.to_dict()
+                    
+                    act_id = m.get('id')
                     if act_id:
                         url_detail = f"https://intervals.icu/api/v1/activity/{act_id}"
                         resp_detail = requests.get(url_detail, auth=("API_KEY", API_KEY.strip()))
                         if resp_detail.status_code == 200:
-                            m = resp_detail.json()
-                    
-                    if not m:
-                        m = ultima_act.to_dict()
+                            detail_json = resp_detail.json()
+                            # Uniamo i dizionari per avere sia i campi di sintesi che quelli di dettaglio
+                            m.update(detail_json)
 
-                    # Estrazioni dirette mappate sull'interfaccia di Intervals
+                    # Estrazione puntuale basata sulla struttura nativa di Intervals
                     val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
                     val_eftp = float(m.get('icu_ftp') or m.get('eftp') or 279.0)
                     
@@ -743,9 +745,8 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
 
-                    # W'bal Drop (wbal_dep)
+                    # W'bal Drop (wbal_dep) - gestito sia in Joule che in kJ
                     wbal_raw = float(m.get('wbal_dep') or m.get('min_w_prime_balance') or 0.0)
-                    # Se il valore è in Joule (> 50), convertiamo in kJ, altrimenti è già in kJ
                     if wbal_raw > 50:
                         val_wbal = wbal_raw / 1000.0
                     else:
