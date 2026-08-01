@@ -629,11 +629,11 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (MAPPATURA CORRETTA DEFINITIVA) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (FORZATURA MATEMATICA DEFINITIVA) ---
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
-    st.write("Estrazione diretta dei parametri reali calcolati da Intervals.icu per l'attività odierna.")
+    st.write("Estrazione diretta e calcolo analitico dei parametri per l'attività odierna.")
     
     col_f_modo, col_f_val1, col_f_val2 = st.columns([2, 2, 2])
     with col_f_modo:
@@ -677,7 +677,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     val_ef = 0.0
     val_ctl = 0.0
     val_atl = 0.0
-    dati_act = {}
 
     # Parsing Wellness
     if resp_well.status_code == 200:
@@ -692,7 +691,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     val_ctl = float(ultimo_w.get('ctl', 0.0) or 0.0)
                     val_atl = float(ultimo_w.get('atl', 0.0) or 0.0)
 
-    # Parsing Attività con estrazione del dettaglio ID univoco
+    # Parsing Attività
     if resp_sec4.status_code == 200:
         dati_sec4 = resp_sec4.json()
         if dati_sec4:
@@ -708,47 +707,36 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 if not df_s4_filtrato.empty:
                     val_load = float(df_s4_filtrato.get('icu_training_load', df_s4_filtrato.get('load', pd.Series([0]))).fillna(0).sum())
                     
-                    ultima_act_summary = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
-                    act_id = ultima_act_summary.get('id')
+                    m = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0].to_dict()
                     
-                    if act_id:
-                        url_detail = f"https://intervals.icu/api/v1/activity/{act_id}"
-                        resp_detail = requests.get(url_detail, auth=("API_KEY", API_KEY.strip()))
-                        if resp_detail.status_code == 200:
-                            dati_act = resp_detail.json()
-                    
-                    # Unione dizionari dando priorità ai dati dettagliati
-                    m = {**ultima_act_summary.to_dict(), **dati_act}
-                    
-                    # 1. Intensity Factor (IF)
-                    raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
-                    val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
-                    
-                    # 2. Variability Index (VI) - Calcolato da NP / Avg Watts se presenti, altrimenti letto diretto
+                    # Estrazione potenze e dati base
                     np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
                     gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
+                    val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or 279.0)
+                    
+                    # 1. Intensity Factor (IF) = NP / FTP
+                    if np_val > 0 and val_eftp > 0:
+                        val_if = np_val / val_eftp
+                    else:
+                        raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
+                        val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
+                    
+                    # 2. Variability Index (VI) = NP / Potenza Media
                     if np_val > 0 and gp_val > 0:
                         val_vi = np_val / gp_val
                     else:
-                        val_vi = float(m.get('variability_index') or m.get('vi') or m.get('variabilityIndex') or 1.0)
-                    if val_vi == 0.0:
                         val_vi = 1.0
 
-                    # 3. eFTP
-                    val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or 279.0)
-                    
-                    # 4. W' Bal (kJ) - Gestione kJ o Joule
-                    w_bal_raw = float(m.get('w_prime_balance') or m.get('min_w_prime_balance') or m.get('wBal') or m.get('w_bal_min') or m.get('W_prime_balance') or 0.0)
-                    if w_bal_raw == 0.0 and 'icu_w_prime_balance' in m:
-                        w_bal_raw = float(m.get('icu_w_prime_balance', 0.0))
+                    # 3. Efficiency Factor (EF) = NP / Frequenza Cardiaca Media
+                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or m.get('heartrate') or 0.0)
+                    if np_val > 0 and avg_hr > 0:
+                        val_ef = np_val / avg_hr
+                    else:
+                        val_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
+
+                    # 4. W' Bal (kJ) - Stima conservativa o lettura diretta
+                    w_bal_raw = float(m.get('w_prime_balance') or m.get('min_w_prime_balance') or m.get('wBal') or 0.0)
                     val_wbal = w_bal_raw / 1000.0 if abs(w_bal_raw) > 50 else w_bal_raw
-                    
-                    # 5. Efficiency Factor (EF) - Calcolato come NP / HR medio se non esplicito
-                    val_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('efficiencyFactor') or 0.0)
-                    if val_ef == 0.0 and np_val > 0:
-                        avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or m.get('heartrate') or 0.0)
-                        if avg_hr > 0:
-                            val_ef = np_val / avg_hr
 
                     if val_ctl == 0.0:
                         val_ctl = float(m.get('icu_ctl', 0.0) or 0.0)
