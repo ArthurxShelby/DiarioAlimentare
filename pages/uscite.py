@@ -741,12 +741,28 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if np_val == 0.0 and gp_val > 0:
                         np_val = gp_val 
 
-                    # 1. Intensity Factor (IF) = NP / eFTP
-                    raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
-                    if np_val > 0 and val_eftp > 0:
-                        val_if = np_val / val_eftp
-                    elif raw_if > 0:
-                        val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
+                    # Calcolo rigoroso e forzato dell'Intensity Factor (IF) = NP / eFTP
+                    raw_np_if = (
+                        m.get('normalized_watts') or 
+                        m.get('icu_normalized_watts') or 
+                        m.get('np') or 
+                        ultima_act.get('normalized_watts') or 
+                        ultima_act.get('icu_normalized_watts') or 0.0
+                    )
+                    np_for_if = float(raw_np_if)
+                    if np_for_if == 0.0 and gp_val > 0:
+                        np_for_if = gp_val
+
+                    # Valore di eFTP di riferimento (forzato sul tuo reale o letto dall'attività)
+                    val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or m.get('ftp') or 279.0)
+
+                    # Esecuzione matematica diretta: IF = NP / eFTP
+                    if np_for_if > 0 and val_eftp > 0:
+                        val_if = np_for_if / val_eftp
+                    else:
+                        # Fallback estremo solo se mancano i watt
+                        raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
+                        val_if = (raw_if / 100.0) if raw_if > 2.0 else raw_if
 
                     # 2. Variability Index (VI) - Calcolo sicuro con gestione fallback
                     raw_np = (
