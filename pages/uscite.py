@@ -720,7 +720,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     # Unione completa dei dizionari per catturare le chiavi esatte di Intervals
                     m = {**ultima_act_summary.to_dict(), **dati_act}
                     
-                    # Mappatura corretta Intensity Factor (gestisce sia formato 0-1 che percentuale 0-100)
+                    # Mappatura corretta Intensity Factor
                     raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
                     val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
                     
@@ -732,7 +732,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     # Mappatura corretta eFTP
                     val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or 240.0)
                     
-                    # Mappatura corretta W' Balance residuo/minimo (convertito in kJ se in Joule)
+                    # Mappatura corretta W' Balance residuo/minimo
                     w_bal_raw = float(m.get('w_prime_balance') or m.get('min_w_prime_balance') or m.get('wBal') or 0.0)
                     val_wbal = w_bal_raw / 1000.0 if w_bal_raw > 50 else w_bal_raw
                     
@@ -845,4 +845,4 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 number={'valueformat': ".2f"},
                 gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False}))
+            st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
