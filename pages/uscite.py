@@ -629,27 +629,18 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (CHIAMATA DIRETTA AL LIST & DETTAGLIO) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (RICERCA PER GIORNO SPECIFICO) ---
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
-    st.write("Estrazione diretta dal flusso attività di Intervals.icu.")
-    
-    col_f_modo, col_f_val1, col_f_val2 = st.columns([2, 2, 2])
-    with col_f_modo:
-        modo_ricerca_sec4 = st.selectbox("Modalità di Ricerca Parametri", ["Intervallo Date (Range)", "Giorno Specifico"], key="mod_ricerca_sec4")
+    st.write("Estrazione dei parametri per il giorno selezionato.")
     
     oggi = date.today()
-    if modo_ricerca_sec4 == "Giorno Specifico":
-        with col_f_val1:
-            giorno_scelto = st.date_input("Seleziona Giorno", value=oggi, key="sec4_giorno_singolo")
-        start_sec4 = giorno_scelto
-        end_sec4 = giorno_scelto
-    else:
-        with col_f_val1:
-            start_sec4 = st.date_input("Data Inizio Parametri", value=date(2026, 1, 1), key="sec4_start_range")
-        with col_f_val2:
-            end_sec4 = st.date_input("Data Fine Parametri", value=oggi, key="sec4_end_range")
+    # Lasciato solo il selettore del giorno singolo senza menu a tendina per il range
+    giorno_scelto = st.date_input("Seleziona Giorno", value=oggi, key="sec4_giorno_singolo")
+    
+    start_sec4 = giorno_scelto
+    end_sec4 = giorno_scelto
 
     url_sec4 = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_sec4 = {
@@ -681,7 +672,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             df_w = pd.DataFrame(dati_well)
             if not df_w.empty and 'id' in df_w.columns:
                 df_w['data_well'] = pd.to_datetime(df_w['id']).dt.date
-                df_w_filtrato = df_w[(df_w['data_well'] >= start_sec4) & (df_w['data_well'] <= end_sec4)]
+                df_w_filtrato = df_w[df_w['data_well'] == giorno_scelto]
                 if not df_w_filtrato.empty:
                     ultimo_w = df_w_filtrato.sort_values('id', ascending=False).iloc[0]
                     val_ctl = float(ultimo_w.get('ctl', 0.0) or 0.0)
@@ -693,11 +684,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             df_s4 = pd.DataFrame(dati_sec4)
             if not df_s4.empty and 'start_date_local' in df_s4.columns:
                 df_s4['data_attivita'] = pd.to_datetime(df_s4['start_date_local']).dt.date
-                
-                if modo_ricerca_sec4 == "Giorno Specifico":
-                    df_s4_filtrato = df_s4[df_s4['data_attivita'] == giorno_scelto]
-                else:
-                    df_s4_filtrato = df_s4[(df_s4['data_attivita'] >= start_sec4) & (df_s4['data_attivita'] <= end_sec4)]
+                df_s4_filtrato = df_s4[df_s4['data_attivita'] == giorno_scelto]
                 
                 if not df_s4_filtrato.empty:
                     ultima_act = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
@@ -726,7 +713,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
 
-                    # Ripristino calcolo e recupero VI
                     val_vi = float(m.get('variability_index') or m.get('vi') or m.get('icu_variability_index') or 0.0)
                     if val_vi == 0.0 and np_val > 0 and gp_val > 0:
                         val_vi = np_val / gp_val
@@ -832,4 +818,4 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
-            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Efficiency Factor (EF):</b> Rapporto tra Potenza Normalizzata e frequenza cardiaca media; indica l'efficienza cardiocircolatoria e aerobica.</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Efficiency Factor (EF):</b> Rapporto tra Potenza Normalizzata e frequenza cardiaca media; indica l'efficienza cardiocircolatoria e aerobica.</p>", unsafe_allow_html=True) 0.85rem; color: #aaa;'><b>Efficiency Factor (EF):</b> Rapporto tra Potenza Normalizzata e frequenza cardiaca media; indica l'efficienza cardiocircolatoria e aerobica.</p>", unsafe_allow_html=True)
