@@ -629,7 +629,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (MAPPATURA DEFINITIVA) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (MAPPATURA CORRETTA DEFINITIVA) ---
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
@@ -717,14 +717,14 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         if resp_detail.status_code == 200:
                             dati_act = resp_detail.json()
                     
-                    # Unione dizionari dando priorità ai dati dettagliati dell'attività singola
+                    # Unione dizionari dando priorità ai dati dettagliati
                     m = {**ultima_act_summary.to_dict(), **dati_act}
                     
                     # 1. Intensity Factor (IF)
                     raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
                     val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
                     
-                    # 2. Variability Index (VI) - Gestione NP / Avg Power se non esplicito
+                    # 2. Variability Index (VI) - Calcolato da NP / Avg Watts se presenti, altrimenti letto diretto
                     np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
                     gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
                     if np_val > 0 and gp_val > 0:
@@ -737,16 +737,16 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     # 3. eFTP
                     val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or 279.0)
                     
-                    # 4. W' Bal (kJ) - Gestione minima o residua
-                    w_bal_raw = float(m.get('w_prime_balance') or m.get('min_w_prime_balance') or m.get('wBal') or m.get('w_bal_min') or 0.0)
+                    # 4. W' Bal (kJ) - Gestione kJ o Joule
+                    w_bal_raw = float(m.get('w_prime_balance') or m.get('min_w_prime_balance') or m.get('wBal') or m.get('w_bal_min') or m.get('W_prime_balance') or 0.0)
                     if w_bal_raw == 0.0 and 'icu_w_prime_balance' in m:
                         w_bal_raw = float(m.get('icu_w_prime_balance', 0.0))
                     val_wbal = w_bal_raw / 1000.0 if abs(w_bal_raw) > 50 else w_bal_raw
                     
-                    # 5. Efficiency Factor (EF) - Se assente calcolato come NP / Avg HR
+                    # 5. Efficiency Factor (EF) - Calcolato come NP / HR medio se non esplicito
                     val_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('efficiencyFactor') or 0.0)
                     if val_ef == 0.0 and np_val > 0:
-                        avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
+                        avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or m.get('heartrate') or 0.0)
                         if avg_hr > 0:
                             val_ef = np_val / avg_hr
 
@@ -855,4 +855,4 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 number={'valueformat': ".2f"},
                 gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo5': False})
+            st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
