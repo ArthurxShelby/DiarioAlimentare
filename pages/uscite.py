@@ -660,10 +660,10 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
     }
     resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
 
-    # Valori di default/fallback
-    val_load = 243.0
-    val_if = 0.82
-    val_vi = 1.05
+    # Valori di default/fallback iniziali
+    val_load = 0.0
+    val_if = 0.0
+    val_vi = 0.0
     val_eftp = 240.0
     val_wbal = 15.0
     val_ef = 1.44
@@ -674,15 +674,26 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
         dati_sec4 = resp_sec4.json()
         if dati_sec4:
             df_s4 = pd.DataFrame(dati_sec4)
-            # Se ci sono più attività nel range, prendiamo i valori medi o dell'ultima del periodo filtrato
-            if not df_s4.empty:
-                ultima_filtrata = df_s4.sort_values('start_date_local', ascending=False).iloc[0]
-                val_load = float(ultima_filtrata.get('load', val_load)) if pd.notna(ultima_filtrata.get('load')) else val_load
-                val_if = float(ultima_filtrata.get('intensity_factor', val_if)) if pd.notna(ultima_filtrata.get('intensity_factor')) else val_if
-                val_vi = float(ultima_filtrata.get('variability_index', val_vi)) if pd.notna(ultima_filtrata.get('variability_index')) else val_vi
-                val_eftp = float(ultima_filtrata.get('eftp', val_eftp)) if pd.notna(ultima_filtrata.get('eftp')) else val_eftp
-                val_wbal = float(ultima_filtrata.get('w_prime_balance', val_wbal)) if pd.notna(ultima_filtrata.get('w_prime_balance')) else val_wbal
-                val_ef = float(ultima_filtrata.get('efficiency_factor', val_ef)) if pd.notna(ultima_filtrata.get('efficiency_factor')) else val_ef
+            if not df_s4.empty and 'start_date_local' in df_s4.columns:
+                # Convertiamo la data locale dell'attività nel formato data
+                df_s4['data_attivita'] = pd.to_datetime(df_s4['start_date_local']).dt.date
+                
+                # Filtriamo esattamente per il giorno singolo o per il range selezionato
+                if modo_ricerca_sec4 == "Giorno Specifico":
+                    df_s4_filtrato = df_s4[df_s4['data_attivita'] == giorno_scelto]
+                else:
+                    df_s4_filtrato = df_s4[(df_s4['data_attivita'] >= start_sec4) & (df_s4['data_attivita'] <= end_sec4)]
+                
+                if not df_s4_filtrato.empty:
+                    # Se ci sono più attività nel periodo/giorno, prendiamo l'ultima o facciamo una media/somma a seconda del parametro
+                    ultima_filtrata = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
+                    
+                    val_load = float(df_s4_filtrato.get('load', pd.Series([0])).fillna(0).sum()) # Somma dei TSS nel periodo
+                    val_if = float(ultima_filtrata.get('intensity_factor', 0)) if pd.notna(ultima_filtrata.get('intensity_factor')) else 0.0
+                    val_vi = float(ultima_filtrata.get('variability_index', 0)) if pd.notna(ultima_filtrata.get('variability_index')) else 0.0
+                    val_eftp = float(ultima_filtrata.get('eftp', 240.0)) if pd.notna(ultima_filtrata.get('eftp')) else 240.0
+                    val_wbal = float(ultima_filtrata.get('w_prime_balance', 15.0)) if pd.notna(ultima_filtrata.get('w_prime_balance')) else 15.0
+                    val_ef = float(ultima_filtrata.get('efficiency_factor', 1.44)) if pd.notna(ultima_filtrata.get('efficiency_factor')) else 1.44
 
     val_tsb = val_ctl - val_atl
 
