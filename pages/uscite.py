@@ -752,7 +752,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     elif raw_if > 0:
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
 
-                    # 2. Variability Index (VI) = NP / Potenza Media (Integrato con fallback sui dati dell'API)
+                    # 2. Variability Index (VI) = NP / Potenza Media
                     raw_vi = float(
                         m.get('variability_index') or 
                         m.get('vi') or 
@@ -767,7 +767,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     else:
                         val_vi = 1.0
 
-                    # 3. Efficiency Factor (EF) = NP / FC Media (Mantenuto rigorosamente come richiesto)
+                    # 3. Efficiency Factor (EF) = NP / FC Media
                     raw_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
                     if np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
