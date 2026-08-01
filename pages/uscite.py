@@ -718,9 +718,9 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if not m:
                         m = ultima_act.to_dict()
 
-                    # --- BLOCCO DEBUG TEMPORANEO ---
-                    # Rimuovi il cancelletto dalla riga sotto per vedere i dati grezzi su Streamlit
-                    # st.json(m)
+                    # --- BLOCCO DEBUG ATTIVO ---
+                    st.write("### 🐛 DEBUG: Dati grezzi ricevuti da Intervals.icu")
+                    st.json(m)
 
                     # Estrazione sicura dei valori
                     val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
@@ -861,4 +861,4 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 number={'valueformat': ".2f"},
                 gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False}))
