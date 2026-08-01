@@ -713,6 +713,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if not m:
                         m = ultima_act.to_dict()
 
+                    # Estrazioni dirette mappate sull'interfaccia di Intervals
                     val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
                     val_eftp = float(m.get('icu_ftp') or m.get('eftp') or 279.0)
                     
@@ -722,25 +723,33 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
                     gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
                     
+                    # IF
                     if np_val > 0 and val_eftp > 0:
                         val_if = np_val / val_eftp
                     else:
                         raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
 
+                    # VI (Variabilità)
                     val_vi = float(m.get('variability_index') or m.get('vi') or 0.0)
                     if val_vi == 0.0 and np_val > 0 and gp_val > 0:
                         val_vi = np_val / gp_val
                     if val_vi == 0.0: 
                         val_vi = 1.0
 
+                    # EF (Efficienza)
                     val_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
                     avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
                     if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
 
-                    # Mettiamo temporaneamente 4.7 come richiesto, in attesa di capire quale chiave esatta usa Intervals per il W'bal minimo della sessione
-                    val_wbal = float(m.get('min_w_prime_balance') or 4.7)
+                    # W'bal Drop (wbal_dep)
+                    wbal_raw = float(m.get('wbal_dep') or m.get('min_w_prime_balance') or 0.0)
+                    # Se il valore è in Joule (> 50), convertiamo in kJ, altrimenti è già in kJ
+                    if wbal_raw > 50:
+                        val_wbal = wbal_raw / 1000.0
+                    else:
+                        val_wbal = wbal_raw
 
     val_tsb = val_ctl - val_atl
 
