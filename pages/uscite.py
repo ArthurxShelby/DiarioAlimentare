@@ -629,7 +629,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (FORZATURA E DEBUG) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (CALCOLO FORZATO VI, EF, W'BAL) ---
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
@@ -710,47 +710,70 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         if resp_detail.status_code == 200:
                             m = resp_detail.json()
                     
-                    # Se il dettaglio è vuoto, usa la riga della lista
                     if not m:
                         m = ultima_act.to_dict()
 
-                    # Estrazione robusta usando tutte le varianti di chiavi possibili nell'API
+                    # Estrazione sicura dei flussi primari (unisce dettagli e lista)
                     val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
                     
-                    # Potenze (cerca sia le chiavi standard che quelle con prefisso icu_)
-                    np_val = float(m.get('normalized_watts') or m.get('icu_normalized_watts') or m.get('np') or 0.0)
-                    gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or m.get('device_watts') or 0.0)
-                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or m.get('average_hr') or 0.0)
-                    val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or m.get('ftp') or 279.0)
+                    # Potenza Normalizzata (NP)
+                    np_val = float(
+                        m.get('icu_normalized_watts') or 
+                        m.get('normalized_watts') or 
+                        m.get('np') or 
+                        ultima_act.get('icu_normalized_watts') or 
+                        ultima_act.get('normalized_watts') or 0.0
+                    )
+                    
+                    # Potenza Media (AP)
+                    gp_val = float(
+                        m.get('icu_average_watts') or 
+                        m.get('average_watts') or 
+                        m.get('device_watts') or 
+                        ultima_act.get('icu_average_watts') or 
+                        ultima_act.get('average_watts') or 0.0
+                    )
+                    
+                    # Frequenza Cardiaca Media
+                    avg_hr = float(
+                        m.get('icu_average_heartrate') or 
+                        m.get('average_heartrate') or 
+                        m.get('average_hr') or 
+                        ultima_act.get('icu_average_heartrate') or 
+                        ultima_act.get('average_heartrate') or 0.0
+                    )
+                    
+                    # eFTP
+                    val_eftp = float(
+                        m.get('eftp') or 
+                        m.get('e_ftp') or 
+                        m.get('icu_ftp') or 
+                        m.get('ftp') or 
+                        279.0
+                    )
 
-                    # Se la NP non è esplicita ma abbiamo la potenza media e la variabilità, proviamo a stimarla, altrimenti usiamo gp_val come fallback
-                    if np_val == 0.0 and gp_val > 0:
-                        np_val = gp_val 
-
-                    # 1. Intensity Factor (IF) = NP / eFTP
-                    raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
+                    # 1. Calcolo Intensity Factor (IF) = NP / eFTP
                     if np_val > 0 and val_eftp > 0:
                         val_if = np_val / val_eftp
-                    elif raw_if > 0:
+                    else:
+                        raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
 
-                    # 2. Variability Index (VI) = NP / Potenza Media
-                    raw_vi = float(m.get('variability_index') or m.get('vi') or m.get('icu_vi') or 0.0)
+                    # 2. Calcolo Variability Index (VI) = NP / Potenza Media (forzato matematicamente)
                     if np_val > 0 and gp_val > 0:
                         val_vi = np_val / gp_val
-                    elif raw_vi > 0:
-                        val_vi = raw_vi
                     else:
-                        val_vi = 1.0
+                        raw_vi = float(m.get('variability_index') or m.get('vi') or m.get('icu_vi') or 0.0)
+                        val_vi = raw_vi if raw_vi > 0 else 1.0
 
-                    # 3. Efficiency Factor (EF) = NP / FC Media
-                    raw_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
+                    # 3. Calcolo Efficiency Factor (EF) = NP / FC Media (forzato matematicamente)
                     if np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
-                    elif raw_ef > 0:
-                        val_ef = raw_ef
+                    else:
+                        raw_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
+                        val_ef = raw_ef if raw_ef > 0 else 0.0
 
-                    # 4. W' Bal (kJ) - Gestione di tutti i campi possibili inclusi w_prime_balance, min_w_prime_balance, w_bal_drop
+                    # 4. W' Bal (kJ)
                     w_bal_raw = float(
                         m.get('min_w_prime_balance') or 
                         m.get('w_prime_balance') or 
@@ -758,11 +781,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         m.get('icu_w_prime_balance') or 
                         m.get('w_bal_drop') or 0.0
                     )
-                    
-                    if abs(w_bal_raw) > 50:
-                        val_wbal = abs(w_bal_raw) / 1000.0
-                    else:
-                        val_wbal = abs(w_bal_raw)
+                    val_wbal = abs(w_bal_raw) / 1000.0 if abs(w_bal_raw) > 50 else abs(w_bal_raw)
 
                     if val_ctl == 0.0:
                         val_ctl = float(m.get('icu_ctl', 0.0) or 0.0)
