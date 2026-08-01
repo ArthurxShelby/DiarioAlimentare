@@ -629,11 +629,11 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (IN MENU A TENDINA CON FILTRI DI RICERCA) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (MAPPATURA DIRETTA DAL FLUSSO) ---
 st.markdown("---")
 
-with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ricerca Giornaliera o Range)", expanded=True):
-    st.write("Filtra i parametri per data specifica (singolo giorno) oppure analizza un intervallo temporale personalizzato.")
+with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Mappatura Diretta Flusso)", expanded=True):
+    st.write("Estrazione e visualizzazione diretta dei parametri calcolati da Intervals.icu.")
     
     col_f_modo, col_f_val1, col_f_val2 = st.columns([2, 2, 2])
     with col_f_modo:
@@ -651,7 +651,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
         with col_f_val2:
             end_sec4 = st.date_input("Data Fine Parametri", value=oggi, key="sec4_end_range")
 
-    # 1. Interrogazione endpoint attività (lista)
+    # 1. Chiamata API Attività
     url_sec4 = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_sec4 = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -660,7 +660,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
     }
     resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
 
-    # 2. Interrogazione endpoint wellness (per CTL, ATL, TSB giornalieri)
+    # 2. Chiamata API Wellness (per CTL, ATL)
     url_well = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/wellness"
     params_well = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -668,17 +668,17 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
     }
     resp_well = requests.get(url_well, auth=("API_KEY", API_KEY.strip()), params=params_well)
 
-    # Inizializzazione valori di default
+    # Inizializzazione pulita
     val_load = 0.0
     val_if = 0.0
-    val_vi = 0.0
+    val_vi = 1.0
     val_eftp = 240.0
     val_wbal = 0.0
     val_ef = 0.0
     val_ctl = 0.0
     val_atl = 0.0
 
-    # Parsing Wellness (CTL, ATL)
+    # Parsing Wellness
     if resp_well.status_code == 200:
         dati_well = resp_well.json()
         if dati_well:
@@ -691,7 +691,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
                     val_ctl = float(ultimo_w.get('ctl', 0.0) or 0.0)
                     val_atl = float(ultimo_w.get('atl', 0.0) or 0.0)
 
-    # Parsing Attività e chiamata di dettaglio per l'attività specifica
+    # Parsing Attività con estrazione del dettaglio ID univoco
     if resp_sec4.status_code == 200:
         dati_sec4 = resp_sec4.json()
         if dati_sec4:
@@ -705,10 +705,8 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
                     df_s4_filtrato = df_s4[(df_s4['data_attivita'] >= start_sec4) & (df_s4['data_attivita'] <= end_sec4)]
                 
                 if not df_s4_filtrato.empty:
-                    col_load = 'icu_training_load' if 'icu_training_load' in df_s4_filtrato.columns else 'load'
-                    val_load = float(df_s4_filtrato.get(col_load, pd.Series([0])).fillna(0).sum())
+                    val_load = float(df_s4_filtrato.get('icu_training_load', df_s4_filtrato.get('load', pd.Series([0]))).fillna(0).sum())
                     
-                    # Preleviamo l'ultima attività del periodo/giorno
                     ultima_act_summary = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
                     act_id = ultima_act_summary.get('id')
                     
@@ -719,32 +717,23 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
                         if resp_detail.status_code == 200:
                             dati_act = resp_detail.json()
                     
-                    # Uniamo i dati del sommario e del dettaglio per coprire tutte le nomenclature possibili dell'API
-                    merged_act = {**ultima_act_summary.to_dict(), **dati_act}
-
-                    # Estrazione sicura Intensity Factor
-                    val_if_raw = float(merged_act.get('icu_intensity') or merged_act.get('intensity_factor') or 0.0)
-                    val_if = val_if_raw / 100.0 if val_if_raw > 2.0 else val_if_raw
+                    # Mappa diretta ereditata interamente dal flusso JSON dell'attività
+                    val_if = float(dati_act.get('icu_intensity') or ultima_act_summary.get('icu_intensity') or dati_act.get('intensity_factor') or 0.0)
+                    if val_if > 2.0: 
+                        val_if = val_if / 100.0
+                        
+                    val_vi = float(dati_act.get('variability_index') or ultima_act_summary.get('variability_index') or 1.0)
+                    val_eftp = float(dati_act.get('eftp') or dati_act.get('e_ftp') or ultima_act_summary.get('eftp') or 240.0)
                     
-                    # Estrazione sicura Variability Index (VI)
-                    val_vi = float(merged_act.get('variability_index') or merged_act.get('vi') or merged_act.get('variabilityIndex') or 0.0)
+                    w_bal_raw = dati_act.get('w_prime_balance') or dati_act.get('min_w_prime_balance') or 0.0
+                    val_wbal = float(w_bal_raw) / 1000.0 if float(w_bal_raw) > 50 else float(w_bal_raw)
                     
-                    # Estrazione sicura eFTP
-                    val_eftp = float(merged_act.get('e_ftp') or merged_act.get('eftp') or merged_act.get('icu_ftp') or 240.0)
-                    
-                    # Estrazione sicura W' Balance residuo/minimo
-                    w_bal_val = merged_act.get('w_prime_balance') or merged_act.get('min_w_prime_balance') or merged_act.get('wBal') or 0.0
-                    val_wbal = float(w_bal_val or 0.0)
-                    if val_wbal > 100:  # Se in Joule, converte in kJ
-                        val_wbal = val_wbal / 1000.0
-
-                    # Estrazione sicura Efficiency Factor (EF)
-                    val_ef = float(merged_act.get('efficiency_factor') or merged_act.get('ef') or merged_act.get('efficiencyFactor') or 0.0)
+                    val_ef = float(dati_act.get('efficiency_factor') or ultima_act_summary.get('efficiency_factor') or 0.0)
                     
                     if val_ctl == 0.0:
-                        val_ctl = float(merged_act.get('icu_ctl', 0.0) or 0.0)
+                        val_ctl = float(dati_act.get('icu_ctl') or ultima_act_summary.get('icu_ctl') or 0.0)
                     if val_atl == 0.0:
-                        val_atl = float(merged_act.get('icu_atl', 0.0) or 0.0)
+                        val_atl = float(dati_act.get('icu_atl') or ultima_act_summary.get('icu_atl') or 0.0)
 
     val_tsb = val_ctl - val_atl
 
@@ -755,20 +744,12 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
     # ==========================================
     with st.container(border=True):
         st.markdown("### 1. Gestione del Carico e della Forma (Grafico 'Fitness')")
-        st.info("""
-        **📖 Legenda e Significato:**
-        * **Fitness (CTL):** Volume di allenamento cronico (media ultimi 42 giorni).
-        * **Fatigue (ATL):** Carico acuto degli ultimi 7 giorni.
-        * **Form (TSB):** Differenza tra Fitness e Fatigue (Optimal Zone: -10 / -30).
-        """)
-        
         col_s1_1, col_s1_2, col_s1_3 = st.columns(3)
         
         with col_s1_1:
             fig_ctl = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_ctl, title={"text": "<b>Fitness (CTL)</b>"},
-                gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "royalblue"},
-                       'steps': [{'range': [0, 60], 'color': "#f0f2f6"}, {'range': [60, 100], 'color': "#d1e7dd"}]}
+                gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "royalblue"}}
             ))
             fig_ctl.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_ctl, use_container_width=True, config={'displaylogo': False})
@@ -776,8 +757,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
         with col_s1_2:
             fig_atl = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_atl, title={"text": "<b>Fatigue (ATL)</b>"},
-                gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "darkorange"},
-                       'steps': [{'range': [0, 80], 'color': "#f0f2f6"}, {'range': [80, 130], 'color': "#f8d7da"}]}
+                gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "darkorange"}}
             ))
             fig_atl.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_atl, use_container_width=True, config={'displaylogo': False})
@@ -785,8 +765,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
         with col_s1_3:
             fig_tsb = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_tsb, title={"text": "<b>Form (TSB)</b>"},
-                gauge={'axis': {'range': [-50, 50]}, 'bar': {'color': "forestgreen" if -30 <= val_tsb <= -10 else "crimson"},
-                       'steps': [{'range': [-30, -10], 'color': "#d1e7dd"}, {'range': [-50, -30], 'color': "#f8d7da"}, {'range': [-10, 50], 'color': "#f0f2f6"}]}
+                gauge={'axis': {'range': [-50, 50]}, 'bar': {'color': "forestgreen" if -30 <= val_tsb <= -10 else "crimson"}}
             ))
             fig_tsb.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_tsb, use_container_width=True, config={'displaylogo': False})
@@ -796,20 +775,12 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
     # ==========================================
     with st.container(border=True):
         st.markdown("### 2. Intensità e Stress della Singola Sessione")
-        st.info("""
-        **📖 Legenda e Significato:**
-        * **Load / TSS:** Carico totale della sessione.
-        * **Intensity Factor (IF):** Rapporto tra potenza normalizzata e FTP.
-        * **Variability Index (VI):** Rapporto NP / Potenza Media.
-        """)
-        
         col_s2_1, col_s2_2, col_s2_3 = st.columns(3)
         
         with col_s2_1:
             fig_load = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_load, title={"text": "<b>Load / TSS Sessione</b>"},
-                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "dodgerblue"},
-                       'steps': [{'range': [0, 150], 'color': "#f0f2f6"}, {'range': [150, 250], 'color': "#d1e7dd"}, {'range': [250, 400], 'color': "#f8d7da"}]}
+                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "dodgerblue"}}
             ))
             fig_load.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_load, use_container_width=True, config={'displaylogo': False})
@@ -818,8 +789,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
             fig_if = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_if, title={"text": "<b>Intensity Factor (IF)</b>"},
                 number={'valueformat': ".2f"},
-                gauge={'axis': {'range': [0, 1.3]}, 'bar': {'color': "purple"},
-                       'steps': [{'range': [0, 0.75], 'color': "#f0f2f6"}, {'range': [0.75, 0.95], 'color': "#d1e7dd"}, {'range': [0.95, 1.3], 'color': "#f8d7da"}]}
+                gauge={'axis': {'range': [0, 1.3]}, 'bar': {'color': "purple"}}
             ))
             fig_if.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_if, use_container_width=True, config={'displaylogo': False})
@@ -828,8 +798,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
             fig_vi = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_vi if val_vi > 0 else 1.0, title={"text": "<b>Variability Index (VI)</b>"},
                 number={'valueformat': ".2f"},
-                gauge={'axis': {'range': [1.0, 1.5]}, 'bar': {'color': "teal"},
-                       'steps': [{'range': [1.0, 1.05], 'color': "#d1e7dd"}, {'range': [1.05, 1.5], 'color': "#f0f2f6"}]}
+                gauge={'axis': {'range': [1.0, 1.5]}, 'bar': {'color': "teal"}}
             ))
             fig_vi.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_vi, use_container_width=True, config={'displaylogo': False})
@@ -839,20 +808,12 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
     # ==========================================
     with st.container(border=True):
         st.markdown("### 3. Analisi della Performance e Capacità")
-        st.info("""
-        **📖 Legenda e Significato:**
-        * **eFTP:** Potenza di soglia stimata.
-        * **W' Bal:** Energia anaerobica residua.
-        * **Efficiency Factor (EF):** Rapporto potenza / frequenza cardiaca.
-        """)
-        
         col_s3_1, col_s3_2, col_s3_3 = st.columns(3)
         
         with col_s3_1:
             fig_eftp = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_eftp, title={"text": "<b>eFTP (W)</b>"},
-                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "crimson"},
-                       'steps': [{'range': [0, 200], 'color': "#f0f2f6"}, {'range': [200, 350], 'color': "#d1e7dd"}]}
+                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "crimson"}}
             ))
             fig_eftp.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_eftp, use_container_width=True, config={'displaylogo': False})
@@ -861,8 +822,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
             fig_wbal = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_wbal, title={"text": "<b>W' Bal (kJ)</b>"},
                 number={'suffix': " kJ", 'valueformat': ".1f"},
-                gauge={'axis': {'range': [0, 30]}, 'bar': {'color': "darkviolet"},
-                       'steps': [{'range': [0, 5], 'color': "#f8d7da"}, {'range': [5, 15], 'color': "#fff3cd"}, {'range': [15, 30], 'color': "#d1e7dd"}]}
+                gauge={'axis': {'range': [0, 30]}, 'bar': {'color': "darkviolet"}}
             ))
             fig_wbal.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_wbal, use_container_width=True, config={'displaylogo': False})
@@ -871,8 +831,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
             fig_ef = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_ef, title={"text": "<b>Efficiency Factor (EF)</b>"},
                 number={'valueformat': ".2f"},
-                gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"},
-                       'steps': [{'range': [0.0, 1.3], 'color': "#f0f2f6"}, {'range': [1.3, 2.5], 'color': "#d1e7dd"}]}
+                gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"}}
             ))
             fig_ef.update_layout(height=220, margin=dict(l=20, r=20, t=50, b=10))
             st.plotly_chart(fig_ef, use_container_width=True, config={'displaylogo': False})
