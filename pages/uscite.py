@@ -710,14 +710,11 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         if resp_detail.status_code == 200:
                             m = resp_detail.json()
                     
-                    # Se il dettaglio è vuoto, usa la riga della lista
                     if not m:
                         m = ultima_act.to_dict()
 
-                    # Estrazione robusta usando tutte le varianti di chiavi possibili nell'API
                     val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
                     
-                    # Potenze (cerca sia le chiavi standard che quelle con prefisso icu_)
                     np_val = float(
                         m.get('normalized_watts') or 
                         m.get('icu_normalized_watts') or 
@@ -741,7 +738,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     )
                     val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or m.get('ftp') or 279.0)
 
-                    # Se la NP non è esplicita ma abbiamo la potenza media e la variabilità, proviamo a stimarla, altrimenti usiamo gp_val come fallback
                     if np_val == 0.0 and gp_val > 0:
                         np_val = gp_val 
 
@@ -752,31 +748,18 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     elif raw_if > 0:
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
 
-                    # 2. Variability Index (VI) = forzatura calcolo NP / Potenza Media
-    if np_val > 0 and gp_val > 0:
-        val_vi = np_val / gp_val  # Priorità al calcolo matematico diretto
-    else:
-        # Fallback sulle voci dell'API se mancano i dati di potenza
-        raw_vi = float(
-            m.get('variability_index') or 
-            m.get('vi') or 
-            m.get('icu_vi') or 
-            ultima_act.get('variability_index') or 
-            ultima_act.get('vi') or 0.0
-        )
-        val_vi = raw_vi if raw_vi > 0 else 1.0# 2. Variability Index (VI) = forzatura calcolo NP / Potenza Media
-    if np_val > 0 and gp_val > 0:
-        val_vi = np_val / gp_val  # Priorità al calcolo matematico diretto
-    else:
-        # Fallback sulle voci dell'API se mancano i dati di potenza
-        raw_vi = float(
-            m.get('variability_index') or 
-            m.get('vi') or 
-            m.get('icu_vi') or 
-            ultima_act.get('variability_index') or 
-            ultima_act.get('vi') or 0.0
-        )
-        val_vi = raw_vi if raw_vi > 0 else 1.0
+                    # 2. Variability Index (VI) = Forzatura calcolo diretto NP / Potenza Media
+                    if np_val > 0 and gp_val > 0:
+                        val_vi = np_val / gp_val
+                    else:
+                        raw_vi = float(
+                            m.get('variability_index') or 
+                            m.get('vi') or 
+                            m.get('icu_vi') or 
+                            ultima_act.get('variability_index') or 
+                            ultima_act.get('vi') or 0.0
+                        )
+                        val_vi = raw_vi if raw_vi > 0 else 1.0
 
                     # 3. Efficiency Factor (EF) = NP / FC Media
                     raw_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
@@ -785,7 +768,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     elif raw_ef > 0:
                         val_ef = raw_ef
 
-                    # 4. W' Bal (kJ) - Gestione di tutti i campi possibili inclusi w_prime_balance, min_w_prime_balance, w_bal_drop
+                    # 4. W' Bal (kJ)
                     w_bal_raw = float(
                         m.get('min_w_prime_balance') or 
                         m.get('w_prime_balance') or 
@@ -876,17 +859,10 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             st.plotly_chart(apply_dark_theme(fig_if), use_container_width=True, config={'displaylogo': False})
 
         with col_s2_3:
-            # Collegamento esplicito del valore calcolato NP / Potenza Media
             fig_vi = go.Figure(go.Indicator(
-                mode="gauge+number", 
-                value=val_vi, 
-                title={"text": "<b>Variability Index (VI)</b>"},
+                mode="gauge+number", value=val_vi, title={"text": "<b>Variability Index (VI)</b>"},
                 number={'valueformat': ".2f"},
-                gauge={
-                    'axis': {'range': [1.0, max(1.5, val_vi + 0.1)]}, 
-                    'bar': {'color': "teal"}, 
-                    'bgcolor': "rgba(0,0,0,0)"
-                }
+                gauge={'axis': {'range': [1.0, max(1.5, val_vi + 0.1)]}, 'bar': {'color': "teal"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_vi), use_container_width=True, config={'displaylogo': False})
 
