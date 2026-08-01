@@ -727,7 +727,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
 
-                    # Estrazione VI con tutte le chiavi possibili (inclusa la variante con underscore o nomi alternativi)
                     val_vi = float(m.get('variability_index') or m.get('vi') or m.get('icu_variability_index') or 0.0)
                     if val_vi == 0.0 and np_val > 0 and gp_val > 0:
                         val_vi = np_val / gp_val
@@ -739,7 +738,8 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
 
-                    wbal_raw = float(m.get('wbal_dep') or m.get('min_w_prime_balance') or 0.0)
+                    # Estrazione W'bal con tutte le chiavi possibili (inclusa wbal_dep, min_w_prime_balance o campi simili)
+                    wbal_raw = float(m.get('wbal_dep') or m.get('min_w_prime_balance') or m.get('w_prime_balance') or m.get('wbal') or 0.0)
                     if wbal_raw > 50:
                         val_wbal = wbal_raw / 1000.0
                     else:
