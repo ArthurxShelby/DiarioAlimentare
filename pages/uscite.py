@@ -629,10 +629,10 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (CON DEBUG DEL JSON GREZZO) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (MAPPATURA DEFINITIVA) ---
 st.markdown("---")
 
-with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Debug)", expanded=True):
+with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
     st.write("Estrazione diretta dei parametri reali calcolati da Intervals.icu per l'attività odierna.")
     
     col_f_modo, col_f_val1, col_f_val2 = st.columns([2, 2, 2])
@@ -672,7 +672,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Debug)", expa
     val_load = 0.0
     val_if = 0.0
     val_vi = 1.0
-    val_eftp = 240.0
+    val_eftp = 279.0
     val_wbal = 0.0
     val_ef = 0.0
     val_ctl = 0.0
@@ -690,7 +690,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Debug)", expa
                 if not df_w_filtrato.empty:
                     ultimo_w = df_w_filtrato.sort_values('id', ascending=False).iloc[0]
                     val_ctl = float(ultimo_w.get('ctl', 0.0) or 0.0)
-                    val_atl = float(ultimo_w.get('atl', 0.0)or 0.0)
+                    val_atl = float(ultimo_w.get('atl', 0.0) or 0.0)
 
     # Parsing Attività con estrazione del dettaglio ID univoco
     if resp_sec4.status_code == 200:
@@ -717,28 +717,39 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Debug)", expa
                         if resp_detail.status_code == 200:
                             dati_act = resp_detail.json()
                     
-                    # Unione dizionari
+                    # Unione dizionari dando priorità ai dati dettagliati dell'attività singola
                     m = {**ultima_act_summary.to_dict(), **dati_act}
                     
-                    # Stampa di debug a schermo del JSON per vedere le chiavi reali
-                    with st.expander("🔍 [DEBUG] Visualizza JSON Grezzo Attività di Intervals", expanded=False):
-                        st.json(m)
-                    
-                    # Mappatura estesa con fallback multipli basati sui nomi standard di Intervals
+                    # 1. Intensity Factor (IF)
                     raw_if = float(m.get('icu_intensity') or m.get('intensity_factor') or 0.0)
                     val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
                     
-                    val_vi = float(m.get('variability_index') or m.get('vi') or m.get('variabilityIndex') or m.get('consistency') or 1.0)
-                    if val_vi == 0.0: 
+                    # 2. Variability Index (VI) - Gestione NP / Avg Power se non esplicito
+                    np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
+                    gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
+                    if np_val > 0 and gp_val > 0:
+                        val_vi = np_val / gp_val
+                    else:
+                        val_vi = float(m.get('variability_index') or m.get('vi') or m.get('variabilityIndex') or 1.0)
+                    if val_vi == 0.0:
                         val_vi = 1.0
-                        
-                    val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or 240.0)
+
+                    # 3. eFTP
+                    val_eftp = float(m.get('eftp') or m.get('e_ftp') or m.get('icu_ftp') or 279.0)
                     
+                    # 4. W' Bal (kJ) - Gestione minima o residua
                     w_bal_raw = float(m.get('w_prime_balance') or m.get('min_w_prime_balance') or m.get('wBal') or m.get('w_bal_min') or 0.0)
-                    val_wbal = w_bal_raw / 1000.0 if w_bal_raw > 50 else w_bal_raw
+                    if w_bal_raw == 0.0 and 'icu_w_prime_balance' in m:
+                        w_bal_raw = float(m.get('icu_w_prime_balance', 0.0))
+                    val_wbal = w_bal_raw / 1000.0 if abs(w_bal_raw) > 50 else w_bal_raw
                     
-                    val_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('efficiencyFactor') or m.get('aerobic_efficiency') or 0.0)
-                    
+                    # 5. Efficiency Factor (EF) - Se assente calcolato come NP / Avg HR
+                    val_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('efficiencyFactor') or 0.0)
+                    if val_ef == 0.0 and np_val > 0:
+                        avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
+                        if avg_hr > 0:
+                            val_ef = np_val / avg_hr
+
                     if val_ctl == 0.0:
                         val_ctl = float(m.get('icu_ctl', 0.0) or 0.0)
                     if val_atl == 0.0:
@@ -844,4 +855,4 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Debug)", expa
                 number={'valueformat': ".2f"},
                 gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo5': False})
