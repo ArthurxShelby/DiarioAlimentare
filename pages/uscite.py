@@ -651,7 +651,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
         with col_f_val2:
             end_sec4 = st.date_input("Data Fine Parametri", value=oggi, key="sec4_end_range")
 
-    # 1. Interrogazione endpoint attività
+    # 1. Interrogazione endpoint attività (lista)
     url_sec4 = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_sec4 = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -660,7 +660,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
     }
     resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
 
-    # 2. Interrogazione endpoint wellness (per CTL, ATL, TSB giornalieri precisi)
+    # 2. Interrogazione endpoint wellness (per CTL, ATL, TSB giornalieri)
     url_well = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/wellness"
     params_well = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -684,7 +684,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
         if dati_well:
             df_w = pd.DataFrame(dati_well)
             if not df_w.empty and 'id' in df_w.columns:
-                # L'id del wellness è la data YYYY-MM-DD
                 df_w['data_well'] = pd.to_datetime(df_w['id']).dt.date
                 df_w_filtrato = df_w[(df_w['data_well'] >= start_sec4) & (df_w['data_well'] <= end_sec4)]
                 if not df_w_filtrato.empty:
@@ -692,7 +691,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
                     val_ctl = float(ultimo_w.get('ctl', 0.0) or 0.0)
                     val_atl = float(ultimo_w.get('atl', 0.0) or 0.0)
 
-    # Parsing Attività
+    # Parsing Attività e chiamata di dettaglio per l'attività specifica
     if resp_sec4.status_code == 200:
         dati_sec4 = resp_sec4.json()
         if dati_sec4:
@@ -707,26 +706,42 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu (Filtri per Ri
                 
                 if not df_s4_filtrato.empty:
                     col_load = 'icu_training_load' if 'icu_training_load' in df_s4_filtrato.columns else 'load'
-                    # Gestione corretta Intensity Factor (normalizzato se espresso in percentuale o decimale)
-                    raw_if = df_s4_filtrato.get('icu_intensity', df_s4_filtrato.get('intensity_factor', pd.Series([0])))
-                    
                     val_load = float(df_s4_filtrato.get(col_load, pd.Series([0])).fillna(0).sum())
                     
-                    ultima_act = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
+                    # Preleviamo l'ultima attività del periodo/giorno
+                    ultima_act_summary = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
+                    act_id = ultima_act_summary.get('id')
                     
-                    val_if_raw = float(ultima_act.get('icu_intensity', ultima_act.get('intensity_factor', 0.0)) or 0.0)
-                    val_if = val_if_raw / 100.0 if val_if_raw > 2.0 else val_if_raw  # Corregge eventuali formati in percentuale
+                    # Chiamata di dettaglio obbligatoria per VI, W'bal, EF e campi avanzati
+                    if act_id:
+                        url_detail = f"https://intervals.icu/api/v1/activity/{act_id}"
+                        resp_detail = requests.get(url_detail, auth=("API_KEY", API_KEY.strip()))
+                        if resp_detail.status_code == 200:
+                            dati_act = resp_detail.json()
+                        else:
+                            dati_act = ultima_act_summary.to_dict() # Fallback sul sommario se fallisce
+                    else:
+                        dati_act = ultima_act_summary.to_dict()
+
+                    # Estrazione sicura dai dati di dettaglio dell'attività
+                    val_if_raw = float(dati_act.get('icu_intensity', dati_act.get('intensity_factor', 0.0)) or 0.0)
+                    val_if = val_if_raw / 100.0 if val_if_raw > 2.0 else val_if_raw
                     
-                    val_vi = float(ultima_act.get('variability_index', 0.0) or 0.0)
-                    val_eftp = float(ultima_act.get('e_ftp', ultima_act.get('eftp', ultima_act.get('icu_ftp', 240.0))) or 240.0)
-                    val_wbal = float(ultima_act.get('w_prime_balance', 0.0) or 0.0)
-                    val_ef = float(ultima_act.get('efficiency_factor', 0.0) or 0.0)
+                    val_vi = float(dati_act.get('variability_index', dati_act.get('vi', 0.0)) or 0.0)
+                    val_eftp = float(dati_act.get('e_ftp', dati_act.get('eftp', dati_act.get('icu_ftp', 240.0))) or 240.0)
                     
-                    # Fallback CTL/ATL da attività se wellness vuoto
+                    # W' balance minimo registrato o residuo (espressi solitamente in kJ o Joule convertiti)
+                    w_bal_val = dati_act.get('w_prime_balance', dati_act.get('min_w_prime_balance', 0.0))
+                    val_wbal = float(w_bal_val or 0.0)
+                    if val_wbal > 100: # Se in Joule, convertiamo in kJ
+                        val_wbal = val_wbal / 1000.0
+
+                    val_ef = float(dati_act.get('efficiency_factor', dati_act.get('ef', 0.0)) or 0.0)
+                    
                     if val_ctl == 0.0:
-                        val_ctl = float(ultima_act.get('icu_ctl', 0.0) or 0.0)
+                        val_ctl = float(dati_act.get('icu_ctl', 0.0) or 0.0)
                     if val_atl == 0.0:
-                        val_atl = float(ultima_act.get('icu_atl', 0.0) or 0.0)
+                        val_atl = float(dati_act.get('icu_atl', 0.0) or 0.0)
 
     val_tsb = val_ctl - val_atl
 
