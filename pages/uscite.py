@@ -733,7 +733,8 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if val_vi == 0.0: 
                         val_vi = 1.0
 
-                    val_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
+                    # Estrazione EF con tutte le chiavi possibili (inclusa la variante con underscore o chiavi di efficienza diretta)
+                    val_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('icu_efficiency_factor') or 0.0)
                     avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
                     if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
