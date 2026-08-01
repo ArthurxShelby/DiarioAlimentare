@@ -752,20 +752,31 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     elif raw_if > 0:
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
 
-                    # 2. Variability Index (VI) = NP / Potenza Media
-                    raw_vi = float(
-                        m.get('variability_index') or 
-                        m.get('vi') or 
-                        m.get('icu_vi') or 
-                        ultima_act.get('variability_index') or 
-                        ultima_act.get('vi') or 0.0
-                    )
-                    if np_val > 0 and gp_val > 0:
-                        val_vi = np_val / gp_val
-                    elif raw_vi > 0:
-                        val_vi = raw_vi
-                    else:
-                        val_vi = 1.0
+                    # 2. Variability Index (VI) = forzatura calcolo NP / Potenza Media
+    if np_val > 0 and gp_val > 0:
+        val_vi = np_val / gp_val  # Priorità al calcolo matematico diretto
+    else:
+        # Fallback sulle voci dell'API se mancano i dati di potenza
+        raw_vi = float(
+            m.get('variability_index') or 
+            m.get('vi') or 
+            m.get('icu_vi') or 
+            ultima_act.get('variability_index') or 
+            ultima_act.get('vi') or 0.0
+        )
+        val_vi = raw_vi if raw_vi > 0 else 1.0# 2. Variability Index (VI) = forzatura calcolo NP / Potenza Media
+    if np_val > 0 and gp_val > 0:
+        val_vi = np_val / gp_val  # Priorità al calcolo matematico diretto
+    else:
+        # Fallback sulle voci dell'API se mancano i dati di potenza
+        raw_vi = float(
+            m.get('variability_index') or 
+            m.get('vi') or 
+            m.get('icu_vi') or 
+            ultima_act.get('variability_index') or 
+            ultima_act.get('vi') or 0.0
+        )
+        val_vi = raw_vi if raw_vi > 0 else 1.0
 
                     # 3. Efficiency Factor (EF) = NP / FC Media
                     raw_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
