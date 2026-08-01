@@ -629,7 +629,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (FORZATURA MATEMATICA DEFINITIVA) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (CORRETTO DEFINITIVO) ---
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
@@ -705,9 +705,11 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     df_s4_filtrato = df_s4[(df_s4['data_attivita'] >= start_sec4) & (df_s4['data_attivita'] <= end_sec4)]
                 
                 if not df_s4_filtrato.empty:
-                    val_load = float(df_s4_filtrato.get('icu_training_load', df_s4_filtrato.get('load', pd.Series([0]))).fillna(0).sum())
-                    
+                    # Preleviamo l'ultima attività del range/giorno ordinata per data
                     m = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0].to_dict()
+                    
+                    # 0. Load / TSS della sessione singola
+                    val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
                     
                     # Estrazione potenze e dati base
                     np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
@@ -734,7 +736,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     else:
                         val_ef = float(m.get('efficiency_factor') or m.get('ef') or 0.0)
 
-                    # 4. W' Bal (kJ) - Stima conservativa o lettura diretta
+                    # 4. W' Bal (kJ)
                     w_bal_raw = float(m.get('w_prime_balance') or m.get('min_w_prime_balance') or m.get('wBal') or 0.0)
                     val_wbal = w_bal_raw / 1000.0 if abs(w_bal_raw) > 50 else w_bal_raw
 
