@@ -865,10 +865,17 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             st.plotly_chart(apply_dark_theme(fig_if), use_container_width=True, config={'displaylogo': False})
 
         with col_s2_3:
+            # Collegamento esplicito del valore calcolato NP / Potenza Media
             fig_vi = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_vi, title={"text": "<b>Variability Index (VI)</b>"},
+                mode="gauge+number", 
+                value=val_vi, 
+                title={"text": "<b>Variability Index (VI)</b>"},
                 number={'valueformat': ".2f"},
-                gauge={'axis': {'range': [1.0, 1.5]}, 'bar': {'color': "teal"}, 'bgcolor': "rgba(0,0,0,0)"}
+                gauge={
+                    'axis': {'range': [1.0, max(1.5, val_vi + 0.1)]}, 
+                    'bar': {'color': "teal"}, 
+                    'bgcolor': "rgba(0,0,0,0)"
+                }
             ))
             st.plotly_chart(apply_dark_theme(fig_vi), use_container_width=True, config={'displaylogo': False})
 
