@@ -629,7 +629,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (DEFINITIVA CON TUTTE LE LEGende) ---
+# --- 4. SEZIONE PARAMETRI DI INTERVALS (DEFINITIVA E CORRETTA) ---
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
@@ -790,7 +790,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 mode="gauge+number", value=val_atl, title={"text": "<b>Fatigue (ATL)</b>"},
                 gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "darkorange"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_atl), use_container_width=Card:=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_atl), use_container_width=True, config={'displaylogo': False})
             
         with col_s1_3:
             fig_tsb = go.Figure(go.Indicator(
@@ -881,5 +881,4 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             "* **eFTP (W):** Stima dinamica della Functional Threshold Power basata sui dati di potenza recenti.\n"
             "* **W' Bal (kJ):** Riserva di energia anaerobica residua (W' Balance). Mostra il punto di massimo svuotamento anaerobico durante gli scatti o le salite ripide.\n"
             "* **Efficiency Factor (EF):** Rapporto tra Potenza Normalizzata e Frequenza Cardiaca Media. Misura l'efficienza aerobica cardiovascolare."
-        )
         )
