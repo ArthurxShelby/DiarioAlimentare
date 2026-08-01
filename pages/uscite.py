@@ -712,11 +712,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                             detail_json = resp_detail.json()
                             m.update(detail_json)
 
-                    # Debug grezzo per verificare direttamente nel client cosa arriva dall'API
-                    with st.expander("🔍 Debug Raw JSON Activity Keys", expanded=False):
-                        st.write("Chiavi disponibili nel dizionario unificato:", list(m.keys()))
-                        st.json({k: m[k] for k in list(m.keys()) if any(sub in k.lower() for sub in ['wbal', 'w_prime', 'vi', 'variability', 'ef', 'efficiency', 'pwr', 'watts'])})
-
                     val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
                     val_eftp = float(m.get('icu_ftp') or m.get('eftp') or 279.0)
                     
@@ -732,7 +727,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
                         val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
 
-                    # Ricerca approfondita ricorsiva/multi-chiave per VI
                     val_vi = float(
                         m.get('variability_index') or 
                         m.get('vi') or 
@@ -744,7 +738,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if val_vi == 0.0: 
                         val_vi = 1.0
 
-                    # Ricerca approfondita ricorsiva/multi-chiave per EF
                     val_ef = float(
                         m.get('efficiency_factor') or 
                         m.get('ef') or 
@@ -755,7 +748,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
 
-                    # Ricerca approfondita ricorsiva/multi-chiave per W'bal
                     wbal_raw = float(
                         m.get('wbal_dep') or 
                         m.get('min_w_prime_balance') or 
@@ -852,7 +844,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             fig_wbal = go.Figure(go.Indicator(
                 mode="gauge+number", value=val_wbal, title={"text": "<b>W' Bal (kJ)</b>"},
                 number={'suffix': " kJ", 'valueformat': ".1f"},
-                gauge={'axis': {'range': [0, 30]}, 'bar': {'color': "darkviolet"}, *'bgcolor': "rgba(0,0,0,0)"}
+                gauge={'axis': {'range': [0, 30]}, 'bar': {'color': "darkviolet"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_wbal), use_container_width=True, config={'displaylogo': False})
 
