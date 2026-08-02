@@ -247,15 +247,20 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                             with col_save_name:
                                 if st.button("💾 Salva Nome", key=f"btn_save_name_{act_id}_{idx}", use_container_width=True):
                                     if nuovo_nome.strip() and nuovo_nome != act_title:
-                                        clean_id = ''.join(c for c in act_id if c.isdigit())
-                                        url_update = f"https://intervals.icu/api/v1/activity/{clean_id}"
                                         auth_update = ("API_KEY", API_KEY.strip())
                                         payload = {"name": nuovo_nome.strip()}
                                         
+                                        # Gestione ID con fallback (come fatto per gli streams)
+                                        clean_id = ''.join(c for c in act_id if c.isdigit())
+                                        url_update = f"https://intervals.icu/api/v1/activity/{act_id}"
+                                        
                                         try:
                                             resp_up = requests.put(url_update, auth=auth_update, json=payload)
+                                            if resp_up.status_code == 404 and act_id != clean_id:
+                                                url_update = f"https://intervals.icu/api/v1/activity/{clean_id}"
+                                                resp_up = requests.put(url_update, auth=auth_update, json=payload)
+                                                
                                             if resp_up.status_code == 200:
-                                                # Aggiorna localmente nello state per riflettere subito il cambio
                                                 act["name"] = nuovo_nome.strip()
                                                 st.session_state[key_edit] = False
                                                 st.success("Nome aggiornato con successo su Intervals!")
