@@ -195,11 +195,16 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
             with st.container(height=650):
                 for idx, act in enumerate(attivita_da_mostrare):
                     act_id = str(act.get("id"))
-                    act_title = act.get("name", "Uscita senza titolo")
+                    act_title_original = act.get("name", "Uscita senza titolo")
                     act_date = act.get("start_date_local", "").split("T")[0]
                     act_dist = round(act.get("distance", 0) / 1000, 2)
                     act_time = timedelta_to_str(act.get("moving_time", 0))
                     act_elev = safe_int(act.get("total_elevation_gain")) or 0
+                    
+                    # --- MODIFICA SEZIONE 2: Campo per modificare il nome dell'attività ---
+                    key_mod_nome = f"mod_nome_sec2_{act_id}_{idx}"
+                    if key_mod_nome not in st.session_state:
+                        st.session_state[key_mod_nome] = act_title_original
                     
                     key_toggle = f"show_map_{act_id}_{idx}"
                     if key_toggle not in st.session_state:
@@ -208,7 +213,10 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                     with st.container(border=True):
                         col_info, col_btn1, col_btn2 = st.columns([3, 1, 1])
                         with col_info:
-                            st.markdown(f"<h3 style='margin: 0; padding-bottom: 5px;'>{act_title} <span style='font-size: 1.1rem; color: #999;'>({act_date})</span></h3>", unsafe_allow_html=True)
+                            # Campo di input per modificare il nome attività proveniente dal flusso dati
+                            act_title = st.text_input(f"Modifica Nome Attività ({act_date})", value=st.session_state[key_mod_nome], key=f"input_nome_{act_id}_{idx}")
+                            st.session_state[key_mod_nome] = act_title
+                            
                             st.markdown(f"<p style='font-size: 1.2rem; margin: 0;'>Distanza: <b>{act_dist} km</b> &nbsp;|&nbsp; D+: <b>{act_elev} m</b> &nbsp;|&nbsp; Tempo: <b>{act_time}</b></p>", unsafe_allow_html=True)
                         with col_btn1:
                             st.write("") 
@@ -387,14 +395,12 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             key="selettore_metrica_grafico"
         )
 
-    # Aggiorna la persistenza se le date del grafico cambiano
     if range_inizio != st.session_state["grafico_start_val"] or range_fine != st.session_state["grafico_end_val"]:
         st.session_state["grafico_start_val"] = range_inizio
         st.session_state["grafico_end_val"] = range_fine
         salva_data_su_file(FILE_GRAFICO_INIZIO, range_inizio)
         salva_data_su_file(FILE_GRAFICO_FINE, range_fine)
 
-    # Recupero o filtraggio delle attività basato sul range indipendente del grafico
     url_grafico = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_grafico = {
         "oldest": range_inizio.strftime("%Y-%m-%d"),
@@ -517,8 +523,17 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             
             if id_attivita_scelta:
                 dati_uscita_corrente = df_g[df_g['id_str'] == id_attivita_scelta].iloc[0]
+                titolo_originale_sec3 = dati_uscita_corrente['titolo_uscita']
 
-                st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} ({dati_uscita_corrente['data_solo']})")
+                # --- MODIFICA SEZIONE 3: Campo per modificare il nome dell'attività selezionata dal grafico ---
+                key_mod_sec3 = f"mod_nome_sec3_{id_attivita_scelta}"
+                if key_mod_sec3 not in st.session_state:
+                    st.session_state[key_mod_sec3] = titolo_originale_sec3
+
+                nuovo_titolo_sec3 = st.text_input("Modifica Nome Uscita Selezionata (dal flusso dati)", value=st.session_state[key_mod_sec3], key=f"input_sec3_{id_attivita_scelta}")
+                st.session_state[key_mod_sec3] = nuovo_titolo_sec3
+
+                st.markdown(f"#### 🚴 Dettaglio: {nuovo_titolo_sec3} ({dati_uscita_corrente['data_solo']})")
                 
                 clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
                 target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
@@ -602,7 +617,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                     '<?xml version="1.0" encoding="UTF-8"?>',
                                     '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
                                     '  <trk>',
-                                    f'    <name>{dati_uscita_corrente["titolo_uscita"]}</name>',
+                                    f'    <name>{nuovo_titolo_sec3}</name>',
                                     '    <trkseg>'
                                 ]
                                 for lat, lon in zip(lats_g, lons_g):
@@ -613,7 +628,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                     '</gpx>'
                                 ])
                                 contenuto_gpx_uscita = "\n".join(linee_gpx)
-                                nome_file_gpx = "".join(c for c in dati_uscita_corrente["titolo_uscita"] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+                                nome_file_gpx = "".join(c for c in nuovo_titolo_sec3 if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
                                 if not nome_file_gpx:
                                     nome_file_gpx = "tracciato_uscita"
 
@@ -637,7 +652,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     
     oggi = date.today()
     
-    # Selettore ridotto proporzionalmente utilizzando una singola colonna stretta
     c1, _ = st.columns([1, 3])
     with c1:
         giorno_scelto = st.date_input("Seleziona Giorno", value=oggi, key="sec4_giorno_singolo")
