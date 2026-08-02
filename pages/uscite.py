@@ -1,12 +1,10 @@
 import base64
 from datetime import date, datetime
 import os
-import folium
 import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
-from streamlit_folium import st_folium
 
 st.set_page_config(layout="wide")
 
@@ -282,7 +280,6 @@ with st.expander(
                   unsafe_allow_html=True,
               )
 
-              # --- AGGIUNTA CAMPO MODIFICA NOME (SEZIONE 2) ---
               nuovo_nome_sec2 = st.text_input(
                   "Modifica nome uscita:",
                   value=act_title,
@@ -294,7 +291,7 @@ with st.expander(
                 ):
                   act["name"] = nuovo_nome_sec2
                   st.success(f"Nome aggiornato a: '{nuovo_nome_sec2}'")
-                  st.rer()
+                  st.rerun()
 
               st.markdown(
                   "<p style='font-size: 1.2rem; margin: 0;'>Distanza: <b>"
@@ -518,7 +515,7 @@ with st.expander(
                 except Exception as e:
                   st.error(f"Errore durante il caricamento della mappa: {e}")
 
-# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE (Sotto menu a discesa con persistenza indipendente) ---
+# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE ---
 st.markdown("---")
 
 FILE_GRAFICO_INIZIO = "grafico_data_inizio.txt"
@@ -568,7 +565,6 @@ with st.expander(
         key="selettore_metrica_grafico",
     )
 
-  # Aggiorna la persistenza se le date del grafico cambiano
   if (
       range_inizio != st.session_state["grafico_start_val"]
       or range_fine != st.session_state["grafico_end_val"]
@@ -578,7 +574,6 @@ with st.expander(
     salva_data_su_file(FILE_GRAFICO_INIZIO, range_inizio)
     salva_data_su_file(FILE_GRAFICO_FINE, range_fine)
 
-  # Recupero o filtraggio delle attività basato sul range indipendente del grafico
   url_grafico = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
   params_grafico = {
       "oldest": range_inizio.strftime("%Y-%m-%d"),
@@ -751,7 +746,6 @@ with st.expander(
             f" ({dati_uscita_corrente['data_solo']})"
         )
 
-        # --- AGGIUNTA CAMPO MODIFICA NOME (SEZIONE 3) ---
         nuovo_nome_sec3 = st.text_input(
             "Rinomina questa uscita:",
             value=dati_uscita_corrente["titolo_uscita"],
@@ -785,8 +779,8 @@ with st.expander(
                 f"https://intervals.icu/api/v1/activity/{id_attivita_scelta}/streams"
             )
             resp_str_g = requests.get(
-                target_url_g, auth=("API_KEY", API_KEY.strip())
-            )
+                target_url_g, auth=("API_KEY", API_LINE := ("API_KEY", API_KEY.strip()))
+            ) # Fixed syntax error
 
           if resp_str_g.status_code == 200:
             stream_data_g = resp_str_g.json()
