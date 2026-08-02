@@ -435,14 +435,12 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             key="selettore_metrica_grafico"
         )
 
-    # Aggiorna la persistenza se le date del grafico cambiano
     if range_inizio != st.session_state["grafico_start_val"] or range_fine != st.session_state["grafico_end_val"]:
         st.session_state["grafico_start_val"] = range_inizio
         st.session_state["grafico_end_val"] = range_fine
         salva_data_su_file(FILE_GRAFICO_INIZIO, range_inizio)
         salva_data_su_file(FILE_GRAFICO_FINE, range_fine)
 
-    # Recupero o filtraggio delle attività basato sul range indipendente del grafico
     url_grafico = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_grafico = {
         "oldest": range_inizio.strftime("%Y-%m-%d"),
@@ -566,8 +564,52 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             if id_attivita_scelta:
                 dati_uscita_corrente = df_g[df_g['id_str'] == id_attivita_scelta].iloc[0]
 
-                st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} ({dati_uscita_corrente['data_solo']})")
+                col_tit_g, col_btn_edit_g = st.columns([4, 1])
+                with col_tit_g:
+                    st.markdown(f"#### 🚴 Dettaglio: {dati_uscita_corrente['titolo_uscita']} ({dati_uscita_corrente['data_solo']})")
                 
+                key_edit_g = f"edit_name_g_{id_attivita_scelta}"
+                if key_edit_g not in st.session_state:
+                    st.session_state[key_edit_g] = False
+
+                with col_btn_edit_g:
+                    edit_label_g = "✏️ Chiudi" if st.session_state[key_edit_g] else "✏️ Modifica Nome"
+                    if st.button(edit_label_g, key=f"btn_edit_trigger_{id_attivita_scelta}", use_container_width=True):
+                        st.session_state[key_edit_g] = not st.session_state[key_edit_g]
+                        st.rerun()
+
+                # Sezione di modifica nome per il grafico
+                if st.session_state[key_edit_g]:
+                    with st.container(border=True):
+                        col_in_g, col_sv_g = st.columns([3, 1])
+                        with col_in_g:
+                            nuovo_nome_g = st.text_input("Nuovo nome attività", value=dati_uscita_corrente['titolo_uscita'], key=f"input_new_name_g_{id_attivita_scelta}", label_visibility="collapsed")
+                        with col_sv_g:
+                            if st.button("💾 Salva Nome", key=f"btn_save_name_g_{id_attivita_scelta}", use_container_width=True):
+                                if nuovo_nome_g.strip() and nuovo_nome_g != dati_uscita_corrente['titolo_uscita']:
+                                    clean_id_update = ''.join(c for c in id_attivita_scelta if c.isdigit())
+                                    auth_update = ("API_KEY", API_KEY.strip())
+                                    payload = {"name": nuovo_nome_g.strip()}
+                                    url_update = f"https://intervals.icu/api/v1/activity/{id_attivita_scelta}"
+                                    
+                                    try:
+                                        resp_up = requests.put(url_update, auth=auth_update, json=payload)
+                                        if resp_up.status_code == 404 and id_attivita_scelta != clean_id_update:
+                                            url_update = f"https://intervals.icu/api/v1/activity/{clean_id_update}"
+                                            resp_up = requests.put(url_update, auth=auth_update, json=payload)
+                                            
+                                        if resp_up.status_code == 200:
+                                            df_g.loc[df_g['id_str'] == id_attivita_scelta, 'titolo_uscita'] = nuovo_nome_g.strip()
+                                            st.session_state[key_edit_g] = False
+                                            st.success("Nome aggiornato con successo su Intervals!")
+                                            st.rerun()
+                                        else:
+                                            st.error(f"Errore API Intervals: {resp_up.status_code}")
+                                    except Exception as e:
+                                        st.error(f"Errore di connessione: {e}")
+                                else:
+                                    st.warning("Inserisci un nome valido o differente.")
+
                 clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
                 target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
                 
