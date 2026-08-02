@@ -204,18 +204,32 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                     key_toggle = f"show_map_{act_id}_{idx}"
                     if key_toggle not in st.session_state:
                         st.session_state[key_toggle] = False
-                    
+                        
+                    key_edit = f"edit_name_{act_id}_{idx}"
+                    if key_edit not in st.session_state:
+                        st.session_state[key_edit] = False
+
                     with st.container(border=True):
-                        col_info, col_btn1, col_btn2 = st.columns([3, 1, 1])
+                        col_info, col_btn_edit, col_btn1, col_btn2 = st.columns([2.5, 0.8, 1, 1])
+                        
                         with col_info:
                             st.markdown(f"<h3 style='margin: 0; padding-bottom: 5px;'>{act_title} <span style='font-size: 1.1rem; color: #999;'>({act_date})</span></h3>", unsafe_allow_html=True)
                             st.markdown(f"<p style='font-size: 1.2rem; margin: 0;'>Distanza: <b>{act_dist} km</b> &nbsp;|&nbsp; D+: <b>{act_elev} m</b> &nbsp;|&nbsp; Tempo: <b>{act_time}</b></p>", unsafe_allow_html=True)
+                        
+                        with col_btn_edit:
+                            st.write("")
+                            edit_label = "✏️ Chiudi" if st.session_state[key_edit] else "✏️ Modifica Nome"
+                            if st.button(edit_label, key=f"btn_edit_{act_id}_{idx}", use_container_width=True):
+                                st.session_state[key_edit] = not st.session_state[key_edit]
+                                st.rerun()
+
                         with col_btn1:
                             st.write("") 
                             btn_label = "🗺️ Nascondi Mappa" if st.session_state[key_toggle] else "🗺️ Anteprima Mappa"
                             if st.button(btn_label, key=f"btn_preview_{act_id}_{idx}", use_container_width=True):
                                 st.session_state[key_toggle] = not st.session_state[key_toggle]
                                 st.rerun()
+                                
                         with col_btn2:
                             st.write("") 
                             if st.button("🔍 Pagina Dedicata", key=f"btn_custom_{act_id}_{idx}", use_container_width=True):
@@ -223,6 +237,35 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                 st.session_state["selected_activity_title"] = act_title
                                 st.session_state["selected_activity_date"] = act_date
                                 st.switch_page("pages/visualizza_mappa.py")
+
+                        # Sezione di modifica del nome attivata
+                        if st.session_state[key_edit]:
+                            st.markdown("---")
+                            col_input_name, col_save_name = st.columns([3, 1])
+                            with col_input_name:
+                                nuovo_nome = st.text_input("Nuovo nome attività", value=act_title, key=f"input_new_name_{act_id}_{idx}", label_visibility="collapsed")
+                            with col_save_name:
+                                if st.button("💾 Salva Nome", key=f"btn_save_name_{act_id}_{idx}", use_container_width=True):
+                                    if nuovo_nome.strip() and nuovo_nome != act_title:
+                                        clean_id = ''.join(c for c in act_id if c.isdigit())
+                                        url_update = f"https://intervals.icu/api/v1/activity/{clean_id}"
+                                        auth_update = ("API_KEY", API_KEY.strip())
+                                        payload = {"name": nuovo_nome.strip()}
+                                        
+                                        try:
+                                            resp_up = requests.put(url_update, auth=auth_update, json=payload)
+                                            if resp_up.status_code == 200:
+                                                # Aggiorna localmente nello state per riflettere subito il cambio
+                                                act["name"] = nuovo_nome.strip()
+                                                st.session_state[key_edit] = False
+                                                st.success("Nome aggiornato con successo su Intervals!")
+                                                st.rerun()
+                                            else:
+                                                st.error(f"Errore API Intervals: {resp_up.status_code}")
+                                        except Exception as e:
+                                            st.error(f"Errore di connessione: {e}")
+                                    else:
+                                        st.warning("Inserisci un nome valido o differente.")
 
                         if st.session_state[key_toggle]:
                             st.markdown("---")
