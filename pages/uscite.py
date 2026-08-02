@@ -578,7 +578,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                         st.session_state[key_edit_g] = not st.session_state[key_edit_g]
                         st.rerun()
 
-                # Sezione di modifica nome per il grafico
                 if st.session_state[key_edit_g]:
                     with st.container(border=True):
                         col_in_g, col_sv_g = st.columns([3, 1])
@@ -642,7 +641,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                             with st.expander("🗺️ Visualizza Mappa e Download GPX", expanded=False):
                                 tipo_mappa = st.radio(
                                     "Stile Mappa",
-                                    ["Satellite", "Standard"],
+                                    ["Standard", "Satellite"],
                                     horizontal=True,
                                     key=f"stile_mappa_{id_attivita_scelta}"
                                 )
