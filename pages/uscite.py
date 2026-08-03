@@ -610,13 +610,56 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                     st.warning("Inserisci un nome valido o differente.")
 
                 clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
-                target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
+                target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}"
                 
-                with st.spinner("Caricamento traccia GPS in corso..."):
-                    resp_str_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
+                with st.spinner("Caricamento dettagli e traccia GPS in corso..."):
+                    resp_detail_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
+                    if resp_detail_g.status_code == 404 and id_attivita_scelta != clean_id_g:
+                        target_url_g = f"https://intervals.icu/api/v1/activity/{id_attivita_scelta}"
+                        resp_detail_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
+
+                    dettagli_singola_act = {}
+                    if resp_detail_g.status_code == 200:
+                        dettagli_singola_act = resp_detail_g.json()
+
+                    val_np_g = float(dettagli_singola_act.get('icu_normalized_watts') or dettagli_singola_act.get('normalized_watts') or 0.0)
+                    if val_np_g == 0.0:
+                        val_np_g = float(dati_uscita_corrente.get('icu_normalized_watts', 0.0) or 0.0)
+
+                    val_hr_g = float(dettagli_singola_act.get('average_heartrate') or dettagli_singola_act.get('icu_average_heartrate') or 0.0)
+                    if val_hr_g == 0.0:
+                        val_hr_g = float(dati_uscita_corrente.get('average_heartrate', 0.0) or 0.0)
+
+                    def apply_dark_theme_g(fig, height=220):
+                        fig.update_layout(
+                            height=height,
+                            margin=dict(l=20, r=20, t=50, b=10),
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            font=dict(color='white')
+                        )
+                        return fig
+
+                    st.markdown("##### ⚡ Metriche Principali dell'Uscita")
+                    col_gau1, col_gau2 = st.columns(2)
+                    with col_gau1:
+                        fig_np_g = go.Figure(go.Indicator(
+                            mode="gauge+number", value=val_np_g, title={"text": "<b>Potenza Normalizzata (NP)</b>"},
+                            gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "darkorange"}, 'bgcolor': "rgba(0,0,0,0)"}
+                        ))
+                        st.plotly_chart(apply_dark_theme_g(fig_np_g), use_container_width=True, config={'displaylogo': False})
+                    with col_gau2:
+                        fig_hr_g = go.Figure(go.Indicator(
+                            mode="gauge+number", value=val_hr_g, title={"text": "<b>FC Media (bpm)</b>"},
+                            gauge={'axis': {'range': [0, 200]}, 'bar': {'color': "crimson"}, 'bgcolor': "rgba(0,0,0,0)"}
+                        ))
+                        st.plotly_chart(apply_dark_theme_g(fig_hr_g), use_container_width=True, config={'displaylogo': False})
+
+                    target_url_streams = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
+                    resp_str_g = requests.get(target_url_streams, auth=("API_KEY", API_KEY.strip()))
                     if resp_str_g.status_code == 404 and id_attivita_scelta != clean_id_g:
-                        target_url_g = f"https://intervals.icu/api/v1/activity/{id_attivita_scelta}/streams"
-                        resp_str_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
+                        target_url_streams = f"https://intervals.icu/api/v1/activity/{id_attivita_scelta}/streams"
+                        resp_str_g = requests.get(target_url_streams, auth=("API_KEY", API_KEY.strip()))
 
                     if resp_str_g.status_code == 200:
                         stream_data_g = resp_str_g.json()
