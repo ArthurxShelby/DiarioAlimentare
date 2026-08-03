@@ -482,7 +482,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                 df_g['periodo_chiave'] = df_g['data_solo']
                 df_aggregato = df_g.copy().rename(columns={'data_solo': 'asse_x'})
 
-            # --- INSERIMENTO CORRETTO DEI GRAFICI NELLA SEZIONE ---
+            # --- GRAFICO PRINCIPALE A BARRE ---
             st.markdown("---")
             fig_stat = go.Figure()
             
@@ -504,7 +504,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             )
 
             event_selezionato = st.plotly_chart(fig_stat, use_container_width=True, on_select="rerun", key="chart_uscite_interattivo")
-            # -----------------------------------------------------
 
             periodo_selezionato = None
             if event_selezionato and "selection" in event_selezionato and event_selezionato["selection"]["points"]:
@@ -612,6 +611,107 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                 else:
                                     st.warning("Inserisci un nome valido o differente.")
 
+                # --- DASHBOARD AVANZATA / EFFICIENCY FACTOR & TACHIMETRI ---
+                # (Qui si suppone sia presente il grafico Efficiency Factor)
+                # st.plotly_chart(fig_efficiency_factor, use_container_width=True)
+
+                st.markdown("---")
+                st.markdown("### 🎯 Indicatori di Sintesi e Metriche Chiave")
+
+                # Prima riga di tachimetri (Km, D+, Ore in sella)
+                col_tach1, col_tach2, col_tach3 = st.columns(3)
+
+                fig_g1 = go.Figure(go.Indicator(
+                    mode="gauge+number",
+                    value=tot_km_periodo,
+                    title={'text': "Km Totali", 'font': {'size': 16}},
+                    gauge={
+                        'axis': {'range': [None, 500]},
+                        'bar': {'color': "dodgerblue"},
+                        'steps': [
+                            {'range': [0, 250], 'color': "rgba(30, 144, 255, 0.1)"},
+                            {'range': [250, 400], 'color': "rgba(30, 144, 255, 0.3)"}
+                        ],
+                    }
+                ))
+                fig_g1.update_layout(height=220, margin=dict(l=20, r=20, t=40, b=20))
+                with col_tach1:
+                    st.plotly_chart(fig_g1, use_container_width=True)
+
+                fig_g2 = go.Figure(go.Indicator(
+                    mode="gauge+number",
+                    value=tot_d_periodo,
+                    title={'text': "Dislivello (D+ m)", 'font': {'size': 16}},
+                    gauge={
+                        'axis': {'range': [None, 10000]},
+                        'bar': {'color': "forestgreen"},
+                        'steps': [
+                            {'range': [0, 5000], 'color': "rgba(34, 139, 34, 0.1)"},
+                            {'range': [5000, 8000], 'color': "rgba(34, 139, 34, 0.3)"}
+                        ],
+                    }
+                ))
+                fig_g2.update_layout(height=220, margin=dict(l=20, r=20, t=40, b=20))
+                with col_tach2:
+                    st.plotly_chart(fig_g2, use_container_width=True)
+
+                fig_g3 = go.Figure(go.Indicator(
+                    mode="gauge+number",
+                    value=tot_ore_periodo,
+                    title={'text': "Ore in Sella", 'font': {'size': 16}},
+                    gauge={
+                        'axis': {'range': [None, 50]},
+                        'bar': {'color': "darkorange"},
+                        'steps': [
+                            {'range': [0, 25], 'color': "rgba(255, 140, 0, 0.1)"},
+                            {'range': [25, 40], 'color': "rgba(255, 140, 0, 0.3)"}
+                        ],
+                    }
+                ))
+                fig_g3.update_layout(height=220, margin=dict(l=20, r=20, t=40, b=20))
+                with col_tach3:
+                    st.plotly_chart(fig_g3, use_container_width=True)
+
+                # Seconda riga di tachimetri (Potenza Normalizzata e FC Media)
+                col_tach4, col_tach5 = st.columns(2)
+
+                val_np = dati_uscita_corrente.get('normalized_power', 0) if 'dati_uscita_corrente' in locals() else 0
+                fig_g4 = go.Figure(go.Indicator(
+                    mode="gauge+number",
+                    value=val_np if val_np else 0,
+                    title={'text': "Potenza Normalizzata (NP)", 'font': {'size': 16}},
+                    gauge={
+                        'axis': {'range': [None, 400]},
+                        'bar': {'color': "purple"},
+                        'steps': [
+                            {'range': [0, 200], 'color': "rgba(128, 0, 128, 0.1)"},
+                            {'range': [200, 300], 'color': "rgba(128, 0, 128, 0.3)"}
+                        ],
+                    }
+                ))
+                fig_g4.update_layout(height=220, margin=dict(l=20, r=20, t=40, b=20))
+                with col_tach4:
+                    st.plotly_chart(fig_g4, use_container_width=True)
+
+                val_fc = dati_uscita_corrente.get('average_heartrate', 0) if 'dati_uscita_corrente' in locals() else 0
+                fig_g5 = go.Figure(go.Indicator(
+                    mode="gauge+number",
+                    value=val_fc if val_fc else 0,
+                    title={'text': "FC Media (bpm)", 'font': {'size': 16}},
+                    gauge={
+                        'axis': {'range': [None, 200]},
+                        'bar': {'color': "crimson"},
+                        'steps': [
+                            {'range': [0, 130], 'color': "rgba(220, 20, 60, 0.1)"},
+                            {'range': [130, 170], 'color': "rgba(220, 20, 60, 0.3)"}
+                        ],
+                    }
+                ))
+                fig_g5.update_layout(height=220, margin=dict(l=20, r=20, t=40, b=20))
+                with col_tach5:
+                    st.plotly_chart(fig_g5, use_container_width=True)
+
+                # --- MAPPA E DOWNLOAD GPX ---
                 clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
                 target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
                 
