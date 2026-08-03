@@ -612,7 +612,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                 clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
                 target_url_streams = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
                 
-                with st.spinner("Caricamento flussi e traccia GPS in corso..."):
+                with st.spinner("Caricamento flussi (streams) e traccia GPS in corso..."):
                     resp_str_g = requests.get(target_url_streams, auth=("API_KEY", API_KEY.strip()))
                     if resp_str_g.status_code == 404 and id_attivita_scelta != clean_id_g:
                         target_url_streams = f"https://intervals.icu/api/v1/activity/{id_attivita_scelta}/streams"
@@ -647,17 +647,17 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                         if isinstance(h_data, list):
                                             hr_list = [h for h in h_data if h is not None]
 
-                            # Calcolo Potenza Normalizzata (NP) dai watt stream se disponibili (approssimazione 30s rolling media alla quarta, radice quarta)
+                            # Calcolo NP dai flussi di potenza (media mobile a 30s elevata alla quarta, poi radice quarta)
                             if watts_list:
-                                s = pd.Series(watts_list)
-                                rolling_30s = s.rolling(window=30, min_periods=1).mean()
+                                s_watts = pd.Series(watts_list)
+                                rolling_30s = s_watts.rolling(window=30, min_periods=1).mean()
                                 val_np_g = float((rolling_30s ** 4).mean() ** 0.25)
 
-                            # Calcolo FC media dallo stream heartrate se disponibile
+                            # Calcolo FC media dai flussi cardiaci
                             if hr_list:
                                 val_hr_g = float(sum(hr_list) / len(hr_list))
 
-                    # Fallback sui dati generali dell'attività se lo stream non ha restituito valori
+                    # Fallback sui dati sommari dell'attività se i flussi non contengono i valori
                     if val_np_g == 0.0:
                         val_np_g = float(dati_uscita_corrente.get('icu_normalized_watts', 0.0) or dati_uscita_corrente.get('normalized_watts', 0.0) or 0.0)
                     if val_hr_g == 0.0:
@@ -673,7 +673,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                         )
                         return fig
 
-                    st.markdown("##### ⚡ Metriche Principali dell'Uscita (da Flussi Intervals)")
+                    st.markdown("##### ⚡ Metetriche Principali dell'Uscita (da Flussi Intervals)")
                     col_gau1, col_gau2 = st.columns(2)
                     with col_gau1:
                         fig_np_g = go.Figure(go.Indicator(
