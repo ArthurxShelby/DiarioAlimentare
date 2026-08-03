@@ -756,6 +756,8 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     val_ef = 0.0
     val_ctl = 0.0
     val_atl = 0.0
+    np_val = 0.0
+    avg_hr = 0.0
     m = {}
 
     if resp_well.status_code == 200:
@@ -796,8 +798,10 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     val_ctl = float(m.get('icu_ctl') or val_ctl or 0.0)
                     val_atl = float(m.get('icu_atl') or val_atl or 0.0)
 
-                    np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or 0.0)
+                    # Estrazione robusta di Potenza Normalizzata e FC Media
+                    np_val = float(m.get('icu_normalized_watts') or m.get('normalized_watts') or m.get('np') or 0.0)
                     gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
+                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or m.get('hr') or 0.0)
                     
                     if np_val > 0 and val_eftp > 0:
                         val_if = np_val / val_eftp
@@ -812,7 +816,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         val_vi = 1.0
 
                     val_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('icu_efficiency_factor') or 0.0)
-                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or 0.0)
                     if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
 
@@ -912,13 +915,12 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Efficiency Factor (EF):</b> Rapporto tra Potenza Normalizzata e frequenza cardiaca media; indica l'efficienza cardiocircolatoria e aerobica.</p>", unsafe_allow_html=True)
 
-       # --- AGGIUNTA TACHIMETRI POTENZA NORMALIZZATA E FC MEDIA SUBITO DOPO EF ---
+        # --- TACHIMETRI POTENZA NORMALIZZATA E FC MEDIA ---
         st.markdown("---")
         col_s3_3, col_s3_4 = st.columns(2)
 
         with col_s3_3:
-            # Forza il valore a 0 se np_val non è definito o è nullo, così il tachimetro viene sempre mostrato
-            valore_np_display = float(np_val) if 'np_val' in locals() and np_val else 0.0
+            valore_np_display = float(np_val) if np_val else 0.0
             
             fig_np_gauge = go.Figure(go.Indicator(
                 mode="gauge+number", 
@@ -930,7 +932,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Potenza Normalizzata (NP):</b> Stima della potenza equivalente che toglie i picchi, riflettendo il costo metabolico reale dell'uscita.</p>", unsafe_allow_html=True)
 
         with col_s3_4:
-            valore_fc_display = float(avg_hr) if 'avg_hr' in locals() and avg_hr else 0.0
+            valore_fc_display = float(avg_hr) if avg_hr else 0.0
             
             fig_fc_gauge = go.Figure(go.Indicator(
                 mode="gauge+number", 
