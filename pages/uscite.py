@@ -610,158 +610,109 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                     st.warning("Inserisci un nome valido o differente.")
 
                 clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
-                target_url_streams = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
+                target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
                 
-                with st.spinner("Caricamento flussi (streams) e traccia GPS in corso..."):
-                    resp_str_g = requests.get(target_url_streams, auth=("API_KEY", API_KEY.strip()))
+                with st.spinner("Caricamento traccia GPS in corso..."):
+                    resp_str_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
                     if resp_str_g.status_code == 404 and id_attivita_scelta != clean_id_g:
-                        target_url_streams = f"https://intervals.icu/api/v1/activity/{id_attivita_scelta}/streams"
-                        resp_str_g = requests.get(target_url_streams, auth=("API_KEY", API_KEY.strip()))
-
-                    val_np_g = 0.0
-                    val_hr_g = 0.0
-                    lats_g, lons_g = [], []
+                        target_url_g = f"https://intervals.icu/api/v1/activity/{id_attivita_scelta}/streams"
+                        resp_str_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
 
                     if resp_str_g.status_code == 200:
                         stream_data_g = resp_str_g.json()
+                        lats_g, lons_g = [], []
+                        
                         if isinstance(stream_data_g, list):
-                            watts_list = []
-                            hr_list = []
                             for stream in stream_data_g:
                                 if isinstance(stream, dict):
                                     stype = stream.get("type")
                                     if stype in ["latlng", "lating"]:
                                         lat_data = stream.get("data", [])
                                         lon_data = stream.get("data2", [])
+                                        
                                         if isinstance(lat_data, list) and isinstance(lon_data, list) and len(lat_data) == len(lon_data) and len(lat_data) > 0:
                                             for lat, lon in zip(lat_data, lon_data):
                                                 if lat is not None and lon is not None:
                                                     lats_g.append(float(lat))
                                                     lons_g.append(float(lon))
-                                    elif stype in ["watts", "power"]:
-                                        w_data = stream.get("data", [])
-                                        if isinstance(w_data, list):
-                                            watts_list = [w for w in w_data if w is not None]
-                                    elif stype in ["heartrate", "hr"]:
-                                        h_data = stream.get("data", [])
-                                        if isinstance(h_data, list):
-                                            hr_list = [h for h in h_data if h is not None]
+                                        break
 
-                            # Calcolo NP dai flussi di potenza (media mobile a 30s elevata alla quarta, poi radice quarta)
-                            if watts_list:
-                                s_watts = pd.Series(watts_list)
-                                rolling_30s = s_watts.rolling(window=30, min_periods=1).mean()
-                                val_np_g = float((rolling_30s ** 4).mean() ** 0.25)
-
-                            # Calcolo FC media dai flussi cardiaci
-                            if hr_list:
-                                val_hr_g = float(sum(hr_list) / len(hr_list))
-
-                    # Fallback sui dati sommari dell'attività se i flussi non contengono i valori
-                    if val_np_g == 0.0:
-                        val_np_g = float(dati_uscita_corrente.get('icu_normalized_watts', 0.0) or dati_uscita_corrente.get('normalized_watts', 0.0) or 0.0)
-                    if val_hr_g == 0.0:
-                        val_hr_g = float(dati_uscita_corrente.get('average_heartrate', 0.0) or dati_uscita_corrente.get('icu_average_heartrate', 0.0) or 0.0)
-
-                    def apply_dark_theme_g(fig, height=220):
-                        fig.update_layout(
-                            height=height,
-                            margin=dict(l=20, r=20, t=50, b=10),
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            font=dict(color='white')
-                        )
-                        return fig
-
-                    st.markdown("##### ⚡ Metetriche Principali dell'Uscita (da Flussi Intervals)")
-                    col_gau1, col_gau2 = st.columns(2)
-                    with col_gau1:
-                        fig_np_g = go.Figure(go.Indicator(
-                            mode="gauge+number", value=val_np_g, title={"text": "<b>Potenza Normalizzata (NP)</b>"},
-                            gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "darkorange"}, 'bgcolor': "rgba(0,0,0,0)"}
-                        ))
-                        st.plotly_chart(apply_dark_theme_g(fig_np_g), use_container_width=True, config={'displaylogo': False})
-                    with col_gau2:
-                        fig_hr_g = go.Figure(go.Indicator(
-                            mode="gauge+number", value=val_hr_g, title={"text": "<b>FC Media (bpm)</b>"},
-                            gauge={'axis': {'range': [0, 200]}, 'bar': {'color': "crimson"}, 'bgcolor': "rgba(0,0,0,0)"}
-                        ))
-                        st.plotly_chart(apply_dark_theme_g(fig_hr_g), use_container_width=True, config={'displaylogo': False})
-
-                    if lats_g and lons_g and len(lats_g) > 0:
-                        with st.expander("🗺️ Visualizza Mappa e Download GPX", expanded=False):
-                            tipo_mappa = st.radio(
-                                "Stile Mappa",
-                                ["Standard", "Satellite"],
-                                horizontal=True,
-                                key=f"stile_mappa_{id_attivita_scelta}"
-                            )
-
-                            fig_map = go.Figure()
-                            fig_map.add_trace(go.Scattermapbox(
-                                lat=lats_g, lon=lons_g, mode='lines',
-                                line=dict(width=4, color='dodgerblue'), name='Tracciato'
-                            ))
-                            fig_map.add_trace(go.Scattermapbox(
-                                lat=[lats_g[0], lats_g[-1]], lon=[lons_g[0], lons_g[-1]], mode='markers',
-                                marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
-                            ))
-                            
-                            if tipo_mappa == "Satellite":
-                                mapbox_config = dict(
-                                    style="white-bg",
-                                    layers=[
-                                        {
-                                            "below": 'traces',
-                                            "sourcetype": "raster",
-                                            "source": [
-                                                "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                            ]
-                                        }
-                                    ],
-                                    center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
-                                    zoom=11
-                                )
-                            else:
-                                mapbox_config = dict(
-                                    style="open-street-map",
-                                    center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
-                                    zoom=11
+                        if lats_g and lons_g and len(lats_g) > 0:
+                            with st.expander("🗺️ Visualizza Mappa e Download GPX", expanded=False):
+                                tipo_mappa = st.radio(
+                                    "Stile Mappa",
+                                    ["Standard", "Satellite"],
+                                    horizontal=True,
+                                    key=f"stile_mappa_{id_attivita_scelta}"
                                 )
 
-                            fig_map.update_layout(
-                                mapbox=mapbox_config,
-                                margin=dict(l=0, r=0, t=0, b=0),
-                                height=450,
-                                showlegend=False
-                            )
-                            
-                            st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
+                                fig_map = go.Figure()
+                                fig_map.add_trace(go.Scattermapbox(
+                                    lat=lats_g, lon=lons_g, mode='lines',
+                                    line=dict(width=4, color='dodgerblue'), name='Tracciato'
+                                ))
+                                fig_map.add_trace(go.Scattermapbox(
+                                    lat=[lats_g[0], lats_g[-1]], lon=[lons_g[0], lons_g[-1]], mode='markers',
+                                    marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
+                                ))
+                                
+                                if tipo_mappa == "Satellite":
+                                    mapbox_config = dict(
+                                        style="white-bg",
+                                        layers=[
+                                            {
+                                                "below": 'traces',
+                                                "sourcetype": "raster",
+                                                "source": [
+                                                    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                                ]
+                                            }
+                                        ],
+                                        center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
+                                        zoom=11
+                                    )
+                                else:
+                                    mapbox_config = dict(
+                                        style="open-street-map",
+                                        center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
+                                        zoom=11
+                                    )
 
-                            linee_gpx = [
-                                '<?xml version="1.0" encoding="UTF-8"?>',
-                                '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
-                                '  <trk>',
-                                f'    <name>{dati_uscita_corrente["titolo_uscita"]}</name>',
-                                '    <trkseg>'
-                            ]
-                            for lat, lon in zip(lats_g, lons_g):
-                                linee_gpx.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
-                            linee_gpx.extend([
-                                '    </trkseg>',
-                                '  </trk>',
-                                '</gpx>'
-                            ])
-                            contenuto_gpx_uscita = "\n".join(linee_gpx)
-                            nome_file_gpx = "".join(c for c in dati_uscita_corrente["titolo_uscita"] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
-                            if not nome_file_gpx:
-                                nome_file_gpx = "tracciato_uscita"
+                                fig_map.update_layout(
+                                    mapbox=mapbox_config,
+                                    margin=dict(l=0, r=0, t=0, b=0),
+                                    height=450,
+                                    showlegend=False
+                                )
+                                
+                                st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
 
-                            b64_gpx = base64.b64encode(contenuto_gpx_uscita.encode()).decode()
-                            href_gpx = f'<a href="data:application/gpx+xml;base64,{b64_gpx}" download="{nome_file_gpx}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
-                            st.markdown(href_gpx, unsafe_allow_html=True)
+                                linee_gpx = [
+                                    '<?xml version="1.0" encoding="UTF-8"?>',
+                                    '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
+                                    '  <trk>',
+                                    f'    <name>{dati_uscita_corrente["titolo_uscita"]}</name>',
+                                    '    <trkseg>'
+                                ]
+                                for lat, lon in zip(lats_g, lons_g):
+                                    linee_gpx.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
+                                linee_gpx.extend([
+                                    '    </trkseg>',
+                                    '  </trk>',
+                                    '</gpx>'
+                                ])
+                                contenuto_gpx_uscita = "\n".join(linee_gpx)
+                                nome_file_gpx = "".join(c for c in dati_uscita_corrente["titolo_uscita"] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+                                if not nome_file_gpx:
+                                    nome_file_gpx = "tracciato_uscita"
+
+                                b64_gpx = base64.b64encode(contenuto_gpx_uscita.encode()).decode()
+                                href_gpx = f'<a href="data:application/gpx+xml;base64,{b64_gpx}" download="{nome_file_gpx}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
+                                st.markdown(href_gpx, unsafe_allow_html=True)
+                        else:
+                            st.warning("⚠️ Nessuna coordinata GPS valida disponibile per questa specifica uscita su Intervals.icu.")
                     else:
-                        st.warning("⚠️ Nessuna coordinata GPS valida disponibile per questa specifica uscita su Intervals.icu.")
+                        st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_str_g.status_code})")
         else:
             st.info("Nessuna attività trovata nel range temporale selezionato per il grafico.")
     else:
