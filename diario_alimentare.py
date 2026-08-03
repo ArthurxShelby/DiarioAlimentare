@@ -918,7 +918,22 @@ for i, pasto in enumerate(PASTI):
                 p_prot = safe_float(df_p["proteine"].sum())
                 p_gras = safe_float(df_p["grassi"].sum())
                 st.caption(f"Totale: {p_kcal:.1f} kcal | C: {p_carb:.1f}g | P: {p_prot:.1f}g | G: {p_gras:.1f}g")
-                st.dataframe(df_p, use_container_width=True)
+                
+                # --- AGGIUNTA RIGA DI SOMMA ALL'INTERNO DELLA TABELLA ---
+                df_mostra = df_p.copy()
+                riga_totale = {
+                    "Alimento": "TOTALE",
+                    "gr/n": safe_float(df_mostra["gr/n"].sum()) if "gr/n" in df_mostra.columns else 0.0,
+                    "kcal": p_kcal,
+                    "carbo": p_carb,
+                    "grassi": p_gras,
+                    "proteine": p_prot
+                }
+                riga_totale_filtrata = {k: v for k, v in riga_totale.items() if k in df_mostra.columns}
+                df_mostra = pd.concat([df_mostra, pd.DataFrame([riga_totale_filtrata])], ignore_index=True)
+
+                st.dataframe(df_mostra, use_container_width=True)
+                # --------------------------------------------------------
 
                 mostra_gestione_voci = st.toggle("Modifica voci pasto", key=f"toggle_mod_{pasto}")
 
