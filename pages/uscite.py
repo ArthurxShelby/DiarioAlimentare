@@ -415,7 +415,7 @@ if "grafico_end_val" not in st.session_state:
     st.session_state["grafico_end_val"] = carica_data_salvata(FILE_GRAFICO_FINE, date.today())
 
 with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded=False):
-    st.write("Fissa il range temporale di ricerca, il livello di aggregazione (Settimane/Mesi) e seleziona il parametro da analizzare.")
+    st.write("Fissa il range temporale di ricerca, il livello di aggregazione (Settimane/Mesi/Anni) e seleziona il parametro da analizzare.")
     
     col_r1, col_r2, col_r3, col_r4 = st.columns([2, 2, 2, 2])
     with col_r1:
@@ -425,7 +425,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     with col_r3:
         tipo_aggregazione = st.selectbox(
             "Raggruppa per",
-            ["Giornaliero", "Settimanale", "Mensile"],
+            ["Giornaliero", "Settimanale", "Mensile", "Annuale"],
             key="selettore_aggregazione"
         )
     with col_r4:
@@ -478,6 +478,14 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                     'Ore in sella': 'sum',
                     'titolo_uscita': lambda x: f"Totale Mensile ({len(x)} uscite)"
                 }).reset_index().rename(columns={'periodo_chiave': 'asse_x'})
+            elif tipo_aggregazione == "Annuale":
+                df_g['periodo_chiave'] = df_g['data_fmt'].dt.to_period('Y').dt.start_time.dt.date
+                df_aggregato = df_g.groupby('periodo_chiave').agg({
+                    'Km': 'sum',
+                    'D+': 'sum',
+                    'Ore in sella': 'sum',
+                    'titolo_uscita': lambda x: f"Totale Annuale ({len(x)} uscite)"
+                }).reset_index().rename(columns={'periodo_chiave': 'asse_x'})
             else:
                 df_g['periodo_chiave'] = df_g['data_solo']
                 df_aggregato = df_g.copy().rename(columns={'data_solo': 'asse_x'})
@@ -525,13 +533,15 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             st.markdown("---")
             
             if periodo_selezionato:
-                p_date_str = datetime.strptime(periodo_selezionato, "%Y-%m-%d").strftime("%d/%m/%Y")
+                p_date_obj = datetime.strptime(periodo_selezionato, "%Y-%m-%d")
                 if tipo_aggregazione == "Settimanale":
-                    etichetta_periodo = f"Settimana dal {p_date_str}"
+                    etichetta_periodo = f"Settimana dal {p_date_obj.strftime('%d/%m/%Y')}"
                 elif tipo_aggregazione == "Mensile":
-                    etichetta_periodo = f"Mese di {datetime.strptime(periodo_selezionato, '%Y-%m-%d').strftime('%B %Y')}"
+                    etichetta_periodo = f"Mese di {p_date_obj.strftime('%B %Y')}"
+                elif tipo_aggregazione == "Annuale":
+                    etichetta_periodo = f"Anno {p_date_obj.strftime('%Y')}"
                 else:
-                    etichetta_periodo = f"Giorno {p_date_str}"
+                    etichetta_periodo = f"Giorno {p_date_obj.strftime('%d/%m/%Y')}"
                 titolo_totali = f"Totale Selezionato ({etichetta_periodo})"
             else:
                 titolo_totali = "Totale Intero Periodo"
