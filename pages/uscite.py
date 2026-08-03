@@ -482,6 +482,8 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                 df_g['periodo_chiave'] = df_g['data_solo']
                 df_aggregato = df_g.copy().rename(columns={'data_solo': 'asse_x'})
 
+            # --- INSERIMENTO CORRETTO DEI GRAFICI NELLA SEZIONE ---
+            st.markdown("---")
             fig_stat = go.Figure()
             
             fig_stat.add_trace(go.Bar(
@@ -502,6 +504,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             )
 
             event_selezionato = st.plotly_chart(fig_stat, use_container_width=True, on_select="rerun", key="chart_uscite_interattivo")
+            # -----------------------------------------------------
 
             periodo_selezionato = None
             if event_selezionato and "selection" in event_selezionato and event_selezionato["selection"]["points"]:
