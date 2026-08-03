@@ -482,50 +482,26 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                 df_g['periodo_chiave'] = df_g['data_solo']
                 df_aggregato = df_g.copy().rename(columns={'data_solo': 'asse_x'})
 
-            # --- GRAFICI AGGIUNTIVI RICHIESTI ---
-            st.markdown("---")
-            st.markdown("### 📊 Panoramica Grafica Multi-Metrica")
+            fig_stat = go.Figure()
             
-            col_g1, col_g2 = st.columns(2)
-            
-            with col_g1:
-                # Grafico a barre principale per la metrica selezionata
-                fig_stat = go.Figure()
-                fig_stat.add_trace(go.Bar(
-                    x=df_aggregato['asse_x'],
-                    y=df_aggregato[scelta_metrica],
-                    name=scelta_metrica,
-                    marker=dict(color='dodgerblue'),
-                    customdata=df_aggregato['asse_x'].astype(str).values
-                ))
-                fig_stat.update_layout(
-                    title=f"Andamento {tipo_aggregazione.lower()}: {scelta_metrica}",
-                    xaxis_title="Periodo",
-                    yaxis_title=scelta_metrica,
-                    margin=dict(l=20, r=20, t=40, b=20),
-                    height=320,
-                    clickmode='event+select'
-                )
-                event_selezionato = st.plotly_chart(fig_stat, use_container_width=True, on_select="rerun", key="chart_uscite_interattivo")
+            fig_stat.add_trace(go.Bar(
+                x=df_aggregato['asse_x'],
+                y=df_aggregato[scelta_metrica],
+                name=scelta_metrica,
+                marker=dict(color='dodgerblue'),
+                customdata=df_aggregato['asse_x'].astype(str).values
+            ))
 
-            with col_g2:
-                # Grafico secondario di confronto o distribuzione cumulativa (es. Evoluzione Km o D+ nel tempo)
-                fig_trend = go.Figure()
-                fig_trend.add_trace(go.Scatter(
-                    x=df_g['data_solo'],
-                    y=df_g['Km'].cumsum(),
-                    mode='lines+markers',
-                    name='Km Cumulati',
-                    line=dict(color='green', width=2)
-                ))
-                fig_trend.update_layout(
-                    title="Crescita Chilometrica Cumulata nel Periodo",
-                    xaxis_title="Data",
-                    yaxis_title="Km Totali",
-                    margin=dict(l=20, r=20, t=40, b=20),
-                    height=320
-                )
-                st.plotly_chart(fig_trend, use_container_width=True, config={'displaylogo': False})
+            fig_stat.update_layout(
+                title=f"Andamento {tipo_aggregazione.lower()}: {scelta_metrica}",
+                xaxis_title="Periodo",
+                yaxis_title=scelta_metrica,
+                margin=dict(l=20, r=20, t=40, b=20),
+                height=350,
+                clickmode='event+select'
+            )
+
+            event_selezionato = st.plotly_chart(fig_stat, use_container_width=True, on_select="rerun", key="chart_uscite_interattivo")
 
             periodo_selezionato = None
             if event_selezionato and "selection" in event_selezionato and event_selezionato["selection"]["points"]:
@@ -935,4 +911,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             ))
             st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Efficiency Factor (EF):</b> Rapporto tra Potenza Normalizzata e frequenza cardiaca media; indica l'efficienza cardiocircolatoria e aerobica.</p>", unsafe_allow_html=True)
+
+
 
