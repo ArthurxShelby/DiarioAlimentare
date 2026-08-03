@@ -912,6 +912,26 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Efficiency Factor (EF):</b> Rapporto tra Potenza Normalizzata e frequenza cardiaca media; indica l'efficienza cardiocircolatoria e aerobica.</p>", unsafe_allow_html=True)
 
+        # --- AGGIUNTA TACHIMETRI POTENZA NORMALIZZATA E FC MEDIA SUBITO DOPO EF ---
+        st.markdown("---")
+        col_s3_3, col_s3_4 = st.columns(2)
+
+        with col_s3_3:
+            fig_np_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=np_val, title={"text": "<b>Potenza Normalizzata (NP)</b>"},
+                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "mediumorchid"}, 'bgcolor': "rgba(0,0,0,0)"}
+            ))
+            st.plotly_chart(apply_dark_theme(fig_np_gauge), use_container_width=True, config={'displaylogo': False})
+            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Potenza Normalizzata (NP):</b> Stima della potenza equivalente che toglie i picchi, riflettendo il costo metabolico reale dell'uscita.</p>", unsafe_allow_html=True)
+
+        with col_s3_4:
+            fig_fc_gauge = go.Figure(go.Indicator(
+                mode="gauge+number", value=avg_hr, title={"text": "<b>FC Media (bpm)</b>"},
+                gauge={'axis': {'range': [0, 200]}, 'bar': {'color': "orangered"}, 'bgcolor': "rgba(0,0,0,0)"}
+            ))
+            st.plotly_chart(apply_dark_theme(fig_fc_gauge), use_container_width=True, config={'displaylogo': False})
+            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
+
 
 
 
