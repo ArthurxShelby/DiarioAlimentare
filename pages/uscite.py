@@ -809,9 +809,16 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     val_ctl = float(m.get('icu_ctl') or val_ctl or 0.0)
                     val_atl = float(m.get('icu_atl') or val_atl or 0.0)
 
-                    # --- Estrazione netta e separata tra Potenza Normalizzata e Potenza Media ---
-                    np_val = float(m.get('normalized_watts') or m.get('icu_normalized_watts') or m.get('np') or 0.0)
-                    gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or 0.0)
+                    val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
+                    val_eftp = float(m.get('icu_ftp') or m.get('eftp') or 279.0)
+                    
+                    val_ctl = float(m.get('icu_ctl') or val_ctl or 0.0)
+                    val_atl = float(m.get('icu_atl') or val_atl or 0.0)
+
+                    # --- Estrazione robusta di Potenza Normalizzata e Potenza Media ---
+                    # Intervals può chiamarla normalized_watts, icu_normalized_watts, np o weighted_average_watts
+                    np_val = float(m.get('normalized_watts') or m.get('icu_normalized_watts') or m.get('np') or m.get('weighted_average_watts') or 0.0)
+                    gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or m.get('watts') or 0.0)
                     avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or m.get('hr') or 0.0)
                     
                     # Niente forzature di np_val con gp_val qui: se normalized_watts non esiste rimane 0.0 (o prende np se presente)
