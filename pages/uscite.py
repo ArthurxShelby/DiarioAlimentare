@@ -728,29 +728,66 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE METRICHE PRINCIPALI E POTENZA ---
-# Estrazione corretta dei campi dal dizionario/dataframe dell'attività:
+# --- 4. SEZIONE DETTAGLIO ATTIVITÀ E ANALISI POTENZA (COMPLETA) ---
+st.markdown("### 🚴 Sezione 4: Dettaglio Attività e Analisi Potenza")
 
-potenza_media = dati_uscita_corrente.get('average_watts', 0)
-if pd.isna(potenza_media):
-    potenza_media = 0
+# Assicurati di avere un'attività selezionata o recuperala dal dataframe principale
+# Se utilizzi una selectbox per scegliere l'attività nella Sezione 4:
+if 'df_g' in locals() and not df_g.empty:
+    opzioni_sec4 = {
+        f"{row['data_solo']} - {row['titolo_uscita']}": row['id_str'] 
+        for _, row in df_g.sort_values('data_fmt', ascending=False).iterrows()
+    }
+    
+    scelta_sec4 = st.selectbox(
+        "Seleziona un'attività da analizzare",
+        options=list(opzioni_sec4.keys()),
+        key="select_sec4_attivita"
+    )
+    
+    if scelta_sec4:
+        id_sec4 = opzioni_sec4[scelta_sec4]
+        dati_sec4 = df_g[df_g['id_str'] == id_sec4].iloc[0]
+        
+        st.markdown(f"#### 📌 {dati_sec4['titolo_uscita']} ({dati_sec4['data_solo']})")
+        
+        # --- Estrazione e distinzione rigorosa dei campi di potenza ---
+        potenza_media = dati_sec4.get('average_watts', 0)
+        if pd.isna(potenza_media):
+            potenza_media = 0
 
-potenza_normalizzata = dati_uscita_corrente.get('normalized_watts', 0)
-if pd.isna(potenza_normalizzata):
-    potenza_normalizzata = 0
+        potenza_normalizzata = dati_sec4.get('normalized_watts', 0)
+        if pd.isna(potenza_normalizzata):
+            potenza_normalizzata = 0
 
-# Visualizzazione corretta nei metric card di Streamlit
-col_m1, col_m2, col_m3 = st.columns(3)
+        # Calcolo o estrazione di altre metriche di contorno (es. kJ, FC media, ecc.)
+        kJ_totali = dati_sec4.get('icu_joules', 0) / 1000.0 if not pd.isna(dati_sec4.get('icu_joules', 0)) else 0
+        fc_media = dati_sec4.get('average_heartrate', 0)
+        if pd.isna(fc_media):
+            fc_media = 0
 
-with col_m1:
-    st.metric("Potenza Media", f"{potenza_media:.0f} W")
+        # Visualizzazione metriche in colonne
+        col_s4_1, col_s4_2, col_s4_3, col_s4_4 = st.columns(4)
+        
+        with col_s4_1:
+            st.metric("Potenza Media", f"{potenza_media:.0f} W")
+            
+        with col_s4_2:
+            st.metric("Potenza Normalizzata (NP)", f"{potenza_normalizzata:.0f} W")
+            
+        with col_s4_3:
+            st.metric("Lavoro Totale", f"{kJ_totali:.0f} kJ")
+            
+        with col_s4_4:
+            st.metric("Frequenza Cardiaca", f"{fc_media:.0f} bpm" if fc_media > 0 else "N/D")
 
-with col_m2:
-    st.metric("Potenza Normalizzata (NP)", f"{potenza_normalizzata:.0f} W")
+        # Eventuale blocco aggiuntivo per approfondimenti sulla potenza (es. Intensity Factor / Variability Index se disponibili)
+        if potenza_media > 0 and potenza_normalizzata > 0:
+            variability_index = potenza_normalizzata / potenza_media
+            st.caption(- f"**Variability Index (VI):** {variability_index:.2f}")
 
-with col_m3:
-    kJ_totali = dati_uscita_corrente.get('icu_joules', 0) / 1000.0 if not pd.isna(dati_uscita_corrente.get('icu_joules', 0)) else 0
-    st.metric("Lavoro (kJ)", f"{kJ_totali:.0f} kJ")
+else:
+    st.info("Nessun dato disponibile per popolare la Sezione 4. Assicurati che il DataFrame delle attività sia caricato.")
 
 
 
