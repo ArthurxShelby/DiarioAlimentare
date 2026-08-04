@@ -797,17 +797,24 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     
                     act_id = m.get('id')
                     if act_id:
+                        # 1. Chiamata al dettaglio attività
                         url_detail = f"https://intervals.icu/api/v1/activity/{act_id}"
                         resp_detail = requests.get(url_detail, auth=("API_KEY", API_KEY.strip()))
                         if resp_detail.status_code == 200:
                             detail_json = resp_detail.json()
                             m.update(detail_json)
 
-                    val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
-                    val_eftp = float(m.get('icu_ftp') or m.get('eftp') or 279.0)
-                    
-                    val_ctl = float(m.get('icu_ctl') or val_ctl or 0.0)
-                    val_atl = float(m.get('icu_atl') or val_atl or 0.0)
+                        # 2. Chiamata agli stream nel caso in cui i campi di potenza manchino nel dettaglio
+                        url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
+                        resp_streams = requests.get(url_streams, auth=("API_KEY", API_KEY.strip()))
+                        watts_stream = []
+                        if resp_streams.status_code == 200:
+                            streams_data = resp_streams.json()
+                            if isinstance(streams_data, list):
+                                for stream in streams_data:
+                                    if isinstance(stream, dict) and stream.get("type") == "watts":
+                                        watts_stream = stream.get("data", [])
+                                        break
 
                     val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
                     val_eftp = float(m.get('icu_ftp') or m.get('eftp') or 279.0)
@@ -815,13 +822,23 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     val_ctl = float(m.get('icu_ctl') or val_ctl or 0.0)
                     val_atl = float(m.get('icu_atl') or val_atl or 0.0)
 
-                    # --- Estrazione robusta di Potenza Normalizzata e Potenza Media ---
-                    # Intervals può chiamarla normalized_watts, icu_normalized_watts, np o weighted_average_watts
+                    # Estrazione standard dai campi API
                     np_val = float(m.get('normalized_watts') or m.get('icu_normalized_watts') or m.get('np') or m.get('weighted_average_watts') or 0.0)
                     gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or m.get('watts') or 0.0)
                     avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or m.get('hr') or 0.0)
-                    
-                    # Niente forzature di np_val con gp_val qui: se normalized_watts non esiste rimane 0.0 (o prende np se presente)
+
+                    # Se NP è 0 ma abbiamo i secondi dei watt dallo stream, calcoliamo la NP empiricamente (media mobile a 30s elevata alla quarta, radice quarta)
+                    if np_val == 0.0 and watts_stream:
+                        valid_watts = [w for w in watts_stream if w is not None and w >= 0]
+                        if len(valid_watts) >= 30:
+                            rolling_30s = [sum(valid_watts[i:i+30])/30 for i in range(len(valid_watts)-29)]
+                            np_val = float((sum([w**4 for w in rolling_30s]) / len(rolling_30s)) ** 0.25)
+                        elif valid_watts:
+                            np_val = float(sum(valid_watts) / len(valid_watts))
+
+                    # Fallback estremo: se NP è ancora 0, usiamo la potenza media
+                    if np_val == 0.0 and gp_val > 0:
+                        np_val = gp_val
 
                     if np_val > 0 and val_eftp > 0:
                         val_if = np_val / val_eftp
