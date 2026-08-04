@@ -728,8 +728,8 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- 4. SEZIONE METRICHE PRINCIPALI E POTENZA (Esempio di correzione visualizzazione) ---
-# Assicurati di estrarre correttamente i campi dal dizionario/dataframe dell'attività:
+# --- 4. SEZIONE METRICHE PRINCIPALI E POTENZA ---
+# Estrazione corretta dei campi dal dizionario/dataframe dell'attività:
 
 potenza_media = dati_uscita_corrente.get('average_watts', 0)
 if pd.isna(potenza_media):
@@ -749,10 +749,8 @@ with col_m2:
     st.metric("Potenza Normalizzata (NP)", f"{potenza_normalizzata:.0f} W")
 
 with col_m3:
-    # Eventuale altra metrica, es. kJ o TSS
-     kJ_totali = dati_uscita_corrente.get('icu_joules', 0) / 1000.0 if not pd.isna(dati_uscita_corrente.get('icu_joules', 0)) else 0
+    kJ_totali = dati_uscita_corrente.get('icu_joules', 0) / 1000.0 if not pd.isna(dati_uscita_corrente.get('icu_joules', 0)) else 0
     st.metric("Lavoro (kJ)", f"{kJ_totali:.0f} kJ")
-
 
 
 
