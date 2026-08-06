@@ -64,15 +64,24 @@ if resp_global.status_code == 200:
         tot_km = round(df_activities.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
         tot_dislivello = int(df_activities.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
         
+        # Calcolo delle ore totali in sella (da moving_time in secondi)
+        tot_secondi_sella = df_activities.get("moving_time", pd.Series([0])).fillna(0).sum()
+        ore_totali = int(tot_secondi_sella // 3600)
+        minuti_totali = int((tot_secondi_sella % 3600) // 60)
+        stringa_ore_sella = f"{ore_totali}h {minuti_totali:02d}m"
+        
         st.markdown("---")
         st.subheader("📊 Statistiche Dinamiche e Riepilogo (TCR - Dal 15/11/2025)")
         
-        col_m1, col_m2, col_img = st.columns(3)
+        # Suddividiamo in 4 colonne per mantenere pulito lo spazio tra metriche e immagine
+        col_m1, col_m2, col_m3, col_img = st.columns([2, 2, 2, 3])
         
         with col_m1:
             st.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
         with col_m2:
             st.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
+        with col_m3:
+            st.metric("Ore in sella", stringa_ore_sella)
         with col_img:
             st.subheader("TCR Advanced Pro 0")
             try:
