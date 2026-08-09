@@ -766,8 +766,8 @@ def apri_mappa_dialog(ag_id, ag_title):
                                             lons_s4.append(float(pt[1]))
                                             
             if lats_s4 and lons_s4:
-                # Controlli posizionati esattamente sopra la mappa (Stile a sinistra, Schermo Intero in alto a destra)
-                c_s4_style1, c_s4_style2 = st.columns([2, 2])
+                # Controlli in alto a destra sopra la mappa (Stile a sinistra, Schermo Intero a destra)
+                col_spazio, c_s4_style1, c_s4_style2 = st.columns([3, 2, 2])
                 with c_s4_style1:
                     stile_s4 = st.selectbox(
                         "Stile Mappa",
@@ -780,7 +780,7 @@ def apri_mappa_dialog(ag_id, ag_title):
                 is_fullscreen = st.session_state.get(key_fullscreen, False)
                 
                 with c_s4_style2:
-                    label_fs = "🗗 Riduci Mappa" if is_fullscreen else "🗖 Schermo Intero"
+                    label_fs = "🗗 Riduci" if is_fullscreen else "🗖 Schermo Intero"
                     if st.button(label_fs, key=f"btn_fs_dlg_{ag_id}", use_container_width=True):
                         st.session_state[key_fullscreen] = not is_fullscreen
                         st.rerun()
