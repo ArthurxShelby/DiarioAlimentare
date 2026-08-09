@@ -728,264 +728,36 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
     else:
         st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
 
-# --- SELEZIONE RAPIDA USCITA PER LA DASHBOARD AVANZATA ---
+# --- SELEZIONE RAPIDA E VISUALIZZAZIONE MAPPA ---
 st.markdown("---")
-st.markdown("#### 🚴 Seleziona Uscita per la Dashboard")
+# ... (il codice del selectbox che abbiamo fatto prima) ...
 
-# Riutilizziamo o ricarichiamo rapidamente le attività per la tendina se df_activities è disponibile
-if 'df_activities' in locals() and not df_activities.empty:
-    df_tendina = df_activities.copy()
-    df_tendina['data_fmt'] = pd.to_datetime(df_tendina['start_date_local'])
-    df_tendina['data_solo'] = df_tendina['data_fmt'].dt.date
-    df_tendina['titolo_uscita'] = df_tendina.get('name', 'Uscita senza nome')
-    
-    # Creazione delle opzioni ordinate dalla più recente
-    opzioni_attivita = {
-        f"{row['data_solo']} - {row['titolo_uscita']}": row['data_solo'] 
-        for _, row in df_tendina.sort_values('data_fmt', ascending=False).iterrows()
-    }
-    
-    scelta_rapida_uscita = st.selectbox(
-        "Scegli un'uscita recente",
-        options=list(opzioni_native := list(opzioni_attivita.keys())),
-        key="select_rapida_uscita_dashboard"
-    )
-    
-    # Sincronizzazione della data selezionata con la variabile di stato della Dashboard
-    if scelta_rapida_uscita:
-        data_selezionata_tendina = opzioni_attivita[scelta_rapida_uscita]
-        st.session_state["sec4_giorno_singolo"] = data_selezionata_tendina
-else:
-    st.info("Sincronizzazione attività in corso per il menu rapido...")
-
-# --- 4. SEZIONE PARAMETRI DI INTERVALS (RICERCA PER GIORNO SPECIFICO) ---
-with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
-    st.write("Estrazione dei parametri per il giorno selezionato.")
-    
-    oggi = date.today()
-    
-    # Selettore collegato allo state che si aggiorna automaticamente se selezioni l'uscita sopra
-    c1, _ = st.columns([1, 3])
-    with c1:
-        giorno_scelto = st.date_input("Seleziona Giorno", value=oggi, key="sec4_giorno_singolo")
-    
-    start_sec4 = giorno_scelto
-    end_sec4 = giorno_scelto
-
-    url_sec4 = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
-    params_sec4 = {
-        "oldest": start_sec4.strftime("%Y-%m-%d"),
-        "newest": end_sec4.strftime("%Y-%m-%d"),
-        "iw": True
-    }
-    resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
-
-    url_well = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/wellness"
-    params_well = {
-        "oldest": start_sec4.strftime("%Y-%m-%d"),
-        "newest": end_sec4.strftime("%Y-%m-%d")
-    }
-    resp_well = requests.get(url_well, auth=("API_KEY", API_KEY.strip()), params=params_well)
-
-    val_load = 0.0
-    val_if = 0.0
-    val_vi = 1.0
-    val_eftp = 279.0
-    val_ef = 0.0
-    val_ctl = 0.0
-    val_atl = 0.0
-    np_val = 0.0
-    gp_val = 0.0
-    avg_hr = 0.0
-    m = {}
-
-    if resp_well.status_code == 200:
-        dati_well = resp_well.json()
-        if dati_well:
-            df_w = pd.DataFrame(dati_well)
-            if not df_w.empty and 'id' in df_w.columns:
-                df_w['data_well'] = pd.to_datetime(df_w['id']).dt.date
-                df_w_filtrato = df_w[df_w['data_well'] == giorno_scelto]
-                if not df_w_filtrato.empty:
-                    ultimo_w = df_w_filtrato.sort_values('id', ascending=False).iloc[0]
-                    val_ctl = float(ultimo_w.get('ctl', 0.0) or 0.0)
-                    val_atl = float(ultimo_w.get('atl', 0.0) or 0.0)
-
-    if resp_sec4.status_code == 200:
-        dati_sec4 = resp_sec4.json()
-        if dati_sec4:
-            df_s4 = pd.DataFrame(dati_sec4)
-            if not df_s4.empty and 'start_date_local' in df_s4.columns:
-                df_s4['data_attivita'] = pd.to_datetime(df_s4['start_date_local']).dt.date
-                df_s4_filtrato = df_s4[df_s4['data_attivita'] == giorno_scelto]
-                
-                if not df_s4_filtrato.empty:
-                    ultima_act = df_s4_filtrato.sort_values('start_date_local', ascending=False).iloc[0]
-                    m = ultima_act.to_dict()
-                    
-                    act_id = m.get('id')
-                    if act_id:
-                        url_detail = f"https://intervals.icu/api/v1/activity/{act_id}"
-                        resp_detail = requests.get(url_detail, auth=("API_KEY", API_KEY.strip()))
-                        if resp_detail.status_code == 200:
-                            detail_json = resp_detail.json()
-                            m.update(detail_json)
-
-                    val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
-                    val_eftp = float(m.get('icu_ftp') or m.get('eftp') or 279.0)
-                    
-                    val_ctl = float(m.get('icu_ctl') or val_ctl or 0.0)
-                    val_atl = float(m.get('icu_atl') or val_atl or 0.0)
-
-                    np_val = float(m.get('normalized_watts') or m.get('icu_normalized_watts') or m.get('np') or m.get('weighted_average_watts') or 0.0)
-                    gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or m.get('watts') or 0.0)
-                    avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or m.get('hr') or 0.0)
-
-                    if np_val == 0.0 and gp_val > 0:
-                        np_val = gp_val
-
-                    if np_val > 0 and val_eftp > 0:
-                        val_if = np_val / val_eftp
-                    else:
-                        raw_if = float(m.get('intensity_factor') or m.get('icu_intensity') or 0.0)
-                        val_if = raw_if / 100.0 if raw_if > 2.0 else raw_if
-
-                    val_vi = float(m.get('variability_index') or m.get('vi') or m.get('icu_variability_index') or 0.0)
-                    if val_vi == 0.0 and np_val > 0 and gp_val > 0:
-                        val_vi = np_val / gp_val
-                    if val_vi == 0.0: 
-                        val_vi = 1.0
-
-                    val_ef = float(m.get('efficiency_factor') or m.get('ef') or m.get('icu_efficiency_factor') or 0.0)
-                    if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
-                        val_ef = np_val / avg_hr
-
-    val_tsb = val_ctl - val_atl
-
-    st.markdown("---")
-
-    def apply_dark_theme(fig, height=220):
-        fig.update_layout(
-            height=height,
-            margin=dict(l=20, r=20, t=50, b=10),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='white')
-        )
-        return fig
-
-    with st.container(border=True):
-        st.markdown("### 1. Gestione del Carico e della Forma (Grafico 'Fitness')")
-        st.caption("ℹ️ **Legenda:** Monitoraggio a lungo termine del carico di allenamento (CTL = Fitness, ATL = Fatica, TSB = Stato di Forma/Balance).")
-        col_s1_1, col_s1_2, col_s1_3 = st.columns(3)
-        
-        with col_s1_1:
-            fig_ctl = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_ctl, title={"text": "<b>Fitness (CTL)</b>"},
-                gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "royalblue"}, 'bgcolor': "rgba(0,0,0,0)"}
-            ))
-            st.plotly_chart(apply_dark_theme(fig_ctl), use_container_width=True, config={'displaylogo': False})
-            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>CTL (Chronic Training Load):</b> Carico di allenamento cronico, ovvero la fitness aerobica di fondo sviluppata negli ultimi 42 giorni.</p>", unsafe_allow_html=True)
+# Bottone per visualizzare la mappa
+if st.button("📍 Visualizza Mappa e Traccia GPX"):
+    with st.spinner("Caricamento mappa in corso..."):
+        # Recuperiamo l'ID dell'attività selezionata
+        # Nota: dobbiamo assicurarci che 'm' sia disponibile (dal blocco di estrazione)
+        # Se 'm' non è definito globalmente, recuperiamo l'ID dall'attività filtrata
+        if not df_s4_filtrato.empty:
+            act_id = df_s4_filtrato.iloc[0]['id']
             
-        with col_s1_2:
-            fig_atl = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_atl, title={"text": "<b>Fatigue (ATL)</b>"},
-                gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "darkorange"}, 'bgcolor': "rgba(0,0,0,0)"}
-            ))
-            st.plotly_chart(apply_dark_theme(fig_atl), use_container_width=True, config={'displaylogo': False})
-            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>ATL (Acute Training Load):</b> Carico di fatica acuto e stress muscolare accumulato negli ultimi 7 giorni.</p>", unsafe_allow_html=True)
+            # Richiesta dati mappa
+            url_map = f"https://intervals.icu/api/v1/activity/{act_id}/map"
+            resp_map = requests.get(url_map, auth=("API_KEY", API_KEY.strip()))
             
-        with col_s1_3:
-            fig_tsb = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_tsb, title={"text": "<b>Form (TSB)</b>"},
-                gauge={'axis': {'range': [-50, 50]}, 'bar': {'color': "forestgreen" if -30 <= val_tsb <= -10 else "crimson"}, 'bgcolor': "rgba(0,0,0,0)"}
-            ))
-            st.plotly_chart(apply_dark_theme(fig_tsb), use_container_width=True, config={'displaylogo': False})
-            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>TSB (Training Stress Balance):</b> Stato di freschezza o affaticamento (CTL meno ATL). Valori positivi indicano riposo, negativi indicano carico.</p>", unsafe_allow_html=True)
-
-    with st.container(border=True):
-        st.markdown("### 2. Intensità e Stress della Singola Sessione")
-        st.caption("ℹ️ **Legenda:** Valutazione dello stress immediato dell'allenamento (TSS/Load), dell'Intensity Factor (IF) e della regolarità dello sforzo tramite il Variability Index (VI).")
-        col_s2_1, col_s2_2, col_s2_3 = st.columns(3)
-        
-        with col_s2_1:
-            fig_load = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_load, title={"text": "<b>Load / TSS Sessione</b>"},
-                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "dodgerblue"}, 'bgcolor': "rgba(0,0,0,0)"}
-            ))
-            st.plotly_chart(apply_dark_theme(fig_load), use_container_width=True, config={'displaylogo': False})
-            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Training Stress Score (TSS):</b> Quantifica lo stress complessivo della singola sessione in base a durata e intensità rapportate alla tua FTP.</p>", unsafe_allow_html=True)
-
-        with col_s2_2:
-            fig_if = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_if, title={"text": "<b>Intensity Factor (IF)</b>"},
-                number={'valueformat': ".2f"},
-                gauge={'axis': {'range': [0, 1.3]}, 'bar': {'color': "purple"}, 'bgcolor': "rgba(0,0,0,0)"}
-            ))
-            st.plotly_chart(apply_dark_theme(fig_if), use_container_width=True, config={'displaylogo': False})
-            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Intensity Factor (IF):</b> Esprime quanto è stata dura l'uscita rapportando la Potenza Normalizzata (NP) alla tua soglia (FTP).</p>", unsafe_allow_html=True)
-
-        with col_s2_3:
-            fig_vi = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_vi, title={"text": "<b>Variability Index (VI)</b>"},
-                number={'valueformat': ".2f"},
-                gauge={'axis': {'range': [1.0, 1.5]}, 'bar': {'color': "teal"}, 'bgcolor': "rgba(0,0,0,0)"}
-            ))
-            st.plotly_chart(apply_dark_theme(fig_vi), use_container_width=True, config={'displaylogo': False})
-            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Variability Index (VI):</b> Rapporto tra Potenza Normalizzata e Potenza Media; misura la regolarità dello sforzo (1.0 indica pedalata perfettamente rotonda).</p>", unsafe_allow_html=True)
-
-    with st.container(border=True):
-        st.markdown("### 3. Analisi della Performance e Capacità")
-        st.caption("ℹ️ **Legenda:** Analisi della potenza funzionale stimata (eFTP) e dell'Efficiency Factor (EF).")
-        col_s3_1, col_s3_2 = st.columns(2)
-        
-        with col_s3_1:
-            fig_eftp = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_eftp, title={"text": "<b>eFTP (W)</b>"},
-                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "crimson"}, 'bgcolor': "rgba(0,0,0,0)"}
-            ))
-            st.plotly_chart(apply_dark_theme(fig_eftp), use_container_width=True, config={'displaylogo': False})
-            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>eFTP (Estimated Functional Threshold Power):</b> La stima dinamica della tua soglia di potenza funzionale calcolata sulle migliori prestazioni recenti.</p>", unsafe_allow_html=True)
-
-        with col_s3_2:
-            fig_ef = go.Figure(go.Indicator(
-                mode="gauge+number", value=val_ef, title={"text": "<b>Efficiency Factor (EF)</b>"},
-                number={'valueformat': ".2f"},
-                gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"}, 'bgcolor': "rgba(0,0,0,0)"}
-            ))
-            st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
-            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Efficiency Factor (EF):</b> Rapporto tra Potenza Normalizzata e frequenza cardiaca media; indica l'efficienza cardiocircolatoria e aerobica.</p>", unsafe_allow_html=True)
-
-        st.markdown("---")
-
-        col_s3_3, col_s3_4 = st.columns(2)
-        with col_s3_3:
-            valore_np_display = float(np_val) if np_val else 0.0
-            
-            fig_np_gauge = go.Figure(go.Indicator(
-                mode="gauge+number", 
-                value=valore_np_display, 
-                title={"text": "<b>Potenza Normalizzata (NP)</b>"},
-                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "mediumorchid"}, 'bgcolor': "rgba(0,0,0,0)"}
-            ))
-            st.plotly_chart(apply_dark_theme(fig_np_gauge), use_container_width=True, config={'displaylogo': False})
-            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Potenza Normalizzata (NP):</b> Stima della potenza equivalente che toglie i picchi, riflettendo il costo metabolico reale dell'uscita.</p>", unsafe_allow_html=True)
-
-        with col_s3_4:
-            valore_fc_display = float(avg_hr) if avg_hr else 0.0
-            
-            fig_fc_gauge = go.Figure(go.Indicator(
-                mode="gauge+number", 
-                value=valore_fc_display, 
-                title={"text": "<b>FC Media (bpm)</b>"},
-                gauge={'axis': {'range': [0, 200]}, 'bar': {'color': "orangered"}, 'bgcolor': "rgba(0,0,0,0)"}
-            ))
-            st.plotly_chart(apply_dark_theme(fig_fc_gauge), use_container_width=True, config={'displaylogo': False})
-            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
-
-
-
-
+            if resp_map.status_code == 200:
+                map_data = resp_map.json()
+                # Intervals restituisce solitamente un campo 'latlng' o 'polyline'
+                if 'latlng' in map_data:
+                    df_map = pd.DataFrame(map_data['latlng'], columns=['lat', 'lon'])
+                    st.map(df_map)
+                    st.success("Mappa caricata correttamente.")
+                else:
+                    st.warning("Dati mappa non disponibili per questa attività.")
+            else:
+                st.error("Errore nel recupero della mappa.")
+        else:
+            st.error("Seleziona un'attività valida.")
 
 
 
