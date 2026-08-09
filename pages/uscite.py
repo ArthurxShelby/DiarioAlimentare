@@ -766,20 +766,20 @@ def apri_mappa_dialog(ag_id, ag_title):
                                             lons_s4.append(float(pt[1]))
                                             
             if lats_s4 and lons_s4:
+                # Controlli posizionati esattamente sopra la mappa (Stile a sinistra, Schermo Intero in alto a destra)
                 c_s4_style1, c_s4_style2 = st.columns([2, 2])
                 with c_s4_style1:
                     stile_s4 = st.selectbox(
                         "Stile Mappa",
                         ["Stradale (OpenStreetMap)", "Satellite (ArcGIS)"],
                         key=f"style_s4_dialog_{ag_id}",
+                        label_visibility="collapsed"
                     )
                 
-                # Gestione dello schermo intero dinamico (altezza 750px vs 450px)
                 key_fullscreen = f"fullscreen_dlg_{ag_id}"
                 is_fullscreen = st.session_state.get(key_fullscreen, False)
                 
                 with c_s4_style2:
-                    st.write("") # spaziatura verticale
                     label_fs = "🗗 Riduci Mappa" if is_fullscreen else "🗖 Schermo Intero"
                     if st.button(label_fs, key=f"btn_fs_dlg_{ag_id}", use_container_width=True):
                         st.session_state[key_fullscreen] = not is_fullscreen
