@@ -1132,4 +1132,4 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         else:
                             st.error(f"Errore recupero flussi (Status: {resp_s4_streams.status_code})")
                     except Exception as e:
-                        st.error(f"Errore: {e}")>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
+                        st.error(f"Errore: {e}")
