@@ -274,11 +274,11 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                         if st.session_state[key_toggle]:
                             st.markdown("---")
                             
-                            clean_id = ''.join(c for c in act_id if c.isdigit())
-                            target_url = f"https://intervals.icu/api/v1/activity/{clean_id}/streams"
-                            auth_streams = ("API_KEY", API_KEY.strip())
-                            
-                            with st.spinner("Caricamento tracciato in corso..."):
+                            with st.spinner("🔄 Elaborazione tracciato e geolocalizzazione in corso..."):
+                                clean_id = ''.join(c for c in act_id if c.isdigit())
+                                target_url = f"https://intervals.icu/api/v1/activity/{clean_id}/streams"
+                                auth_streams = ("API_KEY", API_KEY.strip())
+                                
                                 try:
                                     resp_streams = requests.get(target_url, auth=auth_streams)
                                     if resp_streams.status_code == 404 and act_id != clean_id:
@@ -395,13 +395,13 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                             href = f'<a href="data:application/gpx+xml;base64,{b64}" download="{nome_file}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
                                             st.markdown(href, unsafe_allow_html=True)
                                         else:
-                                            st.warning("Nessun punto di coordinate valido trovato in questa attività.")
+                                            st.warning("Nessun punto de coordinate valido trovato in questa attività.")
                                     else:
                                         st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_streams.status_code})")
                                 except Exception as e:
                                     st.error(f"Errore durante il caricamento della mappa: {e}")
 
-# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE (Sotto menu a discesa con persistenza indipendente) ---
+# --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE ---
 st.markdown("---")
 
 FILE_GRAFICO_INIZIO = "grafico_data_inizio.txt"
@@ -621,7 +621,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                 clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
                 target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
                 
-                with st.spinner("Caricamento traccia GPS in corso..."):
+                with st.spinner("🔄 Elaborazione tracciato e geolocalizzazione in corso..."):
                     resp_str_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
                     if resp_str_g.status_code == 404 and id_attivita_scelta != clean_id_g:
                         target_url_g = f"https://intervals.icu/api/v1/activity/{id_attivita_scelta}/streams"
@@ -735,7 +735,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     
     oggi = date.today()
     
-    # Selettore ridotto proporzionalmente utilizzando una singola colonna stretta
     c1, _ = st.columns([1, 3])
     with c1:
         giorno_scelto = st.date_input("Seleziona Giorno", value=oggi, key="sec4_giorno_singolo")
@@ -777,13 +776,14 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         st.session_state[key_sec4_map] = not st.session_state[key_sec4_map]
                         st.rerun()
 
-                # Visualizzazione della mappa integrata nella Sezione 4
+                # Visualizzazione della mappa integrata nella Sezione 4 con spinner protettivo anti-sfarfallio
                 if st.session_state[key_sec4_map]:
                     st.markdown("---")
-                    clean_id_s4 = ''.join(c for c in ag_id if c.isdigit())
-                    target_url_s4 = f"https://intervals.icu/api/v1/activity/{clean_id_s4}/streams"
                     
-                    with st.spinner("Caricamento tracciato in corso..."):
+                    with st.spinner("🔄 Elaborazione tracciato e geolocalizzazione in corso..."):
+                        clean_id_s4 = ''.join(c for c in ag_id if c.isdigit())
+                        target_url_s4 = f"https://intervals.icu/api/v1/activity/{clean_id_s4}/streams"
+                        
                         try:
                             resp_s4_streams = requests.get(target_url_s4, auth=("API_KEY", API_KEY.strip()))
                             if resp_s4_streams.status_code == 404 and ag_id != clean_id_s4:
@@ -1128,4 +1128,4 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 gauge={'axis': {'range': [0, 200]}, 'bar': {'color': "orangered"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_fc_gauge), use_container_width=True, config={'displaylogo': False})
-            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)aco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
