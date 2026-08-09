@@ -126,9 +126,9 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
         
     col_f1, col_f2 = st.columns(2)
     with col_f1:
-        filtro_nome = st.text_input("Filtra per Nome Uscita (opzionale):", value="", placeholder="Es. Giro Samu, Salita...")
+        filtro_nome = st.text_input("Filtra per Nome Uscita (opzionale):", value="", placeholder="Es. Giro Samu, Salita...", key="input_filtro_nome_storico")
     with col_f2:
-        attiva_data_singola = st.checkbox("Filtra per una data singola specifica")
+        attiva_data_singola = st.checkbox("Filtra per una data singola specifica", key="chk_data_singola_storico")
         
     data_singola_specifica = None
     if attiva_data_singola:
@@ -218,34 +218,33 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                         
                         with col_btn_edit:
                             st.write("")
-                            edit_label = "✏️ Chiudi" if st.session_state[key_edit] else "✏️ Modifica Nome"
+                            edit_label = "✏️ Chiudi" if st.session_state[key_edit] else "✏️ Modifica"
                             if st.button(edit_label, key=f"btn_edit_{act_id}_{idx}", use_container_width=True):
                                 st.session_state[key_edit] = not st.session_state[key_edit]
                                 st.rerun()
 
                         with col_btn1:
                             st.write("") 
-                            btn_label = "🗺️ Nascondi Mappa" if st.session_state[key_toggle] else "🗺️ Anteprima Mappa"
+                            btn_label = "🗺️ Nascondi" if st.session_state[key_toggle] else "🗺️ Mappa"
                             if st.button(btn_label, key=f"btn_preview_{act_id}_{idx}", use_container_width=True):
                                 st.session_state[key_toggle] = not st.session_state[key_toggle]
                                 st.rerun()
                                 
                         with col_btn2:
                             st.write("") 
-                            if st.button("🔍 Pagina Dedicata", key=f"btn_custom_{act_id}_{idx}", use_container_width=True):
+                            if st.button("🔍 Pagina", key=f"btn_custom_{act_id}_{idx}", use_container_width=True):
                                 st.session_state["selected_activity_id"] = act_id
                                 st.session_state["selected_activity_title"] = act_title
                                 st.session_state["selected_activity_date"] = act_date
                                 st.switch_page("pages/visualizza_mappa.py")
 
-                        # Sezione di modifica del nome attivata
                         if st.session_state[key_edit]:
                             st.markdown("---")
                             col_input_name, col_save_name = st.columns([3, 1])
                             with col_input_name:
                                 nuovo_nome = st.text_input("Nuovo nome attività", value=act_title, key=f"input_new_name_{act_id}_{idx}", label_visibility="collapsed")
                             with col_save_name:
-                                if st.button("💾 Salva Nome", key=f"btn_save_name_{act_id}_{idx}", use_container_width=True):
+                                if st.button("💾 Salva", key=f"btn_save_name_{act_id}_{idx}", use_container_width=True):
                                     if nuovo_nome.strip() and nuovo_nome != act_title:
                                         auth_update = ("API_KEY", API_KEY.strip())
                                         payload = {"name": nuovo_nome.strip()}
@@ -262,19 +261,18 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                             if resp_up.status_code == 200:
                                                 act["name"] = nuovo_nome.strip()
                                                 st.session_state[key_edit] = False
-                                                st.success("Nome aggiornato con successo su Intervals!")
+                                                st.success("Aggiornato su Intervals!")
                                                 st.rerun()
                                             else:
-                                                st.error(f"Errore API Intervals: {resp_up.status_code}")
+                                                st.error(f"Errore API: {resp_up.status_code}")
                                         except Exception as e:
-                                            st.error(f"Errore di connessione: {e}")
+                                            st.error(f"Errore: {e}")
                                     else:
-                                        st.warning("Inserisci un nome valido o differente.")
+                                        st.warning("Inserisci un nome differente.")
 
                         if st.session_state[key_toggle]:
                             st.markdown("---")
-                            
-                            with st.spinner("🔄 Elaborazione tracciato e geolocalizzazione in corso..."):
+                            with st.spinner("🔄 Caricamento tracciato..."):
                                 clean_id = ''.join(c for c in act_id if c.isdigit())
                                 target_url = f"https://intervals.icu/api/v1/activity/{clean_id}/streams"
                                 auth_streams = ("API_KEY", API_KEY.strip())
@@ -366,11 +364,12 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                             fig.update_layout(
                                                 mapbox=mapbox_config,
                                                 margin=dict(l=0, r=0, t=0, b=0),
-                                                height=450,
+                                                height=400,
+                                                autosize=True,
                                                 showlegend=False
                                             )
                                             
-                                            st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
+                                            st.plotly_chart(fig, use_container_width=True, key=f"plotly_map_hist_{act_id}_{idx}", config={'scrollZoom': True, 'displaylogo': False})
                                             
                                             linee = [
                                                 '<?xml version="1.0" encoding="UTF-8"?>',
@@ -395,11 +394,11 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                             href = f'<a href="data:application/gpx+xml;base64,{b64}" download="{nome_file}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
                                             st.markdown(href, unsafe_allow_html=True)
                                         else:
-                                            st.warning("Nessun punto de coordinate valido trovato in questa attività.")
+                                            st.warning("Nessun punto di coordinate valido trovato.")
                                     else:
-                                        st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_streams.status_code})")
+                                        st.error(f"Errore recupero flussi (Status: {resp_streams.status_code})")
                                 except Exception as e:
-                                    st.error(f"Errore durante il caricamento della mappa: {e}")
+                                    st.error(f"Errore: {e}")
 
 # --- 3. CONTENITORE GRAFICI INTERATTIVI E DETTAGLIO USCITE ---
 st.markdown("---")
@@ -414,7 +413,7 @@ if "grafico_end_val" not in st.session_state:
     st.session_state["grafico_end_val"] = carica_data_salvata(FILE_GRAFICO_FINE, date.today())
 
 with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded=False):
-    st.write("Fissa il range temporale di ricerca, il livello di aggregazione (Settimane/Mesi/Anni) e seleziona il parametro da analizzare.")
+    st.write("Fissa il range temporale di ricerca, il livello di aggregazione e seleziona il parametro da analizzare.")
     
     col_r1, col_r2, col_r3, col_r4 = st.columns([2, 2, 2, 2])
     with col_r1:
@@ -505,6 +504,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                 yaxis_title=scelta_metrica,
                 margin=dict(l=20, r=20, t=40, b=20),
                 height=350,
+                autosize=True,
                 clickmode='event+select'
             )
 
@@ -582,7 +582,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                     st.session_state[key_edit_g] = False
 
                 with col_btn_edit_g:
-                    edit_label_g = "✏️ Chiudi" if st.session_state[key_edit_g] else "✏️ Modifica Nome"
+                    edit_label_g = "✏️ Chiudi" if st.session_state[key_edit_g] else "✏️ Modifica"
                     if st.button(edit_label_g, key=f"btn_edit_trigger_{id_attivita_scelta}", use_container_width=True):
                         st.session_state[key_edit_g] = not st.session_state[key_edit_g]
                         st.rerun()
@@ -593,7 +593,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                         with col_in_g:
                             nuovo_nome_g = st.text_input("Nuovo nome attività", value=dati_uscita_corrente['titolo_uscita'], key=f"input_new_name_g_{id_attivita_scelta}", label_visibility="collapsed")
                         with col_sv_g:
-                            if st.button("💾 Salva Nome", key=f"btn_save_name_g_{id_attivita_scelta}", use_container_width=True):
+                            if st.button("💾 Salva", key=f"btn_save_name_g_{id_attivita_scelta}", use_container_width=True):
                                 if nuovo_nome_g.strip() and nuovo_nome_g != dati_uscita_corrente['titolo_uscita']:
                                     clean_id_update = ''.join(c for c in id_attivita_scelta if c.isdigit())
                                     auth_update = ("API_KEY", API_KEY.strip())
@@ -609,19 +609,19 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                         if resp_up.status_code == 200:
                                             df_g.loc[df_g['id_str'] == id_attivita_scelta, 'titolo_uscita'] = nuovo_nome_g.strip()
                                             st.session_state[key_edit_g] = False
-                                            st.success("Nome aggiornato con successo su Intervals!")
+                                            st.success("Aggiornato!")
                                             st.rerun()
                                         else:
-                                            st.error(f"Errore API Intervals: {resp_up.status_code}")
+                                            st.error(f"Errore API: {resp_up.status_code}")
                                     except Exception as e:
-                                        st.error(f"Errore di connessione: {e}")
+                                        st.error(f"Errore: {e}")
                                 else:
-                                    st.warning("Inserisci un nome valido o differente.")
+                                    st.warning("Inserisci un nome differente.")
 
                 clean_id_g = ''.join(c for c in id_attivita_scelta if c.isdigit())
                 target_url_g = f"https://intervals.icu/api/v1/activity/{clean_id_g}/streams"
                 
-                with st.spinner("🔄 Elaborazione tracciato e geolocalizzazione in corso..."):
+                with st.spinner("🔄 Caricamento mappa..."):
                     resp_str_g = requests.get(target_url_g, auth=("API_KEY", API_KEY.strip()))
                     if resp_str_g.status_code == 404 and id_attivita_scelta != clean_id_g:
                         target_url_g = f"https://intervals.icu/api/v1/activity/{id_attivita_scelta}/streams"
@@ -690,11 +690,12 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                 fig_map.update_layout(
                                     mapbox=mapbox_config,
                                     margin=dict(l=0, r=0, t=0, b=0),
-                                    height=450,
+                                    height=400,
+                                    autosize=True,
                                     showlegend=False
                                 )
                                 
-                                st.plotly_chart(fig_map, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
+                                st.plotly_chart(fig_map, use_container_width=True, key=f"plotly_map_detail_{id_attivita_scelta}", config={'scrollZoom': True, 'displaylogo': False})
 
                                 linee_gpx = [
                                     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -719,13 +720,13 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                 href_gpx = f'<a href="data:application/gpx+xml;base64,{b64_gpx}" download="{nome_file_gpx}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
                                 st.markdown(href_gpx, unsafe_allow_html=True)
                         else:
-                            st.warning("⚠️ Nessuna coordinata GPS valida disponibile per questa specifica uscita su Intervals.icu.")
+                            st.warning("⚠️ Nessuna coordinata GPS disponibile.")
                     else:
-                        st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_str_g.status_code})")
+                        st.error(f"Errore recupero flussi (Status: {resp_str_g.status_code})")
         else:
-            st.info("Nessuna attività trovata nel range temporale selezionato per il grafico.")
+            st.info("Nessuna attività trovata nel range temporale selezionato.")
     else:
-        st.error("Errore nel recupero dati per il grafico da Intervals.icu.")
+        st.error("Errore nel recupero dati per il grafico.")
 
 # --- 4. SEZIONE PARAMETRI DI INTERVALS (RICERCA PER GIORNO SPECIFICO) ---
 st.markdown("---")
@@ -750,7 +751,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     }
     resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
 
-    # --- APERTURA / MAPPA INTERNA DELLA GIORNATA SELEZIONATA ---
     if resp_sec4.status_code == 200:
         attivita_giorno = resp_sec4.json()
         if attivita_giorno:
@@ -771,16 +771,14 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 with col_act_info:
                     st.write(f"**{ag_title}** — Distanza: **{ag_dist} km** | D+: **{ag_elev} m** | Tempo: **{ag_time}**")
                 with col_act_btn:
-                    sec4_btn_label = "🗺️ Nascondi Mappa" if st.session_state[key_sec4_map] else "🗺️ Mostra Mappa"
+                    sec4_btn_label = "🗺️ Nascondi" if st.session_state[key_sec4_map] else "🗺️ Mostra Mappa"
                     if st.button(sec4_btn_label, key=f"btn_sec4_map_{ag_id}_{idx_sec4}", use_container_width=True):
                         st.session_state[key_sec4_map] = not st.session_state[key_sec4_map]
                         st.rerun()
 
-                # Visualizzazione della mappa integrata nella Sezione 4 con spinner protettivo anti-sfarfallio
                 if st.session_state[key_sec4_map]:
                     st.markdown("---")
-                    
-                    with st.spinner("🔄 Elaborazione tracciato e geolocalizzazione in corso..."):
+                    with st.spinner("🔄 Caricamento mappa..."):
                         clean_id_s4 = ''.join(c for c in ag_id if c.isdigit())
                         target_url_s4 = f"https://intervals.icu/api/v1/activity/{clean_id_s4}/streams"
                         
@@ -817,7 +815,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                                 if lats_s4 and lons_s4:
                                     c_s4_title, c_s4_style = st.columns([4, 2])
                                     with c_s4_title:
-                                        st.markdown("#### 🗺️ Percorso Attività (Sezione 4)")
+                                        st.markdown("#### 🗺️ Percorso Attività")
                                     with c_s4_style:
                                         stile_s4 = st.selectbox(
                                             "Stile Mappa",
@@ -871,11 +869,12 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                                     fig_s4.update_layout(
                                         mapbox=mapbox_config_s4,
                                         margin=dict(l=0, r=0, t=0, b=0),
-                                        height=450,
+                                        height=400,
+                                        autosize=True,
                                         showlegend=False
                                     )
                                     
-                                    st.plotly_chart(fig_s4, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
+                                    st.plotly_chart(fig_s4, use_container_width=True, key=f"plotly_map_sec4_{ag_id}_{idx_sec4}", config={'scrollZoom': True, 'displaylogo': False})
                                     
                                     linee_s4 = [
                                         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -900,13 +899,13 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                                     href_s4 = f'<a href="data:application/gpx+xml;base64,{b64_s4}" download="{nome_file_s4}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.5rem;">📥 Scarica Tracciato GPX</div></a>'
                                     st.markdown(href_s4, unsafe_allow_html=True)
                                 else:
-                                    st.warning("Nessun punto di coordinate valido trovato in questa attività.")
+                                    st.warning("Nessun punto di coordinate valido.")
                             else:
-                                st.error(f"Errore nel recupero flussi da Intervals (Status: {resp_s4_streams.status_code})")
+                                st.error(f"Errore recupero flussi (Status: {resp_s4_streams.status_code})")
                         except Exception as e:
-                            st.error(f"Errore durante il caricamento della mappa: {e}")
+                            st.error(f"Errore: {e}")
         else:
-            st.info(f"Nessuna attività registrata su Intervals per la giornata del {giorno_scelto.strftime('%d/%m/%Y')}.")
+            st.info(f"Nessuna attività registrata per il {giorno_scelto.strftime('%d/%m/%Y')}.")
 
     url_well = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/wellness"
     params_well = {
@@ -1014,6 +1013,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     def apply_dark_theme(fig, height=220):
         fig.update_layout(
             height=height,
+            autosize=True,
             margin=dict(l=20, r=20, t=50, b=10),
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
@@ -1031,7 +1031,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 mode="gauge+number", value=val_ctl, title={"text": "<b>Fitness (CTL)</b>"},
                 gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "royalblue"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_ctl), use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_ctl), use_container_width=True, key="chart_gauge_ctl", config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>CTL (Chronic Training Load):</b> Carico di allenamento cronico, ovvero la fitness aerobica di fondo sviluppata negli ultimi 42 giorni.</p>", unsafe_allow_html=True)
             
         with col_s1_2:
@@ -1039,7 +1039,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 mode="gauge+number", value=val_atl, title={"text": "<b>Fatigue (ATL)</b>"},
                 gauge={'axis': {'range': [0, 150]}, 'bar': {'color': "darkorange"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_atl), use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_atl), use_container_width=True, key="chart_gauge_atl", config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>ATL (Acute Training Load):</b> Carico di fatica acuto e stress muscolare accumulato negli ultimi 7 giorni.</p>", unsafe_allow_html=True)
             
         with col_s1_3:
@@ -1047,7 +1047,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 mode="gauge+number", value=val_tsb, title={"text": "<b>Form (TSB)</b>"},
                 gauge={'axis': {'range': [-50, 50]}, 'bar': {'color': "forestgreen" if -30 <= val_tsb <= -10 else "crimson"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_tsb), use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_tsb), use_container_width=True, key="chart_gauge_tsb", config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>TSB (Training Stress Balance):</b> Stato di freschezza o affaticamento (CTL meno ATL). Valori positivi indicano riposo, negativi indicano carico.</p>", unsafe_allow_html=True)
 
     with st.container(border=True):
@@ -1060,7 +1060,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 mode="gauge+number", value=val_load, title={"text": "<b>Load / TSS Sessione</b>"},
                 gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "dodgerblue"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_load), use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_load), use_container_width=True, key="chart_gauge_load", config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Training Stress Score (TSS):</b> Quantifica lo stress complessivo della singola sessione in base a durata e intensità rapportate alla tua FTP.</p>", unsafe_allow_html=True)
 
         with col_s2_2:
@@ -1069,7 +1069,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 number={'valueformat': ".2f"},
                 gauge={'axis': {'range': [0, 1.3]}, 'bar': {'color': "purple"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_if), use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_if), use_container_width=True, key="chart_gauge_if", config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Intensity Factor (IF):</b> Esprime quanto è stata dura l'uscita rapportando la Potenza Normalizzata (NP) alla tua soglia (FTP).</p>", unsafe_allow_html=True)
 
         with col_s2_3:
@@ -1078,7 +1078,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 number={'valueformat': ".2f"},
                 gauge={'axis': {'range': [1.0, 1.5]}, 'bar': {'color': "teal"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_vi), use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_vi), use_container_width=True, key="chart_gauge_vi", config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Variability Index (VI):</b> Rapporto tra Potenza Normalizzata e Potenza Media; misura la regolarità dello sforzo (1.0 indica pedalata perfettamente rotonda).</p>", unsafe_allow_html=True)
 
     with st.container(border=True):
@@ -1091,7 +1091,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 mode="gauge+number", value=val_eftp, title={"text": "<b>eFTP (W)</b>"},
                 gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "crimson"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_eftp), use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_eftp), use_container_width=True, key="chart_gauge_eftp", config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>eFTP (Estimated Functional Threshold Power):</b> La stima dinamica della tua soglia di potenza funzionale calcolata sulle migliori prestazioni recenti.</p>", unsafe_allow_html=True)
 
         with col_s3_2:
@@ -1100,7 +1100,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 number={'valueformat': ".2f"},
                 gauge={'axis': {'range': [0.0, 2.5]}, 'bar': {'color': "goldenrod"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, key="chart_gauge_ef", config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Efficiency Factor (EF):</b> Rapporto tra Potenza Normalizzata e frequenza cardiaca media; indica l'efficienza cardiocircolatoria e aerobica.</p>", unsafe_allow_html=True)
 
         st.markdown("---")
@@ -1115,7 +1115,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 title={"text": "<b>Potenza Normalizzata (NP)</b>"},
                 gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "mediumorchid"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_np_gauge), use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_np_gauge), use_container_width=True, key="chart_gauge_np", config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Potenza Normalizzata (NP):</b> Stima della potenza equivalente che toglie i picchi, riflettendo il costo metabolico reale dell'uscita.</p>", unsafe_allow_html=True)
 
         with col_s3_4:
@@ -1127,5 +1127,5 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 title={"text": "<b>FC Media (bpm)</b>"},
                 gauge={'axis': {'range': [0, 200]}, 'bar': {'color': "orangered"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
-            st.plotly_chart(apply_dark_theme(fig_fc_gauge), use_container_width=True, config={'displaylogo': False})
+            st.plotly_chart(apply_dark_theme(fig_fc_gauge), use_container_width=True, key="chart_gauge_fc", config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
