@@ -766,8 +766,8 @@ def apri_mappa_dialog(ag_id, ag_title):
                                             lons_s4.append(float(pt[1]))
                                             
             if lats_s4 and lons_s4:
-                # Selettore stile a sinistra e spazio vuoto a destra per lasciare posto alla barra nativa della mappa
-                c_s4_style1, c_s4_space = st.columns([2, 3])
+                # Utilizziamo un layout a larghezza piena con contenitore per allineare il selectbox in alto a sinistra sopra la mappa
+                c_s4_style1, _ = st.columns([2, 3])
                 with c_s4_style1:
                     stile_s4 = st.selectbox(
                         "Stile Mappa",
