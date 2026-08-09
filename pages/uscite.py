@@ -727,133 +727,9 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
         st.error("Errore nel recupero dati per il grafico.")
 
 # --- 4. SEZIONE PARAMETRI DI INTERVALS ---
+frames_sec4 = []  # opzionale o da adattare se usi liste di appoggio
+
 st.markdown("---")
-
-# --- DEFINIZIONE MODALE (DIALOG) PER LA MAPPA ---
-@st.dialog("🗺️ Percorso Attività e Tracciato GPX", width="large")
-def apri_mappa_dialog(ag_id, ag_title):
-    clean_id_s4 = ''.join(c for c in ag_id if c.isdigit())
-    target_url_s4 = f"https://intervals.icu/api/v1/activity/{clean_id_s4}/streams"
-    
-    try:
-        resp_s4_streams = requests.get(target_url_s4, auth=("API_KEY", API_KEY.strip()))
-        if resp_s4_streams.status_code == 404 and ag_id != clean_id_s4:
-            target_url_s4 = f"https://intervals.icu/api/v1/activity/{ag_id}/streams"
-            resp_s4_streams = requests.get(target_url_s4, auth=("API_KEY", API_KEY.strip()))
-            
-        if resp_s4_streams.status_code == 200:
-            data_s4 = resp_s4_streams.json()
-            lats_s4, lons_s4 = [], []
-            
-            if isinstance(data_s4, list):
-                for stream in data_s4:
-                    if isinstance(stream, dict):
-                        stype = stream.get("type")
-                        if stype in ["latlng", "lating"]:
-                            lat_data = stream.get("data", [])
-                            lon_data = stream.get("data2", [])
-                            
-                            if isinstance(lat_data, list) and isinstance(lon_data, list) and len(lat_data) == len(lon_data) and len(lat_data) > 0:
-                                for lat, lon in zip(lat_data, lon_data):
-                                    if lat is not None and lon is not None:
-                                        lats_s4.append(float(lat))
-                                        lons_s4.append(float(lon))
-                            elif isinstance(lat_data, list) and len(lat_data) > 0:
-                                for pt in lat_data:
-                                    if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                                        if pt[0] is not None and pt[1] is not None:
-                                            lats_s4.append(float(pt[0]))
-                                            lons_s4.append(float(pt[1]))
-                                            
-            if lats_s4 and lons_s4:
-                _, c_s4_style = st.columns([2, 2])
-                with c_s4_style:
-                    stile_s4 = st.selectbox(
-                        "Stile Mappa",
-                        ["Stradale (OpenStreetMap)", "Satellite (ArcGIS)"],
-                        key=f"style_s4_dialog_{ag_id}",
-                    )
-                
-                if "Satellite" in stile_s4:
-                    basemap_style_s4 = "white-bg"
-                    tile_source_s4 = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    labels_source_s4 = "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-                else:
-                    basemap_style_s4 = "open-street-map"
-                    tile_source_s4 = None
-                    labels_source_s4 = None
-
-                fig_s4 = go.Figure()
-                fig_s4.add_trace(go.Scattermapbox(
-                    lat=lats_s4, lon=lons_s4, mode='lines',
-                    line=dict(width=4, color='dodgerblue'), name='Tracciato'
-                ))
-                fig_s4.add_trace(go.Scattermapbox(
-                    lat=[lats_s4[0], lats_s4[-1]], lon=[lons_s4[0], lons_s4[-1]], mode='markers',
-                    marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
-                ))
-                
-                mapbox_config_s4 = dict(
-                    style=basemap_style_s4,
-                    center=dict(lat=sum(lats_s4)/len(lats_s4), lon=sum(lons_s4)/len(lons_s4)),
-                    zoom=11
-                )
-
-                layers_list_s4 = []
-                if tile_source_s4:
-                    layers_list_s4.append({
-                        "sourcetype": "raster",
-                        "source": [tile_source_s4],
-                        "below": "traces"
-                    })
-                if labels_source_s4:
-                    layers_list_s4.append({
-                        "sourcetype": "raster",
-                        "source": [labels_source_s4],
-                        "below": "traces"
-                    })
-                    
-                if layers_list_s4:
-                    mapbox_config_s4["layers"] = layers_list_s4
-
-                fig_s4.update_layout(
-                    mapbox=mapbox_config_s4,
-                    margin=dict(l=0, r=0, t=0, b=0),
-                    height=450,
-                    autosize=False,
-                    showlegend=False
-                )
-                
-                st.plotly_chart(fig_s4, use_container_width=True, key=f"plotly_map_sec4_dlg_{ag_id}", config={'scrollZoom': True, 'displaylogo': False})
-                
-                linee_s4 = [
-                    '<?xml version="1.0" encoding="UTF-8"?>',
-                    '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
-                    '  <trk>',
-                    f'    <name>{ag_title}</name>',
-                    '    <trkseg>'
-                ]
-                for lat, lon in zip(lats_s4, lons_s4):
-                    linee_s4.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
-                linee_s4.extend([
-                    '    </trkseg>',
-                    '  </trk>',
-                    '</gpx>'
-                ])
-                contenuto_gpx_s4 = "\n".join(linee_s4)
-                nome_file_s4 = "".join(c for c in ag_title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
-                if not nome_file_s4:
-                    nome_file_s4 = "tracciato"
-
-                b64_s4 = base64.b64encode(contenuto_gpx_s4.encode()).decode()
-                href_s4 = f'<a href="data:application/gpx+xml;base64,{b64_s4}" download="{nome_file_s4}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.6rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 1rem;">📥 Scarica Tracciato GPX</div></a>'
-                st.markdown(href_s4, unsafe_allow_html=True)
-            else:
-                st.warning("Nessun punto di coordinate valido.")
-        else:
-            st.error(f"Errore recupero flussi (Status: {resp_s4_streams.status_code})")
-    except Exception as e:
-        st.error(f"Errore: {e}")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
     st.write("Estrazione dei parametri per il giorno selezionato.")
@@ -875,28 +751,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     }
     resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
 
-    if resp_sec4.status_code == 200:
-        attivita_giorno = resp_sec4.json()
-        if attivita_giorno:
-            st.markdown("---")
-            st.markdown(f"#### 🚴 Attività Trovata per il {giorno_scelto.strftime('%d/%m/%Y')}")
-            for idx_sec4, act_g in enumerate(attivita_giorno):
-                ag_id = str(act_g.get("id"))
-                ag_title = act_g.get("name", "Uscita senza titolo")
-                ag_dist = round(act_g.get("distance", 0) / 1000, 2)
-                ag_time = timedelta_to_str(act_g.get("moving_time", 0))
-                ag_elev = safe_int(act_g.get("total_elevation_gain")) or 0
-
-                col_act_info, col_act_btn = st.columns([3, 1])
-                with col_act_info:
-                    st.write(f"**{ag_title}** — Distanza: **{ag_dist} km** | D+: **{ag_elev} m** | Tempo: **{ag_time}**")
-                with col_act_btn:
-                    if st.button("🗺️ Mostra Mappa", key=f"btn_sec4_map_{ag_id}_{idx_sec4}", use_container_width=True):
-                        apri_mappa_dialog(ag_id, ag_title)
-        else:
-            st.info(f"Nessuna attività registrata per il {giorno_scelto.strftime('%d/%m/%Y')}.")
-
-    # --- Resto del codice Wellness e Gauge ---
+    # --- Resto del codice Wellness e Gauge (Caricamento dati) ---
     url_well = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/wellness"
     params_well = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -1011,6 +866,34 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
         )
         return fig
 
+    # --- 1. RENDERIZZAZIONE ATTIVITÀ E BOTTONE MAPPA (IN ALTO) ---
+    if resp_sec4.status_code == 200:
+        attivita_giorno = resp_sec4.json()
+        if attivita_giorno:
+            st.markdown(f"#### 🚴 Attività Trovata per il {giorno_scelto.strftime('%d/%m/%Y')}")
+            for idx_sec4, act_g in enumerate(attivita_giorno):
+                ag_id = str(act_g.get("id"))
+                ag_title = act_g.get("name", "Uscita senza titolo")
+                ag_dist = round(act_g.get("distance", 0) / 1000, 2)
+                ag_time = timedelta_to_str(act_g.get("moving_time", 0))
+                ag_elev = safe_int(act_g.get("total_elevation_gain")) or 0
+
+                col_act_info, col_act_btn = st.columns([3, 1])
+                with col_act_info:
+                    st.write(f"**{ag_title}** — Distanza: **{ag_dist} km** | D+: **{ag_elev} m** | Tempo: **{ag_time}**")
+                with col_act_btn:
+                    # Usiamo uno state booleano per attivare la visualizzazione della mappa in fondo
+                    btn_key = f"btn_sec4_map_{ag_id}_{idx_sec4}"
+                    is_map_open = st.session_state.get(f"show_map_{ag_id}", False)
+                    label_btn = "Nascondi Mappa" if is_map_open else "🗺️ Mostra Mappa"
+                    
+                    if st.button(label_btn, key=btn_key, use_container_width=True):
+                        st.session_state[f"show_map_{ag_id}"] = not is_map_open
+                        st.rerun()
+        else:
+            st.info(f"Nessuna attività registrata per il {giorno_scelto.strftime('%d/%m/%Y')}.")
+
+    # --- 2. BLOCCHI GRAFICI GAUGE (STABILI IN ALTO) ---
     with st.container(border=True):
         st.markdown("### 1. Gestione del Carico e della Forma (Grafico 'Fitness')")
         st.caption("ℹ️ **Legenda:** Monitoraggio a lungo termine del carico di allenamento (CTL = Fitness, ATL = Fatica, TSB = Stato di Forma/Balance).")
@@ -1119,3 +1002,137 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             ))
             st.plotly_chart(apply_dark_theme(fig_fc_gauge), use_container_width=True, key="chart_gauge_fc", config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
+
+    # --- 3. MAPPA E DOWNLOAD GPX (IN FONDO AL CONTAINER) ---
+    if resp_sec4.status_code == 200 and attivita_giorno:
+        for act_g in attivita_giorno:
+            ag_id = str(act_g.get("id"))
+            ag_title = act_g.get("name", "Uscita senza titolo")
+            
+            if st.session_state.get(f"show_map_{ag_id}", False):
+                st.markdown("---")
+                with st.container(border=True):
+                    st.markdown(f"#### 🗺️ Percorso Attività: {ag_title}")
+                    
+                    clean_id_s4 = ''.join(c for c in ag_id if c.isdigit())
+                    target_url_s4 = f"https://intervals.icu/api/v1/activity/{clean_id_s4}/streams"
+                    
+                    try:
+                        resp_s4_streams = requests.get(target_url_s4, auth=("API_KEY", API_KEY.strip()))
+                        if resp_s4_streams.status_code == 404 and ag_id != clean_id_s4:
+                            target_url_s4 = f"https://intervals.icu/api/v1/activity/{ag_id}/streams"
+                            resp_s4_streams = requests.get(target_url_s4, auth=("API_KEY", API_KEY.strip()))
+                            
+                        if resp_s4_streams.status_code == 200:
+                            data_s4 = resp_s4_streams.json()
+                            lats_s4, lons_s4 = [], []
+                            
+                            if isinstance(data_s4, list):
+                                for stream in data_s4:
+                                    if isinstance(stream, dict):
+                                        stype = stream.get("type")
+                                        if stype in ["latlng", "lating"]:
+                                            lat_data = stream.get("data", [])
+                                            lon_data = stream.get("data2", [])
+                                            
+                                            if isinstance(lat_data, list) and isinstance(lon_data, list) and len(lat_data) == len(lon_data) and len(lat_data) > 0:
+                                                for lat, lon in zip(lat_data, lon_data):
+                                                    if lat is not None and lon is not None:
+                                                        lats_s4.append(float(lat))
+                                                        lons_s4.append(float(lon))
+                                            elif isinstance(lat_data, list) and len(lat_data) > 0:
+                                                for pt in lat_data:
+                                                    if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                                                        if pt[0] is not None and pt[1] is not None:
+                                                            lats_s4.append(float(pt[0]))
+                                                            lons_s4.append(float(pt[1]))
+                                                            
+                            if lats_s4 and lons_s4:
+                                _, c_s4_style = st.columns([2, 2])
+                                with c_s4_style:
+                                    stile_s4 = st.selectbox(
+                                        "Stile Mappa",
+                                        ["Stradale (OpenStreetMap)", "Satellite (ArcGIS)"],
+                                        key=f"style_s4_bottom_{ag_id}",
+                                    )
+                                
+                                if "Satellite" in stile_s4:
+                                    basemap_style_s4 = "white-bg"
+                                    tile_source_s4 = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                    labels_source_s4 = "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                                else:
+                                    basemap_style_s4 = "open-street-map"
+                                    tile_source_s4 = None
+                                    labels_source_s4 = None
+
+                                fig_s4 = go.Figure()
+                                fig_s4.add_trace(go.Scattermapbox(
+                                    lat=lats_s4, lon=lons_s4, mode='lines',
+                                    line=dict(width=4, color='dodgerblue'), name='Tracciato'
+                                ))
+                                fig_s4.add_trace(go.Scattermapbox(
+                                    lat=[lats_s4[0], lats_s4[-1]], lon=[lons_s4[0], lons_s4[-1]], mode='markers',
+                                    marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
+                                ))
+                                
+                                mapbox_config_s4 = dict(
+                                    style=basemap_style_s4,
+                                    center=dict(lat=sum(lats_s4)/len(lats_s4), lon=sum(lons_s4)/len(lons_s4)),
+                                    zoom=11
+                                )
+
+                                layers_list_s4 = []
+                                if tile_source_s4:
+                                    layers_list_s4.append({
+                                        "sourcetype": "raster",
+                                        "source": [tile_source_s4],
+                                        "below": "traces"
+                                    })
+                                if labels_source_s4:
+                                    layers_list_s4.append({
+                                        "sourcetype": "raster",
+                                        "source": [labels_source_s4],
+                                        "below": "traces"
+                                    })
+                                    
+                                if layers_list_s4:
+                                    mapbox_config_s4["layers"] = layers_list_s4
+
+                                fig_s4.update_layout(
+                                    mapbox=mapbox_config_s4,
+                                    margin=dict(l=0, r=0, t=0, b=0),
+                                    height=450,
+                                    autosize=False,
+                                    showlegend=False
+                                )
+                                
+                                st.plotly_chart(fig_s4, use_container_width=True, key=f"plotly_map_sec4_bottom_{ag_id}", config={'scrollZoom': True, 'displaylogo': False})
+                                
+                                linee_s4 = [
+                                    '<?xml version="1.0" encoding="UTF-8"?>',
+                                    '<gpx version="1.1" creator="Streamlit App" xmlns="http://www.topografix.com/GPX/1/1">',
+                                    '  <trk>',
+                                    f'    <name>{ag_title}</name>',
+                                    '    <trkseg>'
+                                ]
+                                for lat, lon in zip(lats_s4, lons_s4):
+                                    linee_s4.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
+                                linee_s4.extend([
+                                    '    </trkseg>',
+                                    '  </trk>',
+                                    '</gpx>'
+                                ])
+                                contenuto_gpx_s4 = "\n".join(linee_s4)
+                                nome_file_s4 = "".join(c for c in ag_title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+                                if not nome_file_s4:
+                                    nome_file_s4 = "tracciato"
+
+                                b64_s4 = base64.b64encode(contenuto_gpx_s4.encode()).decode()
+                                href_s4 = f'<a href="data:application/gpx+xml;base64,{b64_s4}" download="{nome_file_s4}.gpx" style="text-decoration: none;"><div style="background-color: #ff4b4b; color: white; padding: 0.6rem 1rem; border-radius: 0.5rem; text-align: center; font-weight: 600; margin-top: 1rem;">📥 Scarica Tracciato GPX</div></a>'
+                                st.markdown(href_s4, unsafe_allow_html=True)
+                            else:
+                                st.warning("Nessun punto di coordinate valido.")
+                        else:
+                            st.error(f"Errore recupero flussi (Status: {resp_s4_streams.status_code})")
+                    except Exception as e:
+                        st.error(f"Errore: {e}")0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
