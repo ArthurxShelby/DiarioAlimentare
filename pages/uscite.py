@@ -766,13 +766,17 @@ def apri_mappa_dialog(ag_id, ag_title):
                                             lons_s4.append(float(pt[1]))
                                             
             if lats_s4 and lons_s4:
-                _, c_s4_style = st.columns([2, 2])
-                with c_s4_style:
+                # Selettore stile a sinistra e spazio vuoto a destra per lasciare posto alla barra nativa della mappa
+                c_s4_style1, c_s4_space = st.columns([2, 3])
+                with c_s4_style1:
                     stile_s4 = st.selectbox(
                         "Stile Mappa",
                         ["Stradale (OpenStreetMap)", "Satellite (ArcGIS)"],
                         key=f"style_s4_dialog_{ag_id}",
+                        label_visibility="collapsed"
                     )
+
+                altezza_mappa = 550
                 
                 if "Satellite" in stile_s4:
                     basemap_style_s4 = "white-bg"
@@ -819,12 +823,18 @@ def apri_mappa_dialog(ag_id, ag_title):
                 fig_s4.update_layout(
                     mapbox=mapbox_config_s4,
                     margin=dict(l=0, r=0, t=0, b=0),
-                    height=450,
+                    height=altezza_mappa,
                     autosize=False,
                     showlegend=False
                 )
                 
-                st.plotly_chart(fig_s4, use_container_width=True, key=f"plotly_map_sec4_dlg_{ag_id}", config={'scrollZoom': True, 'displaylogo': False})
+                config_mappa = {
+                    'scrollZoom': True, 
+                    'displaylogo': False,
+                    'modeBarButtonsToAdd': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
+                }
+                
+                st.plotly_chart(fig_s4, use_container_width=True, key=f"plotly_map_sec4_dlg_{ag_id}", config=config_mappa)
                 
                 linee_s4 = [
                     '<?xml version="1.0" encoding="UTF-8"?>',
