@@ -766,8 +766,8 @@ def apri_mappa_dialog(ag_id, ag_title):
                                             lons_s4.append(float(pt[1]))
                                             
             if lats_s4 and lons_s4:
-                # Controlli in alto a destra sopra la mappa (Stile a sinistra, Schermo Intero a destra)
-                col_spazio, c_s4_style1, c_s4_style2 = st.columns([3, 2, 2])
+                # Selettore stile a sinistra e spazio vuoto a destra per lasciare posto alla barra nativa della mappa
+                c_s4_style1, c_s4_space = st.columns([2, 3])
                 with c_s4_style1:
                     stile_s4 = st.selectbox(
                         "Stile Mappa",
@@ -775,17 +775,8 @@ def apri_mappa_dialog(ag_id, ag_title):
                         key=f"style_s4_dialog_{ag_id}",
                         label_visibility="collapsed"
                     )
-                
-                key_fullscreen = f"fullscreen_dlg_{ag_id}"
-                is_fullscreen = st.session_state.get(key_fullscreen, False)
-                
-                with c_s4_style2:
-                    label_fs = "🗗 Riduci" if is_fullscreen else "🗖 Schermo Intero"
-                    if st.button(label_fs, key=f"btn_fs_dlg_{ag_id}", use_container_width=True):
-                        st.session_state[key_fullscreen] = not is_fullscreen
-                        st.rerun()
 
-                altezza_mappa = 750 if is_fullscreen else 450
+                altezza_mappa = 550
                 
                 if "Satellite" in stile_s4:
                     basemap_style_s4 = "white-bg"
@@ -1137,4 +1128,4 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 gauge={'axis': {'range': [0, 200]}, 'bar': {'color': "orangered"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_fc_gauge), use_container_width=True, key="chart_gauge_fc", config={'displaylogo': False})
-            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True): 0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
