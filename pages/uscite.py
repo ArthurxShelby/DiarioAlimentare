@@ -727,8 +727,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
         st.error("Errore nel recupero dati per il grafico.")
 
 # --- 4. SEZIONE PARAMETRI DI INTERVALS ---
-frames_sec4 = []  # opzionale o da adattare se usi liste di appoggio
-
 st.markdown("---")
 
 with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=True):
@@ -751,7 +749,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     }
     resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
 
-    # --- Resto del codice Wellness e Gauge (Caricamento dati) ---
+    # --- Caricamento dati Wellness e Attività ---
     url_well = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/wellness"
     params_well = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -882,7 +880,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 with col_act_info:
                     st.write(f"**{ag_title}** — Distanza: **{ag_dist} km** | D+: **{ag_elev} m** | Tempo: **{ag_time}**")
                 with col_act_btn:
-                    # Usiamo uno state booleano per attivare la visualizzazione della mappa in fondo
                     btn_key = f"btn_sec4_map_{ag_id}_{idx_sec4}"
                     is_map_open = st.session_state.get(f"show_map_{ag_id}", False)
                     label_btn = "Nascondi Mappa" if is_map_open else "🗺️ Mostra Mappa"
@@ -1135,4 +1132,4 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         else:
                             st.error(f"Errore recupero flussi (Status: {resp_s4_streams.status_code})")
                     except Exception as e:
-                        st.error(f"Errore: {e}")0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
+                        st.error(f"Errore: {e}")>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
