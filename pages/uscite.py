@@ -64,24 +64,15 @@ if resp_global.status_code == 200:
         tot_km = round(df_activities.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
         tot_dislivello = int(df_activities.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
         
-        # Calcolo delle ore totali in sella (da moving_time in secondi)
-        tot_secondi_sella = df_activities.get("moving_time", pd.Series([0])).fillna(0).sum()
-        ore_totali = int(tot_secondi_sella // 3600)
-        minuti_totali = int((tot_secondi_sella % 3600) // 60)
-        stringa_ore_sella = f"{ore_totali}h {minuti_totali:02d}m"
-        
         st.markdown("---")
         st.subheader("📊 Statistiche Dinamiche e Riepilogo (TCR - Dal 15/11/2025)")
         
-        # Suddividiamo in 4 colonne per mantenere pulito lo spazio tra metriche e immagine
-        col_m1, col_m2, col_m3, col_img = st.columns([2, 2, 2, 3])
+        col_m1, col_m2, col_img = st.columns(3)
         
         with col_m1:
             st.metric("Km Totali (Raccolta)", f"{tot_km:,.2f} km")
         with col_m2:
             st.metric("D+ Totale (Raccolta)", f"{tot_dislivello:,} m")
-        with col_m3:
-            st.metric("Ore in sella", stringa_ore_sella)
         with col_img:
             st.subheader("TCR Advanced Pro 0")
             try:
@@ -259,7 +250,6 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                         auth_update = ("API_KEY", API_KEY.strip())
                                         payload = {"name": nuovo_nome.strip()}
                                         
-                                        # Gestione ID con fallback (come fatto per gli streams)
                                         clean_id = ''.join(c for c in act_id if c.isdigit())
                                         url_update = f"https://intervals.icu/api/v1/activity/{act_id}"
                                         
@@ -761,6 +751,31 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     }
     resp_sec4 = requests.get(url_sec4, auth=("API_KEY", API_KEY.strip()), params=params_sec4)
 
+    # --- APERTURA / LINK ATTIVITÀ DELLA GIORNATA SELEZIONATA ---
+    if resp_sec4.status_code == 200:
+        attivita_giorno = resp_sec4.json()
+        if attivita_giorno:
+            st.markdown("---")
+            st.markdown(f"#### 🚴 Attività Trovata per il {giorno_scelto.strftime('%d/%m/%Y')}")
+            for act_g in attivita_giorno:
+                ag_id = str(act_g.get("id"))
+                ag_title = act_g.get("name", "Uscita senza titolo")
+                ag_dist = round(act_g.get("distance", 0) / 1000, 2)
+                ag_time = timedelta_to_str(act_g.get("moving_time", 0))
+                ag_elev = safe_int(act_g.get("total_elevation_gain")) or 0
+                
+                col_act_info, col_act_btn = st.columns([3, 1])
+                with col_act_info:
+                    st.write(f"**{ag_title}** — Distanza: **{ag_dist} km** | D+: **{ag_elev} m** | Tempo: **{ag_time}**")
+                with col_act_btn:
+                    if st.button("🔍 Pagina Dedicata", key=f"btn_sec4_dir_{ag_id}", use_container_width=True):
+                        st.session_state["selected_activity_id"] = ag_id
+                        st.session_state["selected_activity_title"] = ag_title
+                        st.session_state["selected_activity_date"] = giorno_scelto.strftime("%Y-%m-%d")
+                        st.switch_page("pages/visualizza_mappa.py")
+        else:
+            st.info(f"Nessuna attività registrata su Intervals per la giornata del {giorno_scelto.strftime('%d/%m/%Y')}.")
+
     url_well = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/wellness"
     params_well = {
         "oldest": start_sec4.strftime("%Y-%m-%d"),
@@ -806,14 +821,12 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     
                     act_id = m.get('id')
                     if act_id:
-                        # 1. Chiamata al dettaglio attività
                         url_detail = f"https://intervals.icu/api/v1/activity/{act_id}"
                         resp_detail = requests.get(url_detail, auth=("API_KEY", API_KEY.strip()))
                         if resp_detail.status_code == 200:
                             detail_json = resp_detail.json()
                             m.update(detail_json)
 
-                        # 2. Chiamata agli stream nel caso in cui i campi di potenza manchino nel dettaglio
                         url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
                         resp_streams = requests.get(url_streams, auth=("API_KEY", API_KEY.strip()))
                         watts_stream = []
@@ -831,12 +844,10 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     val_ctl = float(m.get('icu_ctl') or val_ctl or 0.0)
                     val_atl = float(m.get('icu_atl') or val_atl or 0.0)
 
-                    # Estrazione standard dai campi API
                     np_val = float(m.get('normalized_watts') or m.get('icu_normalized_watts') or m.get('np') or m.get('weighted_average_watts') or 0.0)
                     gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or m.get('watts') or 0.0)
                     avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or m.get('hr') or 0.0)
 
-                    # Se NP è 0 ma abbiamo i secondi dei watt dallo stream, calcoliamo la NP empiricamente (media mobile a 30s elevata alla quarta, radice quarta)
                     if np_val == 0.0 and watts_stream:
                         valid_watts = [w for w in watts_stream if w is not None and w >= 0]
                         if len(valid_watts) >= 30:
@@ -845,7 +856,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         elif valid_watts:
                             np_val = float(sum(valid_watts) / len(valid_watts))
 
-                    # Fallback estremo: se NP è ancora 0, usiamo la potenza media
                     if np_val == 0.0 and gp_val > 0:
                         np_val = gp_val
 
@@ -961,7 +971,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Efficiency Factor (EF):</b> Rapporto tra Potenza Normalizzata e frequenza cardiaca media; indica l'efficienza cardiocircolatoria e aerobica.</p>", unsafe_allow_html=True)
 
-        # --- TACHIMETRI POTENZA NORMALIZZATA E FC MEDIA ---
         st.markdown("---")
 
         col_s3_3, col_s3_4 = st.columns(2)
@@ -988,13 +997,3 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             ))
             st.plotly_chart(apply_dark_theme(fig_fc_gauge), use_container_width=True, config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
-
-
-
-
-
-
-
-
-
-
