@@ -783,6 +783,9 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     val_ctl = float(ultimo_w.get('ctl', 0.0) or 0.0)
                     val_atl = float(ultimo_w.get('atl', 0.0) or 0.0)
 
+    # Variabile per la mappa della sezione 4
+    mappa_da_mostrare = None
+
     if resp_sec4.status_code == 200:
         dati_sec4 = resp_sec4.json()
         if dati_sec4:
@@ -804,17 +807,49 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                             detail_json = resp_detail.json()
                             m.update(detail_json)
 
-                        # 2. Chiamata agli stream nel caso in cui i campi di potenza manchino nel dettaglio
+                        # 2. Chiamata agli stream per potenza e coordinate mappa
                         url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
                         resp_streams = requests.get(url_streams, auth=("API_KEY", API_KEY.strip()))
                         watts_stream = []
+                        lats_s4, lons_s4 = [], []
+                        
                         if resp_streams.status_code == 200:
                             streams_data = resp_streams.json()
                             if isinstance(streams_data, list):
                                 for stream in streams_data:
-                                    if isinstance(stream, dict) and stream.get("type") == "watts":
-                                        watts_stream = stream.get("data", [])
-                                        break
+                                    if isinstance(stream, dict):
+                                        stype = stream.get("type")
+                                        if stype == "watts":
+                                            watts_stream = stream.get("data", [])
+                                        elif stype in ["latlng", "lating"]:
+                                            lat_data = stream.get("data", [])
+                                            lon_data = stream.get("data2", [])
+                                            if len(lat_data) == len(lon_data) and len(lat_data) > 0:
+                                                lats_s4 = [float(x) for x in lat_data if x is not None]
+                                                lons_s4 = [float(x) for x in lon_data if x is not None]
+
+                        # Generazione della mappa se ci sono coordinate valide
+                        if lats_s4 and lons_s4:
+                            fig_map_s4 = go.Figure()
+                            fig_map_s4.add_trace(go.Scattermapbox(
+                                lat=lats_s4, lon=lons_s4, mode='lines',
+                                line=dict(width=4, color='dodgerblue'), name='Tracciato'
+                            ))
+                            fig_map_s4.add_trace(go.Scattermapbox(
+                                lat=[lats_s4[0], lats_s4[-1]], lon=[lons_s4[0], lons_s4[-1]], mode='markers',
+                                marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
+                            ))
+                            fig_map_s4.update_layout(
+                                mapbox=dict(
+                                    style="open-street-map",
+                                    center=dict(lat=sum(lats_s4)/len(lats_s4), lon=sum(lons_s4)/len(lons_s4)),
+                                    zoom=11
+                                ),
+                                margin=dict(l=0, r=0, t=0, b=0),
+                                height=400,
+                                showlegend=False
+                            )
+                            mappa_da_mostrare = fig_map_s4
 
                     val_load = float(m.get('icu_training_load') or m.get('load') or 0.0)
                     val_eftp = float(m.get('icu_ftp') or m.get('eftp') or 279.0)
@@ -822,12 +857,10 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     val_ctl = float(m.get('icu_ctl') or val_ctl or 0.0)
                     val_atl = float(m.get('icu_atl') or val_atl or 0.0)
 
-                    # Estrazione standard dai campi API
                     np_val = float(m.get('normalized_watts') or m.get('icu_normalized_watts') or m.get('np') or m.get('weighted_average_watts') or 0.0)
                     gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or m.get('watts') or 0.0)
                     avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or m.get('hr') or 0.0)
 
-                    # Se NP è 0 ma abbiamo i secondi dei watt dallo stream, calcoliamo la NP empiricamente (media mobile a 30s elevata alla quarta, radice quarta)
                     if np_val == 0.0 and watts_stream:
                         valid_watts = [w for w in watts_stream if w is not None and w >= 0]
                         if len(valid_watts) >= 30:
@@ -836,7 +869,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         elif valid_watts:
                             np_val = float(sum(valid_watts) / len(valid_watts))
 
-                    # Fallback estremo: se NP è ancora 0, usiamo la potenza media
                     if np_val == 0.0 and gp_val > 0:
                         np_val = gp_val
 
@@ -856,37 +888,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
 
-
-# --- AGGIUNTA MAPPA SEZIONE 4 ---
-    mappa_da_mostrare = None
-    if 'id' in m:
-        act_id_s4 = str(m['id'])
-        url_streams_s4 = f"https://intervals.icu/api/v1/activity/{act_id_s4}/streams"
-        resp_streams_s4 = requests.get(url_streams_s4, auth=("API_KEY", API_KEY.strip()))
-        
-        if resp_streams_s4.status_code == 200:
-            streams_data_s4 = resp_streams_s4.json()
-            lats_s4, lons_s4 = [], []
-            for stream in streams_data_s4:
-                if isinstance(stream, dict) and stream.get("type") in ["latlng", "lating"]:
-                    lat_data = stream.get("data", [])
-                    lon_data = stream.get("data2", [])
-                    if len(lat_data) == len(lon_data):
-                        lats_s4 = [float(x) for x in lat_data if x is not None]
-                        lons_s4 = [float(x) for x in lon_data if x is not None]
-                    break
-            
-            if lats_s4 and lons_s4:
-                fig_map_s4 = go.Figure(go.Scattermapbox(
-                    lat=lats_s4, lon=lons_s4, mode='lines',
-                    line=dict(width=4, color='dodgerblue')
-                ))
-                fig_map_s4.update_layout(
-                    mapbox=dict(style="open-street-map", center=dict(lat=sum(lats_s4)/len(lats_s4), lon=sum(lons_s4)/len(lons_s4)), zoom=11),
-                    margin=dict(l=0, r=0, t=0, b=0), height=300
-                )
-                mappa_da_mostrare = fig_map_s4
-
     val_tsb = val_ctl - val_atl
 
     st.markdown("---")
@@ -900,6 +901,13 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             font=dict(color='white')
         )
         return fig
+
+    # --- VISUALIZZAZIONE MAPPA SE SELEZIONATA UN'ATTIVITA CON GPS ---
+    if mappa_da_mostrare:
+        with st.container(border=True):
+            st.markdown("### 🗺️ Mappa Percorso Uscita del Giorno")
+            st.plotly_chart(mappa_da_mostrare, use_container_width=True, config={'scrollZoom': True, 'displaylogo': False})
+        st.markdown("---")
 
     with st.container(border=True):
         st.markdown("### 1. Gestione del Carico e della Forma (Grafico 'Fitness')")
@@ -1010,9 +1018,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             ))
             st.plotly_chart(apply_dark_theme(fig_fc_gauge), use_container_width=True, config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
-
-
-
 
 
 
