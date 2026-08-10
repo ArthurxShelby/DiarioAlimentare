@@ -856,6 +856,37 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     if val_ef == 0.0 and np_val > 0 and avg_hr > 0:
                         val_ef = np_val / avg_hr
 
+
+# --- AGGIUNTA MAPPA SEZIONE 4 ---
+    mappa_da_mostrare = None
+    if 'id' in m:
+        act_id_s4 = str(m['id'])
+        url_streams_s4 = f"https://intervals.icu/api/v1/activity/{act_id_s4}/streams"
+        resp_streams_s4 = requests.get(url_streams_s4, auth=("API_KEY", API_KEY.strip()))
+        
+        if resp_streams_s4.status_code == 200:
+            streams_data_s4 = resp_streams_s4.json()
+            lats_s4, lons_s4 = [], []
+            for stream in streams_data_s4:
+                if isinstance(stream, dict) and stream.get("type") in ["latlng", "lating"]:
+                    lat_data = stream.get("data", [])
+                    lon_data = stream.get("data2", [])
+                    if len(lat_data) == len(lon_data):
+                        lats_s4 = [float(x) for x in lat_data if x is not None]
+                        lons_s4 = [float(x) for x in lon_data if x is not None]
+                    break
+            
+            if lats_s4 and lons_s4:
+                fig_map_s4 = go.Figure(go.Scattermapbox(
+                    lat=lats_s4, lon=lons_s4, mode='lines',
+                    line=dict(width=4, color='dodgerblue')
+                ))
+                fig_map_s4.update_layout(
+                    mapbox=dict(style="open-street-map", center=dict(lat=sum(lats_s4)/len(lats_s4), lon=sum(lons_s4)/len(lons_s4)), zoom=11),
+                    margin=dict(l=0, r=0, t=0, b=0), height=300
+                )
+                mappa_da_mostrare = fig_map_s4
+
     val_tsb = val_ctl - val_atl
 
     st.markdown("---")
