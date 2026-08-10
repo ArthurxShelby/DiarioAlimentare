@@ -730,34 +730,52 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
 
 # --- SELEZIONE RAPIDA E VISUALIZZAZIONE MAPPA ---
 st.markdown("---")
-# ... (il codice del selectbox che abbiamo fatto prima) ...
 
-# Bottone per visualizzare la mappa
-if st.button("📍 Visualizza Mappa e Traccia GPX"):
-    with st.spinner("Caricamento mappa in corso..."):
-        # Recuperiamo l'ID dell'attività selezionata
-        # Nota: dobbiamo assicurarci che 'm' sia disponibile (dal blocco di estrazione)
-        # Se 'm' non è definito globalmente, recuperiamo l'ID dall'attività filtrata
-        if not df_s4_filtrato.empty:
-            act_id = df_s4_filtrato.iloc[0]['id']
-            
-            # Richiesta dati mappa
-            url_map = f"https://intervals.icu/api/v1/activity/{act_id}/map"
+if 'df_activities' in locals() and not df_activities.empty:
+    df_tendina = df_activities.copy()
+    df_tendina['data_fmt'] = pd.to_datetime(df_tendina['start_date_local'])
+    df_tendina['data_solo'] = df_tendina['data_fmt'].dt.date
+    df_tendina['titolo_uscita'] = df_tendina.get('name', 'Uscita senza nome')
+    
+    opzioni_attivita = {
+        f"{row['data_solo']} - {row['titolo_uscita']}": row['id'] 
+        for _, row in df_tendina.sort_values('data_fmt', ascending=False).iterrows()
+    }
+    
+    scelta_rapida_uscita = st.selectbox(
+        "Scegli un'uscita recente per la mappa",
+        options=list(opzioni_attivita.keys()),
+        key="select_rapida_mappa"
+    )
+    
+    if scelta_rapida_uscita:
+        act_id_selezionato = opzioni_attivita[scelta_rapida_uscita]
+        st.session_state["sec4_giorno_singolo"] = df_tendina[df_tendina['id'] == act_id_selezionato]['data_solo'].values[0]
+
+    if st.button("📍 Visualizza Mappa e Traccia GPX"):
+        with st.spinner("Caricamento mappa in corso..."):
+            url_map = f"https://intervals.icu/api/v1/activity/{act_id_selezionato}/map"
             resp_map = requests.get(url_map, auth=("API_KEY", API_KEY.strip()))
             
             if resp_map.status_code == 200:
-                map_data = resp_map.json()
-                # Intervals restituisce solitamente un campo 'latlng' o 'polyline'
-                if 'latlng' in map_data:
-                    df_map = pd.DataFrame(map_data['latlng'], columns=['lat', 'lon'])
+                map_json = resp_map.json()
+                # Intervals restituisce spesso la polilinea o i punti latlng
+                if isinstance(map_json, dict) and 'latlng' in map_json:
+                    import pandas as pd
+                    df_map = pd.DataFrame(map_json['latlng'], columns=['lat', 'lon'])
                     st.map(df_map)
-                    st.success("Mappa caricata correttamente.")
+                    st.success("Traccia caricata con successo.")
+                elif isinstance(map_json, list):
+                    import pandas as pd
+                    df_map = pd.DataFrame(map_json, columns=['lat', 'lon'])
+                    st.map(df_map)
+                    st.success("Traccia caricata con successo.")
                 else:
-                    st.warning("Dati mappa non disponibili per questa attività.")
+                    st.warning("Dati di posizione non disponibili per questa attività su Intervals.")
             else:
-                st.error("Errore nel recupero della mappa.")
-        else:
-            st.error("Seleziona un'attività valida.")
+                st.error("Impossibile scaricare la mappa da Intervals.icu.")
+else:
+    st.info("Caricamento attività in corso...")
 
 
 
