@@ -1180,7 +1180,7 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
 
                         pdf_output.write(6, f"Kcal: {o_k} / ")
                         if dk > o_k:
-                        pdf_output.set_text_color(220, 20, 60)
+                            pdf_output.set_text_color(220, 20, 60)
                         pdf_output.write(6, f"{dk:.1f}")
                         pdf_output.set_text_color(0, 0, 0)
 
