@@ -480,7 +480,7 @@ elif "1.9" in livello_allenamento: pal_val = 1.9
 
 tdee = bmr * pal_val
 
-# --- GESTIONE ARCHIVIO STORICO E GESTIONE GIORNALIERA CONFERMATA ---
+# --- GESTIONE ARCHIVIO STORICO E CONFERMA GIORNALIERA DISPENDIO ---
 db_diario_atleta = atleta_data.setdefault("db_diario", {})
 if data_str not in db_diario_atleta:
     db_diario_atleta[data_str] = {
@@ -1033,9 +1033,8 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         pdf_output.cell(0, 6, " - Nessun alimento registrato", ln=True)
                     pdf_output.ln(4)
 
-                pdf_bytes = pdf_output.output(dest='S')
-                if isinstance(pdf_bytes, str):
-                    pdf_bytes = pdf_bytes.encode("latin1")
+                raw_output = pdf_output.output()
+                pdf_bytes = bytes(raw_output) if isinstance(raw_output, (bytearray, bytes)) else raw_output.encode("latin1")
 
                 st.download_button(
                     label="Scarica PDF Giornaliero",
@@ -1182,7 +1181,7 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         pdf_output.write(6, f"Kcal: {o_k} / ")
                         if dk > o_k:
                             pdf_output.set_text_color(220, 20, 60)
-                        pdf_output.write(6, f"{dk:.1f}")
+5                        pdf_output.write(6, f"{dk:.1f}")
                         pdf_output.set_text_color(0, 0, 0)
 
                         pdf_output.write(6, f" | Carbo: {o_c} / ")
@@ -1206,9 +1205,8 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                         pdf_output.set_text_color(0, 0, 0)
                         pdf_output.write(6, "g\n")
 
-                    pdf_bytes = pdf_output.output(dest='S')
-                    if isinstance(pdf_bytes, str):
-                        pdf_bytes = pdf_bytes.encode("latin1")
+                    raw_output = pdf_output.output()
+                    pdf_bytes = bytes(raw_output) if isinstance(raw_output, (bytearray, bytes)) else raw_output.encode("latin1")
 
                     st.download_button(
                         label="Scarica PDF Periodo Personalizzato",
@@ -1218,4 +1216,3 @@ with st.expander("📥 Opzioni di Esportazione Report PDF (Giornaliero e Interva
                     )
             except Exception as e:
                 st.error(f"Errore nella generazione del PDF personalizzato: {e}")
-```[cite: 3]
