@@ -259,7 +259,6 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                         auth_update = ("API_KEY", API_KEY.strip())
                                         payload = {"name": nuovo_nome.strip()}
                                         
-                                        # Gestione ID con fallback (come fatto per gli streams)
                                         clean_id = ''.join(c for c in act_id if c.isdigit())
                                         url_update = f"https://intervals.icu/api/v1/activity/{act_id}"
                                         
@@ -341,16 +340,16 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                                 labels_source = None
 
                                             fig = go.Figure()
-                                            fig.add_trace(go.Scattermapbox(
+                                            fig.add_trace(go.Scattermap(
                                                 lat=lats, lon=lons, mode='lines',
                                                 line=dict(width=4, color='dodgerblue'), name='Tracciato'
                                             ))
-                                            fig.add_trace(go.Scattermapbox(
+                                            fig.add_trace(go.Scattermap(
                                                 lat=[lats[0], lats[-1]], lon=[lons[0], lons[-1]], mode='markers',
                                                 marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
                                             ))
                                             
-                                            mapbox_config = dict(
+                                            map_config = dict(
                                                 style=basemap_style,
                                                 center=dict(lat=sum(lats)/len(lats), lon=sum(lons)/len(lons)),
                                                 zoom=11
@@ -371,10 +370,10 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
                                                 })
                                                 
                                             if layers_list:
-                                                mapbox_config["layers"] = layers_list
+                                                map_config["layers"] = layers_list
 
                                             fig.update_layout(
-                                                mapbox=mapbox_config,
+                                                map=map_config,
                                                 margin=dict(l=0, r=0, t=0, b=0),
                                                 height=450,
                                                 showlegend=False
@@ -666,17 +665,17 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                 )
 
                                 fig_map = go.Figure()
-                                fig_map.add_trace(go.Scattermapbox(
+                                fig_map.add_trace(go.Scattermap(
                                     lat=lats_g, lon=lons_g, mode='lines',
                                     line=dict(width=4, color='dodgerblue'), name='Tracciato'
                                 ))
-                                fig_map.add_trace(go.Scattermapbox(
+                                fig_map.add_trace(go.Scattermap(
                                     lat=[lats_g[0], lats_g[-1]], lon=[lons_g[0], lons_g[-1]], mode='markers',
                                     marker=dict(size=10, color=['green', 'red']), text=['Partenza', 'Arrivo'], name='Marker'
                                 ))
                                 
                                 if tipo_mappa == "Satellite":
-                                    mapbox_config = dict(
+                                    map_config = dict(
                                         style="white-bg",
                                         layers=[
                                             {
@@ -691,14 +690,14 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
                                         zoom=11
                                     )
                                 else:
-                                    mapbox_config = dict(
+                                    map_config = dict(
                                         style="open-street-map",
                                         center=dict(lat=sum(lats_g)/len(lats_g), lon=sum(lons_g)/len(lons_g)),
                                         zoom=11
                                     )
 
                                 fig_map.update_layout(
-                                    mapbox=mapbox_config,
+                                    map=map_config,
                                     margin=dict(l=0, r=0, t=0, b=0),
                                     height=450,
                                     showlegend=False
@@ -745,7 +744,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
     
     oggi = date.today()
     
-    # Selettore ridotto proporzionalmente utilizzando una singola colonna stretta
     c1, _ = st.columns([1, 3])
     with c1:
         giorno_scelto = st.date_input("Seleziona Giorno", value=oggi, key="sec4_giorno_singolo")
@@ -806,14 +804,12 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     
                     act_id = m.get('id')
                     if act_id:
-                        # 1. Chiamata al dettaglio attività
                         url_detail = f"https://intervals.icu/api/v1/activity/{act_id}"
                         resp_detail = requests.get(url_detail, auth=("API_KEY", API_KEY.strip()))
                         if resp_detail.status_code == 200:
                             detail_json = resp_detail.json()
                             m.update(detail_json)
 
-                        # 2. Chiamata agli stream nel caso in cui i campi di potenza manchino nel dettaglio
                         url_streams = f"https://intervals.icu/api/v1/activity/{act_id}/streams"
                         resp_streams = requests.get(url_streams, auth=("API_KEY", API_KEY.strip()))
                         watts_stream = []
@@ -831,12 +827,10 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                     val_ctl = float(m.get('icu_ctl') or val_ctl or 0.0)
                     val_atl = float(m.get('icu_atl') or val_atl or 0.0)
 
-                    # Estrazione standard dai campi API
                     np_val = float(m.get('normalized_watts') or m.get('icu_normalized_watts') or m.get('np') or m.get('weighted_average_watts') or 0.0)
                     gp_val = float(m.get('average_watts') or m.get('icu_average_watts') or m.get('watts') or 0.0)
                     avg_hr = float(m.get('average_heartrate') or m.get('icu_average_heartrate') or m.get('hr') or 0.0)
 
-                    # Se NP è 0 ma abbiamo i secondi dei watt dallo stream, calcoliamo la NP empiricamente (media mobile a 30s elevata alla quarta, radice quarta)
                     if np_val == 0.0 and watts_stream:
                         valid_watts = [w for w in watts_stream if w is not None and w >= 0]
                         if len(valid_watts) >= 30:
@@ -845,7 +839,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                         elif valid_watts:
                             np_val = float(sum(valid_watts) / len(valid_watts))
 
-                    # Fallback estremo: se NP è ancora 0, usiamo la potenza media
                     if np_val == 0.0 and gp_val > 0:
                         np_val = gp_val
 
@@ -961,7 +954,6 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             st.plotly_chart(apply_dark_theme(fig_ef), use_container_width=True, config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Efficiency Factor (EF):</b> Rapporto tra Potenza Normalizzata e frequenza cardiaca media; indica l'efficienza cardiocircolatoria e aerobica.</p>", unsafe_allow_html=True)
 
-        # --- TACHIMETRI POTENZA NORMALIZZATA E FC MEDIA ---
         st.markdown("---")
 
         col_s3_3, col_s3_4 = st.columns(2)
@@ -988,13 +980,3 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
             ))
             st.plotly_chart(apply_dark_theme(fig_fc_gauge), use_container_width=True, config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
-
-
-
-
-
-
-
-
-
-
