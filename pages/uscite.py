@@ -126,7 +126,8 @@ if resp_global.status_code == 200:
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "Seleziona": st.column_config.CheckboxColumn("Seleziona", default=False)
+                    "Seleziona": st.column_config.CheckboxColumn("Seleziona", default=False),
+                    "Note": st.column_config.TextColumn("Note", disabled=False)
                 },
                 disabled=["Componente", "Data", "Km Intervento"],
                 key="tabella_manutenzioni_editor"
