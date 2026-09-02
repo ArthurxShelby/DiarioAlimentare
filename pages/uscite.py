@@ -537,6 +537,7 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
             tot_km_periodo = df_filtrato_periodo['Km'].sum()
             tot_d_periodo = df_filtrato_periodo['D+'].sum()
             tot_ore_periodo = df_filtrato_periodo['Ore in sella'].sum()
+            num_uscite_periodo = len(df_filtrato_periodo)
 
             st.markdown("---")
             
@@ -556,10 +557,11 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
 
             st.markdown(f"#### 📊 {titolo_totali}")
             
-            col_tot1, col_tot2, col_tot3 = st.columns(3)
+            col_tot1, col_tot2, col_tot3, col_tot4 = st.columns(4)
             col_tot1.metric("Km", f"{tot_km_periodo:,.2f} km")
             col_tot2.metric("D+", f"{tot_d_periodo:,.0f} m")
             col_tot3.metric("Ore in sella", f"{timedelta_to_str(tot_ore_periodo * 3600)}")
+            col_tot4.metric("Uscite", f"{num_uscite_periodo}")
 
             st.markdown("---")
             
