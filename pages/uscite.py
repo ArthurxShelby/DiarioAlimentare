@@ -62,7 +62,6 @@ if resp_global.status_code == 200:
         tot_dislivello = int(df_activities.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
         num_uscite_totali = int(len(df_activities))
         
-        # Calcolo delle ore totali in sella (da moving_time in secondi)
         tot_secondi_sella = df_activities.get("moving_time", pd.Series([0])).fillna(0).sum()
         ore_totali = int(tot_secondi_sella // 3600)
         minuti_totali = int((tot_secondi_sella % 3600) // 60)
@@ -193,11 +192,16 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
             dislivello_tot_m = int(df_filtrato_vista.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
             num_uscite = len(df_filtrato_vista)
             
+            # Calcolo secondi totali in sella per la sezione 2
+            tot_sec_periodo = df_filtrato_vista.get("moving_time", pd.Series([0])).fillna(0).sum()
+            
             st.markdown("---")
-            mc1, mc2, mc3 = st.columns(3)
+            # 4 colonne aggiornate per includere anche le ore in sella
+            mc1, mc2, mc3, mc4 = st.columns(4)
             mc1.metric("Km Totali Periodo", f"{distanza_tot_km:,.2f} km")
             mc2.metric("Dislivello (D+) Periodo", f"{dislivello_tot_m:,} m")
-            mc3.metric("Uscite Registrate", f"{num_uscite}")
+            mc3.metric("Ore in sella", timedelta_to_str(tot_sec_periodo))
+            mc4.metric("Uscite Registrate", f"{num_uscite}")
             st.markdown("---")
             
             with st.container(height=650):
@@ -555,7 +559,6 @@ with st.expander("📈 Analisi Grafica e Dettaglio Uscite per Metrica", expanded
 
             st.markdown(f"#### 📊 {titolo_totali}")
             
-            # 4 colonne con pesi uguali definiti esplicitamente
             col_tot1, col_tot2, col_tot3, col_tot4 = st.columns([1, 1, 1, 1])
             col_tot1.metric("Km", f"{tot_km_periodo:,.2f} km")
             col_tot2.metric("D+", f"{tot_d_periodo:,.0f} m")
