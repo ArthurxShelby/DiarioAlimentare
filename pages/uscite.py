@@ -128,15 +128,21 @@ if resp_global.status_code == 200:
                 column_config={
                     "Seleziona": st.column_config.CheckboxColumn("Seleziona", default=False)
                 },
+                disabled=["Componente", "Data", "Km Intervento"],
                 key="tabella_manutenzioni_editor"
             )
             
-            col_del_1, col_del_2 = st.columns([1, 4])
+            col_del_1, col_del_2, _ = st.columns([1, 1, 3])
             with col_del_1:
                 if st.button("🗑️ Elimina Selezionate"):
                     righe_da_tenere = df_editato[df_editato["Seleziona"] == False]
                     salva_manutenzioni(righe_da_tenere)
                     st.success("Interventi selezionati eliminati con successo!")
+                    st.rerun()
+            with col_del_2:
+                if st.button("💾 Salva Note"):
+                    salva_manutenzioni(df_editato)
+                    st.success("Note aggiornate con successo!")
                     st.rerun()
         else:
             st.info("Nessuna manutenzione registrata. Aggiungi un intervento qui sotto.")
@@ -159,7 +165,6 @@ if resp_global.status_code == 200:
                         key="widget_data_manutenzione"
                     )
                 with col_f_3:
-                    # Calcoliamo i km totali fino alla data selezionata
                     if "start_date_local" in df_activities.columns:
                         df_activities['tmp_data'] = pd.to_datetime(df_activities['start_date_local']).dt.date
                         df_fino_a_data = df_activities[df_activities['tmp_data'] <= data_intervento]
