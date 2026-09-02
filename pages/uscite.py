@@ -121,12 +121,10 @@ if not df_manutenzioni.empty:
     if "Seleziona" in df_manutenzioni.columns:
         df_manutenzioni["Seleziona"] = df_manutenzioni["Seleziona"].fillna(False).astype(bool)
     
-    # Assicura che le colonne di testo siano stringhe e gestisci i valori nulli
     for col in ["Componente", "Note"]:
         if col in df_manutenzioni.columns:
             df_manutenzioni[col] = df_manutenzioni[col].fillna("").astype(str)
             
-    # Assicura che Km Intervento sia numerico
     if "Km Intervento" in df_manutenzioni.columns:
         df_manutenzioni["Km Intervento"] = pd.to_numeric(df_manutenzioni["Km Intervento"], errors="coerce").fillna(0)
 
