@@ -97,21 +97,50 @@ if resp_global.status_code == 200:
         def carica_manutenzioni():
             if os.path.exists(FILE_MANUTENZIONI):
                 try:
-                    return pd.read_csv(FILE_MANUTENZIONI)
+                    df_caricato = pd.read_csv(FILE_MANUTENZIONI)
+                    if "Seleziona" not in df_caricato.columns:
+                        df_caricato.insert(0, "Seleziona", False)
+                    return df_caricato
                 except Exception:
                     pass
-            return pd.DataFrame(columns=["Componente", "Data", "Km Intervento", "Note"])
+            return pd.DataFrame(columns=["Seleziona", "Componente", "Data", "Km Intervento", "Note"])
 
         def salva_manutenzioni(df_m):
             try:
-                df_m.to_csv(FILE_MANUTENZIONI, index=False)
+                if "Seleziona" in df_m.columns:
+                    df_da_salvare = df_m.drop(columns=["Seleziona"])
+                else:
+                    df_da_salvare = df_m
+                df_da_salvare.to_csv(FILE_MANUTENZIONI, index=False)
             except Exception:
                 pass
 
         df_manutenzioni = carica_manutenzioni()
 
         if not df_manutenzioni.empty:
-            st.dataframe(df_manutenzioni, use_container_width=True, hide_index=True)
+            # Assicuriamoci che la colonna di selezione sia booleana
+            if "Seleziona" in df_manutenzioni.columns:
+                df_manutenzioni["Seleziona"] = df_manutenzioni["Seleziona"].astype(bool)
+            
+            # Mostriamo la tabella interattiva con l'editor di Streamlit per consentire la spunta
+            df_editato = st.data_editor(
+                df_manutenzioni,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Seleziona": st.column_config.CheckboxColumn("Seleziona", default=False)
+                },
+                key="tabella_manutenzioni_editor"
+            )
+            
+            col_del_1, col_del_2 = st.columns([1, 4])
+            with col_del_1:
+                if st.button("🗑️ Elimina Selezionate"):
+                    # Filtriamo via le righe selezionate
+                    righe_da_tenere = df_editato[df_editato["Seleziona"] == False]
+                    salva_manutenzioni(righe_da_tenere)
+                    st.success("Interventi selezionati eliminati con successo!")
+                    st.rerun()
         else:
             st.info("Nessuna manutenzione registrata. Aggiungi un intervento qui sotto.")
 
@@ -134,6 +163,7 @@ if resp_global.status_code == 200:
                 
                 if btn_salva_manutenzione:
                     nuova_riga = pd.DataFrame([{
+                        "Seleziona": False,
                         "Componente": componente_scelto,
                         "Data": data_intervento.strftime("%Y-%m-%d"),
                         "Km Intervento": km_intervento,
