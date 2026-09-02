@@ -156,20 +156,24 @@ if resp_global.status_code == 200:
             st.info("Nessuna manutenzione registrata. Aggiungi un intervento qui sotto.")
 
         with st.expander("➕ Registra Nuovo Intervento di Manutenzione"):
-            if "data_intervento_form" not in st.session_state:
-                st.session_state["data_intervento_form"] = date.today()
+            if "form_componente" not in st.session_state:
+                st.session_state["form_componente"] = "Cambio Pastiglie"
+            if "widget_data_manutenzione" not in st.session_state:
+                st.session_state["widget_data_manutenzione"] = date.today()
+            if "form_note_intervento" not in st.session_state:
+                st.session_state["form_note_intervento"] = ""
 
             with st.form("form_nuova_manutenzione"):
                 col_f_1, col_f_2, col_f_3 = st.columns(3)
                 with col_f_1:
                     componente_scelto = st.selectbox(
                         "Componente", 
-                        ["Cambio Pastiglie", "Cambio Catena", "Copertoni", "Altro"]
+                        ["Cambio Pastiglie", "Cambio Catena", "Copertoni", "Altro"],
+                        key="form_componente"
                     )
                 with col_f_2:
                     data_intervento = st.date_input(
                         "Data Intervento", 
-                        value=st.session_state["data_intervento_form"],
                         key="widget_data_manutenzione"
                     )
                 with col_f_3:
@@ -180,21 +184,26 @@ if resp_global.status_code == 200:
                     else:
                         km_fino_a_data = tot_km
 
+                    if "form_km_intervento" not in st.session_state:
+                        st.session_state["form_km_intervento"] = float(km_fino_a_data)
+
                     km_intervento = st.number_input(
                         "Km attuati", 
                         min_value=0.0, 
-                        value=float(km_fino_a_data), 
                         format="%.2f",
+                        key="form_km_intervento",
                         help="Calcolati automaticamente in base alla data dell'intervento."
                     )
                 
-                note_intervento = st.text_input("Note / Modello (opzionale)", placeholder="Es. Sostituzione con copertoni GP5000...")
+                note_intervento = st.text_input(
+                    "Note / Modello (opzionale)", 
+                    placeholder="Es. Sostituzione con copertoni GP5000...",
+                    key="form_note_intervento"
+                )
                 
                 btn_salva_manutenzione = st.form_submit_button("Salva Manutenzione")
                 
                 if btn_salva_manutenzione:
-                    st.session_state["data_intervento_form"] = data_intervento
-                    
                     nuova_riga = pd.DataFrame([{
                         "Seleziona": False,
                         "Componente": componente_scelto,
@@ -204,6 +213,13 @@ if resp_global.status_code == 200:
                     }])
                     df_manutenzioni = pd.concat([df_manutenzioni, nuova_riga], ignore_index=True)
                     salva_manutenzioni(df_manutenzioni)
+                    
+                    # Reset dei campi del form nello state
+                    st.session_state["form_componente"] = "Cambio Pastiglie"
+                    st.session_state["widget_data_manutenzione"] = date.today()
+                    st.session_state["form_note_intervento"] = ""
+                    st.session_state["form_km_intervento"] = float(tot_km)
+                    
                     st.success("Manutenzione registrata con successo!")
                     st.rerun()
         
