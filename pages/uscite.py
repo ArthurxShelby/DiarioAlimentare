@@ -118,11 +118,9 @@ if resp_global.status_code == 200:
         df_manutenzioni = carica_manutenzioni()
 
         if not df_manutenzioni.empty:
-            # Assicuriamoci che la colonna di selezione sia booleana
             if "Seleziona" in df_manutenzioni.columns:
                 df_manutenzioni["Seleziona"] = df_manutenzioni["Seleziona"].astype(bool)
             
-            # Mostriamo la tabella interattiva con l'editor di Streamlit per consentire la spunta
             df_editato = st.data_editor(
                 df_manutenzioni,
                 use_container_width=True,
@@ -136,7 +134,6 @@ if resp_global.status_code == 200:
             col_del_1, col_del_2 = st.columns([1, 4])
             with col_del_1:
                 if st.button("🗑️ Elimina Selezionate"):
-                    # Filtriamo via le righe selezionate
                     righe_da_tenere = df_editato[df_editato["Seleziona"] == False]
                     salva_manutenzioni(righe_da_tenere)
                     st.success("Interventi selezionati eliminati con successo!")
@@ -145,6 +142,14 @@ if resp_global.status_code == 200:
             st.info("Nessuna manutenzione registrata. Aggiungi un intervento qui sotto.")
 
         with st.expander("➕ Registra Nuovo Intervento di Manutenzione"):
+            # Gestione dello stato della data per ricalcolare i km in tempo reale al cambiamento
+            if "data_intervento_form" not in st.session_state:
+                st.session_state["data_intervento_form"] = date.today()
+
+            def aggiorna_km_data():
+                # Funzione di callback eseguita quando cambia la data
+                pass
+
             with st.form("form_nuova_manutenzione"):
                 col_f_1, col_f_2, col_f_3 = st.columns(3)
                 with col_f_1:
@@ -153,15 +158,37 @@ if resp_global.status_code == 200:
                         ["Cambio Pastiglie", "Cambio Catena", "Copertoni", "Altro"]
                     )
                 with col_f_2:
-                    data_intervento = st.date_input("Data Intervento", value=date.today())
+                    data_intervento = st.date_input(
+                        "Data Intervento", 
+                        value=st.session_state["data_intervento_form"],
+                        key="widget_data_manutenzione",
+                        on_change=aggiorna_km_data
+                    )
                 with col_f_3:
-                    km_intervento = st.number_input("Km attuati (opzionale)", min_value=0.0, value=float(tot_km), format="%.2f")
+                    # Calcoliamo i km totali fino alla data selezionata
+                    if "start_date_local" in df_activities.columns:
+                        df_activities['tmp_data'] = pd.to_datetime(df_activities['start_date_local']).dt.date
+                        df_fino_a_data = df_activities[df_activities['tmp_data'] <= data_intervento]
+                        km_fino_a_data = round(df_fino_a_data.get("distance", pd.Series([0])).fillna(0).sum() / 1000.0, 2)
+                    else:
+                        km_fino_a_data = tot_km
+
+                    km_intervento = st.number_input(
+                        "Km attuati", 
+                        min_value=0.0, 
+                        value=float(km_fino_a_data), 
+                        format="%.2f",
+                        help="Calcolati automaticamente in base alla data dell'intervento."
+                    )
                 
                 note_intervento = st.text_input("Note / Modello (opzionale)", placeholder="Es. Sostituzione con copertoni GP5000...")
                 
                 btn_salva_manutenzione = st.form_submit_button("Salva Manutenzione")
                 
                 if btn_salva_manutenzione:
+                    # Aggiorniamo la session state della data se l'utente l'ha cambiata
+                    st.session_state["data_intervento_form"] = data_intervento
+                    
                     nuova_riga = pd.DataFrame([{
                         "Seleziona": False,
                         "Componente": componente_scelto,
