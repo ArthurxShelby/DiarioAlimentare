@@ -117,21 +117,30 @@ if resp_global.status_code == 200:
 
         df_manutenzioni = carica_manutenzioni()
 
-        if not df_manutenzioni.empty:
-            if "Seleziona" in df_manutenzioni.columns:
-                df_manutenzioni["Seleziona"] = df_manutenzioni["Seleziona"].astype(bool)
+if not df_manutenzioni.empty:
+    if "Seleziona" in df_manutenzioni.columns:
+        df_manutenzioni["Seleziona"] = df_manutenzioni["Seleziona"].fillna(False).astype(bool)
+    
+    # Assicura che le colonne di testo siano stringhe e gestisci i valori nulli
+    for col in ["Componente", "Note"]:
+        if col in df_manutenzioni.columns:
+            df_manutenzioni[col] = df_manutenzioni[col].fillna("").astype(str)
             
-            df_editato = st.data_editor(
-                df_manutenzioni,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Seleziona": st.column_config.CheckboxColumn("Seleziona", default=False),
-                    "Note": st.column_config.TextColumn("Note")
-                },
-                disabled=["Componente", "Data", "Km Intervento"],
-                key="tabella_manutenzioni_editor"
-            )
+    # Assicura che Km Intervento sia numerico
+    if "Km Intervento" in df_manutenzioni.columns:
+        df_manutenzioni["Km Intervento"] = pd.to_numeric(df_manutenzioni["Km Intervento"], errors="coerce").fillna(0)
+
+    df_editato = st.data_editor(
+        df_manutenzioni,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Seleziona": st.column_config.CheckboxColumn("Seleziona", default=False),
+            "Note": st.column_config.TextColumn("Note")
+        },
+        disabled=["Componente", "Data", "Km Intervento"],
+        key="tabella_manutenzioni_editor"
+    )
             
             col_del_1, col_del_2, _ = st.columns([1, 1, 3])
             with col_del_1:
