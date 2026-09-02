@@ -142,13 +142,8 @@ if resp_global.status_code == 200:
             st.info("Nessuna manutenzione registrata. Aggiungi un intervento qui sotto.")
 
         with st.expander("➕ Registra Nuovo Intervento di Manutenzione"):
-            # Gestione dello stato della data per ricalcolare i km in tempo reale al cambiamento
             if "data_intervento_form" not in st.session_state:
                 st.session_state["data_intervento_form"] = date.today()
-
-            def aggiorna_km_data():
-                # Funzione di callback eseguita quando cambia la data
-                pass
 
             with st.form("form_nuova_manutenzione"):
                 col_f_1, col_f_2, col_f_3 = st.columns(3)
@@ -161,8 +156,7 @@ if resp_global.status_code == 200:
                     data_intervento = st.date_input(
                         "Data Intervento", 
                         value=st.session_state["data_intervento_form"],
-                        key="widget_data_manutenzione",
-                        on_change=aggiorna_km_data
+                        key="widget_data_manutenzione"
                     )
                 with col_f_3:
                     # Calcoliamo i km totali fino alla data selezionata
@@ -186,7 +180,6 @@ if resp_global.status_code == 200:
                 btn_salva_manutenzione = st.form_submit_button("Salva Manutenzione")
                 
                 if btn_salva_manutenzione:
-                    # Aggiorniamo la session state della data se l'utente l'ha cambiata
                     st.session_state["data_intervento_form"] = data_intervento
                     
                     nuova_riga = pd.DataFrame([{
