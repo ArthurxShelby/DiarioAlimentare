@@ -40,7 +40,7 @@ def safe_int(val):
     except (ValueError, TypeError):
         return None
 
-# --- 1. STATISTICHE DINAMICHE DIRETTAMENTE DA INTERVALS (Dal 15/11/2025) ---
+# --- 1. STATISTICHE DINAMICHE E MANUTENZIONI (Dal 15/11/2025) ---
 with st.spinner("Sincronizzazione dati da Intervals.icu in corso..."):
     url_global = f"https://intervals.icu/api/v1/athlete/{ATHLETE_ID}/activities"
     params_global = {
@@ -88,6 +88,65 @@ if resp_global.status_code == 200:
                 st.image(percorso_foto, use_container_width=True)
             except Exception:
                 st.warning("Immagine TCR.png non trovata.")
+
+        # --- SEZIONE MANUTENZIONI BICI ---
+        st.markdown("##### 🔧 Registro Manutenzioni Bici")
+        
+        # File di persistenza per le manutenzioni
+        FILE_MANUTENZIONI = "manutenzioni_bici.csv"
+        
+        def carica_manutenzioni():
+            if os.path.exists(FILE_MANUTENZIONI):
+                try:
+                    return pd.read_csv(FILE_MANUTENZIONI)
+                except Exception:
+                    pass
+            # DataFrame di default vuoto con le colonne richieste
+            return pd.DataFrame(columns=["Componente", "Data", "Km Intervento", "Note"])
+
+        def salva_manutenzioni(df_m):
+            try:
+                df_m.to_csv(FILE_MANUTENZIONI, index=False)
+            except Exception:
+                pass
+
+        df_manutenzioni = carica_manutenzioni()
+
+        # Mostra tabella manutenzioni esistenti se presenti
+        if not df_manutenzioni.empty:
+            st.dataframe(df_manutenzioni, use_container_width=True, hide_index=True)
+        else:
+            st.info("Nessuna manutenzione registrata. Aggiungi un intervento qui sotto.")
+
+        # Modulo per aggiungere una nuova manutenzione
+        with st.expander("➕ Registra Nuovo Intervento di Manutenzione"):
+            with st.form("form_nuova_manutenzione"):
+                col_f_1, col_f_2, col_f_3 = st.columns(3)
+                with col_f_1:
+                    componente_scelto = st.selectbox(
+                        "Componente", 
+                        ["Cambio Pastiglie", "Cambio Catena", "Copertoni", "Altro"]
+                    )
+                with col_f_2:
+                    data_intervento = st.date_input("Data Intervento", value=date.today())
+                with col_f_3:
+                    km_intervento = st.number_input("Km attuati (opzionale)", min_value=0.0, value=float(tot_km), format="%.2f")
+                
+                note_intervento = st.text_input("Note / Modello (opzionale)", placeholder="Es. Sostituzione con copertoni GP5000...")
+                
+                btn_salva_manutenzione = st.form_submit_button("Salva Manutenzione")
+                
+                if btn_salva_manutenzione:
+                    nuova_riga = pd.DataFrame([{
+                        "Componente": componente_scelto,
+                        "Data": data_intervento.strftime("%Y-%m-%d"),
+                        "Km Intervento": km_intervento,
+                        "Note": note_intervento
+                    }])
+                    df_manutenzioni = pd.concat([df_manutenzioni, nuova_riga], ignore_index=True)
+                    salva_manutenzioni(df_manutenzioni)
+                    st.success("Manutenzione registrata con successo!")
+                    st.rerun()
         
         st.markdown("---")
     else:
@@ -192,11 +251,9 @@ with st.expander("🔍 Esplora Archivio Storico da Intervals (Range Personalizza
             dislivello_tot_m = int(df_filtrato_vista.get("total_elevation_gain", pd.Series([0])).fillna(0).sum())
             num_uscite = len(df_filtrato_vista)
             
-            # Calcolo secondi totali in sella per la sezione 2
             tot_sec_periodo = df_filtrato_vista.get("moving_time", pd.Series([0])).fillna(0).sum()
             
             st.markdown("---")
-            # 4 colonne aggiornate per includere anche le ore in sella
             mc1, mc2, mc3, mc4 = st.columns(4)
             mc1.metric("Km Totali Periodo", f"{distanza_tot_km:,.2f} km")
             mc2.metric("Dislivello (D+) Periodo", f"{dislivello_tot_m:,} m")
@@ -968,7 +1025,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 mode="gauge+number", 
                 value=valore_np_display, 
                 title={"text": "<b>Potenza Normalizzata (NP)</b>"},
-                gauge={'axis': {'range': [0, 400]}, 'bar': {'color': "mediumorchid"}, 'bgcolor': "rgba(0,0,0,0)"}
+                gauge={'axis': {'range': [0, 400]}, 'bar': {'color": "mediumorchid"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_np_gauge), use_container_width=True, config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Potenza Normalizzata (NP):</b> Stima della potenza equivalente che toglie i picchi, riflettendo il costo metabolico reale dell'uscita.</p>", unsafe_allow_html=True)
@@ -980,7 +1037,7 @@ with st.expander("🎯 Dashboard Avanzata Parametri Intervals.icu", expanded=Tru
                 mode="gauge+number", 
                 value=valore_fc_display, 
                 title={"text": "<b>FC Media (bpm)</b>"},
-                gauge={'axis': {'range': [0, 200]}, 'bar': {'color': "orangered"}, 'bgcolor': "rgba(0,0,0,0)"}
+                gauge={'axis': {'range': [0, 200]}, 'bar': {'color": "orangered"}, 'bgcolor': "rgba(0,0,0,0)"}
             ))
             st.plotly_chart(apply_dark_theme(fig_fc_gauge), use_container_width=True, config={'displaylogo': False})
             st.markdown("<p style='text-align: center; font-size: 0.85rem; color: #aaa;'><b>Frequenza Cardiaca Media:</b> Battito cardiaco medio registrato durante tutta la sessione di allenamento.</p>", unsafe_allow_html=True)
