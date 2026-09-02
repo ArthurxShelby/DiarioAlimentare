@@ -92,7 +92,6 @@ if resp_global.status_code == 200:
         # --- SEZIONE MANUTENZIONI BICI ---
         st.markdown("##### 🔧 Registro Manutenzioni Bici")
         
-        # File di persistenza per le manutenzioni
         FILE_MANUTENZIONI = "manutenzioni_bici.csv"
         
         def carica_manutenzioni():
@@ -101,7 +100,6 @@ if resp_global.status_code == 200:
                     return pd.read_csv(FILE_MANUTENZIONI)
                 except Exception:
                     pass
-            # DataFrame di default vuoto con le colonne richieste
             return pd.DataFrame(columns=["Componente", "Data", "Km Intervento", "Note"])
 
         def salva_manutenzioni(df_m):
@@ -112,13 +110,11 @@ if resp_global.status_code == 200:
 
         df_manutenzioni = carica_manutenzioni()
 
-        # Mostra tabella manutenzioni esistenti se presenti
         if not df_manutenzioni.empty:
             st.dataframe(df_manutenzioni, use_container_width=True, hide_index=True)
         else:
             st.info("Nessuna manutenzione registrata. Aggiungi un intervento qui sotto.")
 
-        # Modulo per aggiungere una nuova manutenzione
         with st.expander("➕ Registra Nuovo Intervento di Manutenzione"):
             with st.form("form_nuova_manutenzione"):
                 col_f_1, col_f_2, col_f_3 = st.columns(3)
@@ -154,7 +150,7 @@ if resp_global.status_code == 200:
 else:
     st.error(f"Errore di connessione a Intervals.icu: {resp_global.status_code}")
 
-# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS (Persistenza su File per Riavvii) ---
+# --- 2. ESPLORATORE STORICO ON-DEMAND DA INTERVALS ---
 FILE_DATA_INIZIO = "ultima_data_inizio.txt"
 FILE_DATA_FINE = "ultima_data_fine.txt"
 
