@@ -117,29 +117,29 @@ if resp_global.status_code == 200:
 
         df_manutenzioni = carica_manutenzioni()
 
-if not df_manutenzioni.empty:
-    if "Seleziona" in df_manutenzioni.columns:
-        df_manutenzioni["Seleziona"] = df_manutenzioni["Seleziona"].fillna(False).astype(bool)
-    
-    for col in ["Componente", "Note"]:
-        if col in df_manutenzioni.columns:
-            df_manutenzioni[col] = df_manutenzioni[col].fillna("").astype(str)
+        if not df_manutenzioni.empty:
+            if "Seleziona" in df_manutenzioni.columns:
+                df_manutenzioni["Seleziona"] = df_manutenzioni["Seleziona"].fillna(False).astype(bool)
             
-    if "Km Intervento" in df_manutenzioni.columns:
-        df_manutenzioni["Km Intervento"] = pd.to_numeric(df_manutenzioni["Km Intervento"], errors="coerce").fillna(0)
+            for col in ["Componente", "Note"]:
+                if col in df_manutenzioni.columns:
+                    df_manutenzioni[col] = df_manutenzioni[col].fillna("").astype(str)
+                    
+            if "Km Intervento" in df_manutenzioni.columns:
+                df_manutenzioni["Km Intervento"] = pd.to_numeric(df_manutenzioni["Km Intervento"], errors="coerce").fillna(0)
 
-    df_editato = st.data_editor(
-        df_manutenzioni,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Seleziona": st.column_config.CheckboxColumn("Seleziona", default=False),
-            "Note": st.column_config.TextColumn("Note")
-        },
-        disabled=["Componente", "Data", "Km Intervento"],
-        key="tabella_manutenzioni_editor"
-    )
-            
+            df_editato = st.data_editor(
+                df_manutenzioni,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Seleziona": st.column_config.CheckboxColumn("Seleziona", default=False),
+                    "Note": st.column_config.TextColumn("Note")
+                },
+                disabled=["Componente", "Data", "Km Intervento"],
+                key="tabella_manutenzioni_editor"
+            )
+                    
             col_del_1, col_del_2, _ = st.columns([1, 1, 3])
             with col_del_1:
                 if st.button("🗑️ Elimina Selezionate"):
