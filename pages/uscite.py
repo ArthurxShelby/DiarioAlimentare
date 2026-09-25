@@ -5,6 +5,7 @@ import pandas as pd
 import os
 import plotly.graph_objects as go
 import base64
+from supabase import create_client
 
 # --- 0. CONTROLLO ACCESSO PROPRIETARIO ---
 is_proprietario = (st.session_state.get("ruolo_corrente") == "Proprietario")
@@ -23,6 +24,15 @@ try:
 except Exception as e:
     st.error("Errore: Configura le credenziali di Intervals nei secrets.")
     st.stop()
+
+# --- Inizializzazione Client Supabase ---
+@st.cache_resource
+def init_supabase():
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
+
+supabase = init_supabase()
 
 def timedelta_to_str(seconds):
     if not seconds:
@@ -89,31 +99,22 @@ if resp_global.status_code == 200:
             except Exception:
                 st.warning("Immagine TCR.png non trovata.")
 
-        # --- SEZIONE MANUTENZIONI BICI ---
+        # --- SEZIONE MANUTENZIONI BICI (Persistente su Supabase) ---
         st.markdown("##### 🔧 Registro Manutenzioni Bici")
         
-        FILE_MANUTENZIONI = "manutenzioni_bici.csv"
-        
         def carica_manutenzioni():
-            if os.path.exists(FILE_MANUTENZIONI):
-                try:
-                    df_caricato = pd.read_csv(FILE_MANUTENZIONI)
+            try:
+                response = supabase.table("manutenzioni_bici").select("*").order("data", desc=True).execute()
+                data = response.data
+                if data:
+                    df_caricato = pd.DataFrame(data)
                     if "Seleziona" not in df_caricato.columns:
                         df_caricato.insert(0, "Seleziona", False)
                     return df_caricato
-                except Exception:
-                    pass
-            return pd.DataFrame(columns=["Seleziona", "Componente", "Data", "Km Intervento", "Note"])
-
-        def salva_manutenzioni(df_m):
-            try:
-                if "Seleziona" in df_m.columns:
-                    df_da_salvare = df_m.drop(columns=["Seleziona"])
-                else:
-                    df_da_salvare = df_m
-                df_da_salvare.to_csv(FILE_MANUTENZIONI, index=False)
-            except Exception:
-                pass
+            except Exception as e:
+                st.error(f"Errore di caricamento da Supabase: {e}")
+            
+            return pd.DataFrame(columns=["Seleziona", "id", "componente", "data", "km_intervento", "note"])
 
         df_manutenzioni = carica_manutenzioni()
 
@@ -121,12 +122,12 @@ if resp_global.status_code == 200:
             if "Seleziona" in df_manutenzioni.columns:
                 df_manutenzioni["Seleziona"] = df_manutenzioni["Seleziona"].fillna(False).astype(bool)
             
-            for col in ["Componente", "Note"]:
+            for col in ["componente", "note"]:
                 if col in df_manutenzioni.columns:
                     df_manutenzioni[col] = df_manutenzioni[col].fillna("").astype(str)
                     
-            if "Km Intervento" in df_manutenzioni.columns:
-                df_manutenzioni["Km Intervento"] = pd.to_numeric(df_manutenzioni["Km Intervento"], errors="coerce").fillna(0)
+            if "km_intervento" in df_manutenzioni.columns:
+                df_manutenzioni["km_intervento"] = pd.to_numeric(df_manutenzioni["km_intervento"], errors="coerce").fillna(0)
 
             df_editato = st.data_editor(
                 df_manutenzioni,
@@ -134,24 +135,30 @@ if resp_global.status_code == 200:
                 hide_index=True,
                 column_config={
                     "Seleziona": st.column_config.CheckboxColumn("Seleziona", default=False),
-                    "Note": st.column_config.TextColumn("Note")
+                    "id": None, # Nasconde l'ID ma lo mantiene disponibile internamente
+                    "componente": "Componente",
+                    "data": "Data",
+                    "km_intervento": "Km Intervento",
+                    "note": st.column_config.TextColumn("Note")
                 },
-                disabled=["Componente", "Data", "Km Intervento"],
+                disabled=["id", "componente", "data", "km_intervento"],
                 key="tabella_manutenzioni_editor"
             )
                     
-            col_del_1, col_del_2, _ = st.columns([1, 1, 3])
+            col_del_1, _ = st.columns([1, 3])
             with col_del_1:
                 if st.button("🗑️ Elimina Selezionate"):
-                    righe_da_tenere = df_editato[df_editato["Seleziona"] == False]
-                    salva_manutenzioni(righe_da_tenere)
-                    st.success("Interventi selezionati eliminati con successo!")
-                    st.rerun()
-            with col_del_2:
-                if st.button("💾 Salva Note"):
-                    salva_manutenzioni(df_editato)
-                    st.success("Note aggiornate con successo!")
-                    st.rerun()
+                    righe_da_eliminare = df_editato[df_editato["Seleziona"] == True]
+                    if not righe_da_eliminare.empty and "id" in righe_da_eliminare.columns:
+                        ids_to_delete = righe_da_eliminare["id"].dropna().tolist()
+                        try:
+                            supabase.table("manutenzioni_bici").delete().in_("id", ids_to_delete).execute()
+                            st.success("Interventi selezionati eliminati con successo da Supabase!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Errore durante l'eliminazione: {e}")
+                    else:
+                        st.warning("Nessuna riga selezionata per l'eliminazione.")
         else:
             st.info("Nessuna manutenzione registrata. Aggiungi un intervento qui sotto.")
 
@@ -195,17 +202,18 @@ if resp_global.status_code == 200:
                 if btn_salva_manutenzione:
                     st.session_state["data_intervento_form"] = data_intervento
                     
-                    nuova_riga = pd.DataFrame([{
-                        "Seleziona": False,
-                        "Componente": componente_scelto,
-                        "Data": data_intervento.strftime("%Y-%m-%d"),
-                        "Km Intervento": km_intervento,
-                        "Note": note_intervento
-                    }])
-                    df_manutenzioni = pd.concat([df_manutenzioni, nuova_riga], ignore_index=True)
-                    salva_manutenzioni(df_manutenzioni)
-                    st.success("Manutenzione registrata con successo!")
-                    st.rerun()
+                    try:
+                        supabase.table("manutenzioni_bici").insert({
+                            "componente": componente_scelto,
+                            "data": data_intervento.strftime("%Y-%m-%d"),
+                            "km_intervento": float(km_intervento),
+                            "note": note_intervento
+                        }).execute()
+                        
+                        st.success("Manutenzione registrata con successo su Supabase!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Errore durante il salvataggio su Supabase: {e}")
         
         st.markdown("---")
     else:
